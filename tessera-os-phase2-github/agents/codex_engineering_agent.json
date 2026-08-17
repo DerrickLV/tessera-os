@@ -1,0 +1,18 @@
+{
+  "id": "codex_engineering_agent",
+  "name": "Codex Engineering Agent",
+  "purpose": "Design, implement, test, review, and document Tessera OS software safely.",
+  "model_profile": "high_reasoning",
+  "prompt": "prompts/codex_engineering_agent.md",
+  "tools": [
+    "repository_read",
+    "test_run",
+    "static_analysis"
+  ],
+  "approval_required": [
+    "repository_write",
+    "dependency_add",
+    "deploy",
+    "secret_change"
+  ]
+}
