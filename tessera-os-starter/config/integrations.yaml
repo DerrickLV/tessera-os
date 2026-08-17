@@ -1,0 +1,17 @@
+integrations:
+  microsoft_graph:
+    status: planned
+    scopes: [Mail.Read, Calendars.Read, Sites.Read.All]
+    write_scopes_enabled: false
+  hubspot:
+    status: planned
+    mode: read_only
+  sharepoint:
+    status: planned
+    mode: read_only
+  n8n:
+    status: planned
+    mode: approval_gated
+  github:
+    status: planned
+    mode: repository_scoped

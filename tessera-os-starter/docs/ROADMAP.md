@@ -1,0 +1,86 @@
+# Implementation roadmap
+
+The roadmap prioritizes trust and repeatable value before breadth. Dates should be
+set after owners, data access, and pilot projects are confirmed.
+
+## Phase 0 — Decisions and controls
+
+**Exit criteria:** named product owner and approvers; selected pilot project;
+approved data classification, retention, identity, and audit design; baseline evals.
+
+- Confirm authoritative systems, users, roles, and tenant/project boundaries.
+- Select three pilot workflows and quantify current time, quality, and risk.
+- Approve action tiers and human review responsibilities.
+- Create golden datasets using sanitized or synthetic content.
+
+## Phase 1 — Foundation (this repository)
+
+**Exit criteria:** reproducible local environment; registry and routing tests pass;
+all agent prompts/specs are reviewed; traces contain required run metadata.
+
+- Complete policy gateway and typed output validation.
+- Add a durable API/service boundary and authenticated user context.
+- Add model/prompt version registry, structured logging, usage budgets, and tracing.
+- Implement evaluation harness for routing, citations, injection, and approvals.
+
+## Phase 2 — Read-only pilot
+
+**Recommended agents:** Knowledge Manager, Executive Assistant, Project Manager.
+
+**Exit criteria:** no scope leaks; citation target met; pilot users accept outputs;
+cost and latency within agreed budgets; documented support and incident process.
+
+- Connect SharePoint and Microsoft Graph with read-only delegated scopes.
+- Ingest authorized documents with ACL-preserving retrieval.
+- Deliver morning briefings and project status drafts to a review queue.
+
+## Phase 3 — High-value document workflows
+
+**Recommended agents:** Proposal, Contract, and Due Diligence Managers.
+
+**Exit criteria:** reviewer time reduction demonstrated; issue-recall and unsupported-
+claim targets met; every outbound artifact passes human approval.
+
+- Version proposal components, fee rules, and clause playbooks.
+- Add document comparison, structured extraction, and source-linked reports.
+- Add legal/commercial and diligence-specific evaluation suites.
+
+## Phase 4 — Delivery and capital controls
+
+**Recommended agents:** Development, Construction, and Capital Managers.
+
+**Exit criteria:** reconciled project/model data; forecast lineage; professional
+review controls; zero autonomous safety, contractual, or financial actions.
+
+- Add schedule, cost, RFI/submittal, underwriting, and covenant adapters.
+- Build exception dashboards and decision packets.
+- Validate quantitative calculations outside the model where possible.
+
+## Phase 5 — Gated actions and automation
+
+**Recommended agents:** Automation Manager and approved write paths for other agents.
+
+**Exit criteria:** scoped approvals, idempotency, rollback, kill switches, audit
+reconstruction, and incident exercises all pass in a sandbox and limited production.
+
+- Introduce a durable approval queue and signed action tokens.
+- Enable one reversible, low-risk write workflow at a time.
+- Add monitoring, dead-letter queues, replay protection, and change management.
+
+## Phase 6 — Intelligence and engineering scale
+
+**Recommended agents:** Intelligence Agent and Codex Engineering Agent.
+
+- Add monitored source lists, freshness policies, and intelligence alerts.
+- Add isolated engineering workspaces, CI checks, PR-only changes, and release gates.
+- Continuously re-evaluate prompts, models, integrations, and policy attacks.
+
+## Initial backlog
+
+1. Define `tenant_id` and project ACL contract across every schema.
+2. Implement policy decision and approval packet schemas.
+3. Add FastAPI service with SSO-ready authentication boundary.
+4. Add structured output types for each specialist.
+5. Add synthetic eval fixtures and CI.
+6. Implement read-only SharePoint retrieval adapter.
+7. Pilot cited project-status generation with one project team.

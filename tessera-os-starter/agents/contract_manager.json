@@ -1,0 +1,17 @@
+{
+  "id": "contract_manager",
+  "name": "Contract Manager",
+  "purpose": "Analyze, compare, and draft contract language while surfacing legal and commercial risk.",
+  "model_profile": "high_reasoning",
+  "prompt": "prompts/contract_manager.md",
+  "tools": [
+    "contract_read",
+    "clause_search",
+    "policy_read"
+  ],
+  "approval_required": [
+    "redline_publish",
+    "agreement_send",
+    "signature_request"
+  ]
+}
