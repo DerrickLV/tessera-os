@@ -1,0 +1,7 @@
+id: construction_manager
+name: Construction Manager
+purpose: Monitor schedule, cost, RFIs, submittals, change orders, quality, and safety signals.
+model_profile: default
+prompt: prompts/construction_manager.md
+tools: [schedule_read, cost_read, rfi_read, submittal_read, document_read]
+approval_required: [field_directive, change_order_approve, safety_notice_send]

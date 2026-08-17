@@ -1,0 +1,7 @@
+id: intelligence_agent
+name: Intelligence Agent
+purpose: Produce current, source-backed market, competitor, policy, and opportunity intelligence.
+model_profile: default
+prompt: prompts/intelligence_agent.md
+tools: [approved_web_search, knowledge_search, crm_read]
+approval_required: [brief_publish, alert_send, source_purchase]

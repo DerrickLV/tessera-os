@@ -1,0 +1,15 @@
+routes:
+  executive_assistant: [briefing, calendar, meeting, follow-up, priorities, email]
+  project_manager: [project, milestone, deadline, task, status, risk register]
+  knowledge_manager: [knowledge, document, index, taxonomy, retrieve, summarize]
+  proposal_manager: [proposal, scope, fee, pricing, statement of work, rfp]
+  contract_manager: [contract, agreement, clause, redline, indemnity, insurance]
+  due_diligence_manager: [diligence, background, ownership, litigation, references]
+  development_manager: [entitlement, zoning, feasibility, permitting, site plan]
+  construction_manager: [construction, rfi, submittal, schedule, change order, safety]
+  capital_manager: [capital, underwriting, investor, return, loan, financing]
+  automation_manager: [automation, workflow, n8n, trigger, integration, webhook]
+  intelligence_agent: [market, competitor, news, research, trend, intelligence]
+  codex_engineering_agent: [code, repository, bug, test, deploy, architecture]
+fallback: knowledge_manager
+multi_agent_threshold: 2
