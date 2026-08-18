@@ -49,6 +49,12 @@ later only for workflows whose ownership truly transfers.
 - **Knowledge plane:** tenant/project-filtered retrieval with source ACLs.
 - **Proposal plane:** access-controlled language, versioned templates, fee schedules,
   typed sections, citations, comparisons, internal review, and DOCX generation.
+- **Contract and diligence plane:** approved clause playbooks, exact clause citations,
+  claim classification, corroboration, source logs, and qualified-review queues.
+- **Project-control plane:** development stage gates, construction exceptions, versioned
+  schedules/costs, immutable baselines, safety escalation, and deterministic variance.
+- **Capital plane:** reconciled model versions, deterministic underwriting metrics,
+  covenant monitoring, sensitivities, and investment-review queues.
 - **Evaluation harness:** offline regression tests for routing, policy attacks,
   isolation, citations, approvals, and proposal commercial controls.
 

@@ -59,16 +59,23 @@ Production exit criteria still require representative human acceptance testing,
 measured reviewer-time savings, model-quality evaluation if model drafting is added,
 retention/backup controls, and a separately approved outbound-delivery design.
 
-## Phase 3B — Contract and Due Diligence document workflows (not started)
+## Phase 3B — Contract and Due Diligence document workflows (implemented; pilot validation pending)
 
 **Recommended agents:** Contract and Due Diligence Managers.
 
 **Exit criteria:** reviewer time reduction demonstrated; issue-recall and unsupported-
 claim targets met; every outbound artifact passes human approval.
 
-- Version clause playbooks and diligence taxonomies.
-- Add document comparison, structured extraction, and source-linked reports.
-- Add legal/commercial and diligence-specific evaluation suites.
+- Implemented versioned, approved clause playbooks, exact clause citations, risk
+  comparison, fallback language, and mandatory legal-review queues.
+- Implemented reproducible diligence reports separating verified facts, allegations,
+  and open items, with material-fact corroboration and protected-trait controls.
+- Added two-client synthetic fixtures and legal/commercial, diligence, isolation,
+  stale evidence, injection, citation, and approval-bypass evaluation coverage.
+
+Production exit criteria still require representative counsel and diligence-reviewer
+acceptance testing, approved production playbooks and taxonomies, retention controls,
+and measured issue-recall, unsupported-claim, latency, cost, and reviewer-time targets.
 
 ## Phase 4A — Development Manager and shared project controls (implemented; pilot validation pending)
 
@@ -93,16 +100,26 @@ Production exit criteria still require authoritative read-only adapter design,
 representative human acceptance testing, defined freshness policies by record class,
 retention/backup controls, and measured quality, latency, and reviewer-time targets.
 
-## Phase 4B — Construction and capital controls (not started)
+## Phase 4B — Construction and capital controls (implemented; pilot validation pending)
 
 **Recommended agents:** Construction and Capital Managers.
 
 **Exit criteria:** reconciled project/model data; forecast lineage; professional
 review controls; zero autonomous safety, contractual, or financial actions.
 
-- Add construction schedule, cost, RFI/submittal, underwriting, and covenant adapters.
-- Build exception dashboards and decision packets.
-- Validate quantitative calculations outside the model where possible.
+- Implemented typed construction schedule, cost, RFI/submittal, change, and safety
+  controls with deterministic exception calculations and urgent human escalation.
+- Implemented reconciled, versioned capital models with deterministic DSCR, LTV,
+  equity multiple, covenant, and sensitivity calculations.
+- Added internal construction and investment review queues; field directives, change
+  approvals, notices, external communications, term acceptance, forecast publication,
+  and funds movement remain disabled.
+- Added two-client synthetic fixtures and isolation, reconciliation, citation,
+  injection, calculation, safety, and approval-bypass evaluation coverage.
+
+Production exit criteria still require authoritative read-only adapter design,
+qualified construction and investment-review acceptance testing, production identity
+and audit controls, and measured quality, latency, cost, and reviewer-time targets.
 
 ## Phase 5 — Gated actions and automation
 

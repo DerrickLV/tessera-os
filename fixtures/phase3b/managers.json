@@ -1,0 +1,45 @@
+{
+  "notice": "All clients, projects, entities, contracts, claims, and sources are synthetic.",
+  "contracts": [
+    {
+      "id":"consulting-agreement","title":"Synthetic Aurora Consulting Agreement","version":1,
+      "access":{"tenant_id":"tenant-synthetic","client_id":"client-northstar","project_id":"project-aurora"},
+      "parties":["Northstar Fictional LLC","Synthetic Design Studio"],"effective_date":"2026-08-01",
+      "clauses":[
+        {"id":"clause-indemnity","topic":"indemnity","text":"Consultant indemnifies client for all claims.","locator":"Section 9.2, page 14","source_ids":["contract-aurora-v1"]},
+        {"id":"clause-payment","topic":"payment","text":"Payment due within 30 days.","locator":"Section 4.1, page 7","source_ids":["contract-aurora-v1"]}
+      ],
+      "playbook_version":1,"playbook_rules":[
+        {"id":"rule-indemnity","topic":"indemnity","approved_position":"Indemnity limited to negligent acts.","fallback_language":"To the extent caused by Consultant's negligent acts or omissions.","maximum_risk":"high","approved":true,"source_ids":["playbook-legal-v1"]},
+        {"id":"rule-payment","topic":"payment","approved_position":"Net 30 is acceptable.","fallback_language":"Payment is due within 30 days of an undisputed invoice.","maximum_risk":"low","approved":true,"source_ids":["playbook-legal-v1"]}
+      ],
+      "evidence":[{"source_id":"contract-aurora-v1","title":"Synthetic Aurora agreement v1","locator":"offline://aurora/contract/1","retrieved_at":"2026-08-17T12:00:00Z"},{"source_id":"playbook-legal-v1","title":"Synthetic approved clause playbook v1","locator":"offline://policy/legal/1","retrieved_at":"2026-08-17T12:00:00Z"}],"retrieved_notes":[]
+    },
+    {
+      "id":"consulting-agreement","title":"Synthetic Tidepool Consulting Agreement","version":1,
+      "access":{"tenant_id":"tenant-synthetic","client_id":"client-harbor","project_id":"project-tidepool"},
+      "parties":["Harbor Fictional LLC","Synthetic Coastal Studio"],
+      "clauses":[{"id":"clause-liability","topic":"liability","text":"Liability is unlimited.","locator":"Section 11, page 18","source_ids":["contract-tidepool-v1"]}],
+      "playbook_version":1,"playbook_rules":[{"id":"rule-liability","topic":"liability","approved_position":"Use a negotiated liability cap.","fallback_language":"Aggregate liability will not exceed available insurance proceeds.","maximum_risk":"critical","approved":true,"source_ids":["playbook-harbor-v1"]}],
+      "evidence":[{"source_id":"contract-tidepool-v1","title":"Synthetic Tidepool agreement","locator":"offline://tidepool/contract/1","retrieved_at":"2026-08-17T12:00:00Z"},{"source_id":"playbook-harbor-v1","title":"Synthetic Harbor playbook","locator":"offline://harbor/playbook/1","retrieved_at":"2026-08-17T12:00:00Z"}],"retrieved_notes":[]
+    }
+  ],
+  "diligence": [
+    {
+      "id":"counterparty-review","subject":"Synthetic Design Studio","question":"Is the fictional consultant suitable for engagement?",
+      "access":{"tenant_id":"tenant-synthetic","client_id":"client-northstar","project_id":"project-aurora"},
+      "claims":[
+        {"id":"entity-active","category":"ownership","statement":"The synthetic entity is active.","classification":"verified_fact","material":true,"confidence":0.95,"source_ids":["registry-a","filing-a"]},
+        {"id":"dispute-report","category":"litigation","statement":"An unverified commercial dispute was reported.","classification":"allegation","material":true,"confidence":0.35,"source_ids":["reference-a"]},
+        {"id":"insurance-open","category":"operational","statement":"Current insurance evidence remains to be reviewed.","classification":"open_item","material":true,"confidence":0.2,"source_ids":["checklist-a"]}
+      ],
+      "evidence":[{"source_id":"registry-a","title":"Synthetic registry record","locator":"offline://registry/a","retrieved_at":"2026-08-15T12:00:00Z"},{"source_id":"filing-a","title":"Synthetic entity filing","locator":"offline://filing/a","retrieved_at":"2026-08-15T12:00:00Z"},{"source_id":"reference-a","title":"Synthetic reference note","locator":"offline://reference/a","retrieved_at":"2026-08-15T12:00:00Z"},{"source_id":"checklist-a","title":"Synthetic diligence checklist","locator":"offline://checklist/a","retrieved_at":"2026-08-15T12:00:00Z"}],"retrieved_notes":[]
+    },
+    {
+      "id":"counterparty-review","subject":"Synthetic Coastal Studio","question":"Is the fictional consultant suitable for engagement?",
+      "access":{"tenant_id":"tenant-synthetic","client_id":"client-harbor","project_id":"project-tidepool"},
+      "claims":[{"id":"entity-open","category":"ownership","statement":"Entity confirmation remains open.","classification":"open_item","confidence":0.2,"source_ids":["checklist-b"]}],
+      "evidence":[{"source_id":"checklist-b","title":"Synthetic Harbor checklist","locator":"offline://checklist/b","retrieved_at":"2026-08-15T12:00:00Z"}],"retrieved_notes":[]
+    }
+  ]
+}

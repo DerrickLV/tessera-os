@@ -1,0 +1,32 @@
+{
+  "notice": "All clients, projects, construction records, and financial values are synthetic.",
+  "construction": [
+    {
+      "id":"construction-controls","name":"Project Aurora","access":{"tenant_id":"tenant-synthetic","client_id":"client-northstar","project_id":"project-aurora"},"schedule_version":2,"cost_version":3,
+      "milestones":[{"id":"foundation","name":"Foundation complete","baseline_date":"2026-09-01","forecast_date":"2026-09-08","critical":true,"source_ids":["schedule-c2"]}],
+      "costs":[{"id":"concrete","budget":"100000","committed":"95000","forecast":"110000","actual":"70000","source_ids":["cost-c3"]}],
+      "tracking":[{"id":"rfi-14","kind":"rfi","title":"Synthetic slab edge clarification","status":"overdue","due_date":"2026-08-15","responsible":"Architect","source_ids":["rfi-log"]},{"id":"submittal-8","kind":"submittal","title":"Synthetic reinforcing steel","status":"open","due_date":"2026-08-20","responsible":"Contractor","source_ids":["submittal-log"]}],
+      "changes":[{"id":"pc-7","description":"Synthetic unsuitable soil exposure","status":"open","requested":"25000","forecast":"20000","approved":"0","source_ids":["change-log"]}],
+      "safety":[{"id":"safety-1","description":"A fictional field report observed an unprotected edge.","severity":"imminent","observed":true,"source_ids":["field-report"]},{"id":"safety-2","description":"Contractor asserted housekeeping is complete.","severity":"low","observed":false,"asserted_by":"Synthetic contractor","source_ids":["field-report"]}],
+      "evidence":[{"source_id":"schedule-c2","title":"Synthetic construction schedule v2","locator":"offline://aurora/construction/schedule/2","retrieved_at":"2026-08-17T12:00:00Z"},{"source_id":"cost-c3","title":"Synthetic cost report v3","locator":"offline://aurora/construction/cost/3","retrieved_at":"2026-08-17T12:00:00Z"},{"source_id":"rfi-log","title":"Synthetic RFI log","locator":"offline://aurora/rfi","retrieved_at":"2026-08-17T12:00:00Z"},{"source_id":"submittal-log","title":"Synthetic submittal log","locator":"offline://aurora/submittal","retrieved_at":"2026-08-17T12:00:00Z"},{"source_id":"change-log","title":"Synthetic change log","locator":"offline://aurora/change","retrieved_at":"2026-08-17T12:00:00Z"},{"source_id":"field-report","title":"Synthetic field report","locator":"offline://aurora/field","retrieved_at":"2026-08-17T12:00:00Z"}],"retrieved_notes":[]
+    },
+    {
+      "id":"construction-controls","name":"Project Tidepool","access":{"tenant_id":"tenant-synthetic","client_id":"client-harbor","project_id":"project-tidepool"},"schedule_version":1,"cost_version":1,
+      "milestones":[{"id":"mobilize","name":"Mobilization","baseline_date":"2026-10-01","forecast_date":"2026-10-01","source_ids":["tidepool-controls"]}],"costs":[{"id":"general","budget":"50000","committed":"0","forecast":"50000","actual":"0","source_ids":["tidepool-controls"]}],"tracking":[],"changes":[],"safety":[],
+      "evidence":[{"source_id":"tidepool-controls","title":"Synthetic Tidepool controls","locator":"offline://tidepool/construction","retrieved_at":"2026-08-17T12:00:00Z"}],"retrieved_notes":[]
+    }
+  ],
+  "capital": [
+    {
+      "id":"underwriting","name":"Project Aurora","access":{"tenant_id":"tenant-synthetic","client_id":"client-northstar","project_id":"project-aurora"},
+      "models":[{"id":"aurora-model","version":1,"status":"approved","uses":{"acquisition":"600000","development":"400000"},"sources":{"debt":"600000","equity":"400000"},"noi":"90000","debt_service":"60000","debt_balance":"600000","value":"1200000","equity":"400000","source_ids":["model-a1"]},{"id":"aurora-model","version":2,"status":"draft","uses":{"acquisition":"600000","development":"400000"},"sources":{"debt":"600000","equity":"400000"},"noi":"84000","debt_service":"60000","debt_balance":"600000","value":"1100000","equity":"400000","source_ids":["model-a2"]}],
+      "covenants":[{"id":"minimum-dscr","name":"Minimum DSCR","metric":"dscr","minimum":"1.25","source_ids":["loan-a"]},{"id":"maximum-ltv","name":"Maximum LTV","metric":"ltv_percent","maximum":"55.00","source_ids":["loan-a"]}],
+      "evidence":[{"source_id":"model-a1","title":"Synthetic approved model v1","locator":"offline://aurora/model/1","retrieved_at":"2026-08-17T12:00:00Z"},{"source_id":"model-a2","title":"Synthetic draft model v2","locator":"offline://aurora/model/2","retrieved_at":"2026-08-17T12:00:00Z"},{"source_id":"loan-a","title":"Synthetic loan covenant summary","locator":"offline://aurora/loan","retrieved_at":"2026-08-17T12:00:00Z"}],"retrieved_notes":[]
+    },
+    {
+      "id":"underwriting","name":"Project Tidepool","access":{"tenant_id":"tenant-synthetic","client_id":"client-harbor","project_id":"project-tidepool"},
+      "models":[{"id":"tidepool-model","version":1,"status":"draft","uses":{"project":"500000"},"sources":{"equity":"500000"},"noi":"50000","debt_service":"1","debt_balance":"0","value":"600000","equity":"500000","source_ids":["model-b1"]}],"covenants":[],
+      "evidence":[{"source_id":"model-b1","title":"Synthetic Tidepool model","locator":"offline://tidepool/model/1","retrieved_at":"2026-08-17T12:00:00Z"}],"retrieved_notes":[]
+    }
+  ]
+}
