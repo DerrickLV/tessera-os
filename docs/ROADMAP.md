@@ -70,14 +70,37 @@ claim targets met; every outbound artifact passes human approval.
 - Add document comparison, structured extraction, and source-linked reports.
 - Add legal/commercial and diligence-specific evaluation suites.
 
-## Phase 4 — Delivery and capital controls
+## Phase 4A — Development Manager and shared project controls (implemented; pilot validation pending)
 
-**Recommended agents:** Development, Construction, and Capital Managers.
+**Recommended agent:** Development Manager.
+
+**Exit criteria:** reconciled project-control data; cited and current stage-gate
+evidence; immutable approved baselines; deterministic variance calculations; zero
+autonomous submissions, consultant direction, approvals, or baseline changes.
+
+- Implemented structured projects, milestones, stage gates, approvals, constraints,
+  consultants, deliverables, schedules, budgets, and RAID registers.
+- Implemented versioned schedules and budgets with immutable approved baselines.
+- Added entitlement, permit, utility, and agency approval matrices and consultant
+  responsibility/deliverable tracking.
+- Added freshness-aware, cited stage-gate readiness and deterministic schedule and
+  budget variance calculations.
+- Integrated development drafts and baseline-change requests with the durable human
+  review queue; all external and approval actions remain disabled.
+- Added two-client, three-project synthetic fixtures and policy regression tests.
+
+Production exit criteria still require authoritative read-only adapter design,
+representative human acceptance testing, defined freshness policies by record class,
+retention/backup controls, and measured quality, latency, and reviewer-time targets.
+
+## Phase 4B — Construction and capital controls (not started)
+
+**Recommended agents:** Construction and Capital Managers.
 
 **Exit criteria:** reconciled project/model data; forecast lineage; professional
 review controls; zero autonomous safety, contractual, or financial actions.
 
-- Add schedule, cost, RFI/submittal, underwriting, and covenant adapters.
+- Add construction schedule, cost, RFI/submittal, underwriting, and covenant adapters.
 - Build exception dashboards and decision packets.
 - Validate quantitative calculations outside the model where possible.
 
