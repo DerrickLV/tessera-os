@@ -8,9 +8,9 @@ workflows, shared schemas, and offline document drafting.
 
 ## Status
 
-**Stage:** Phase 4B — Construction and Capital Manager foundations
+**Stage:** Phase 5 — Sandbox gated-actions foundation
 
-**Current milestone:** Phase 0–4 foundation audit and pilot validation
+**Current milestone:** Gated-action sandbox validation; production writes remain disabled
 
 **Safety posture:** Offline and draft-only; external delivery is disabled
 
@@ -52,6 +52,13 @@ workflows, shared schemas, and offline document drafting.
   covenant tests, and downside/base/upside sensitivities
 - Synthetic Phase 3B and 4B fixtures for two clients and multiple projects, with
   cross-scope, citation, injection, version, calculation, and approval-bypass tests
+- Versioned low-risk sandbox workflows with exact-action approval packets,
+  separation of duties, expiring signed tokens, and single-use replay protection
+- Deterministic idempotency and precondition checks, reversible action receipts,
+  tenant-scoped kill switches, dead-letter handling, control metrics, and
+  hash-chained audit reconstruction
+- A synthetic in-memory record adapter for one reversible tag workflow; production
+  targets, credentials, external actions, and irreversible writes remain disabled
 - Architecture, governance, and phased implementation documentation
 
 ## Quick start
@@ -92,6 +99,7 @@ fixtures/proposals/  Synthetic Phase 3A clients, language, templates, and fees
 fixtures/development/ Synthetic Phase 4A development project-control records
 fixtures/phase3b/    Synthetic contract and diligence records
 fixtures/phase4b/    Synthetic construction and capital records
+fixtures/automation/ Synthetic Phase 5 workflows, targets, and records
 ```
 
 ## Design principles
@@ -115,6 +123,7 @@ fixtures/phase4b/    Synthetic construction and capital records
 - [Phase 3B readiness report](docs/PHASE_3B_READINESS_REPORT.md)
 - [Phase 4B readiness report](docs/PHASE_4B_READINESS_REPORT.md)
 - [Phase 0–4 foundation audit](docs/PHASE_0_4_FOUNDATION_AUDIT.md)
+- [Phase 5 readiness report](docs/PHASE_5_READINESS_REPORT.md)
 - [Contributing](CONTRIBUTING.md)
 
 ## License

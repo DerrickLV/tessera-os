@@ -1,0 +1,38 @@
+{
+  "notice": "All workflows, identities, targets, records, and approvals are synthetic and sandbox-only.",
+  "workflows": [
+    {
+      "id":"reviewed-status-tag","version":1,"tenant_id":"tenant-synthetic",
+      "client_id":"client-northstar","project_id":"project-aurora",
+      "name":"Apply an approved status tag to a synthetic record",
+      "environment":"sandbox","risk_tier":"low","action_type":"sandbox.record.tag",
+      "trigger":"An exact action packet is approved by a separate synthetic approver.",
+      "input_schema":{"tag":"string","value":"string"},
+      "service_identity":"synthetic-phase5-runner",
+      "permissions":["synthetic.record.read","synthetic.record.tag"],
+      "max_attempts":1,"idempotency_strategy":"Caller-generated unique key bound to payload digest.",
+      "dead_letter_owner":"Synthetic automation owner","alert_owner":"Synthetic operations owner",
+      "rollback_procedure":"Submit a separately approved restore action using the captured prior record.",
+      "enabled":true
+    },
+    {
+      "id":"reviewed-status-tag","version":1,"tenant_id":"tenant-synthetic",
+      "client_id":"client-harbor","project_id":"project-tidepool",
+      "name":"Apply an approved status tag to a second synthetic client record",
+      "environment":"sandbox","risk_tier":"low","action_type":"sandbox.record.tag",
+      "trigger":"An exact action packet is approved by a separate synthetic approver.",
+      "input_schema":{"tag":"string","value":"string"},
+      "service_identity":"synthetic-phase5-runner",
+      "permissions":["synthetic.record.read","synthetic.record.tag"],
+      "max_attempts":1,"idempotency_strategy":"Caller-generated unique key bound to payload digest.",
+      "dead_letter_owner":"Synthetic automation owner","alert_owner":"Synthetic operations owner",
+      "rollback_procedure":"Submit a separately approved restore action using the captured prior record.",
+      "enabled":false
+    }
+  ],
+  "records": {
+    "synthetic://project-aurora/tasks/task-1":{"status":"reviewed","owner":"fictional-owner"},
+    "synthetic://project-tidepool/tasks/task-2":{"status":"reviewed","owner":"fictional-owner"},
+    "synthetic://project-aurora/tasks/fail":{"status":"reviewed","owner":"fictional-owner"}
+  }
+}

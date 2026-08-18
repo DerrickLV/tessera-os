@@ -29,11 +29,12 @@ security, operational, and quantitative targets are defined and passed.
 - No production system, real project data, construction directive, legal acceptance,
   capital commitment, or funds movement path was added.
 
-## Phase 5 decision
+## Phase 5 decision and subsequent status
 
-**Not ready to begin Phase 5.** The code foundation passes its offline gates, but pilot
-validation and production control design remain incomplete. Required next evidence
-includes representative human acceptance, target thresholds and measured results,
-authoritative adapter approvals, production identity and isolation testing, retention
-and recovery design, observability, incident exercises, and signed action-token,
-idempotency, rollback, kill-switch, and replay-protection designs.
+The audit found Tessera **not ready for Phase 5 production enablement**. A subsequent
+user-authorized implementation added the missing controls as a synthetic sandbox
+foundation only; see `PHASE_5_READINESS_REPORT.md`. This does not satisfy or waive the
+prior-phase pilot gates. Production actions remain blocked pending representative
+human acceptance, target thresholds and measured results, authoritative adapter
+approvals, production identity and isolation testing, secret management, retention
+and recovery design, observability, and approved-environment incident exercises.

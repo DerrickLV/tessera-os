@@ -121,16 +121,30 @@ Production exit criteria still require authoritative read-only adapter design,
 qualified construction and investment-review acceptance testing, production identity
 and audit controls, and measured quality, latency, cost, and reviewer-time targets.
 
-## Phase 5 — Gated actions and automation
+## Phase 5 — Gated actions and automation (sandbox foundation implemented; production blocked)
 
 **Recommended agents:** Automation Manager and approved write paths for other agents.
 
 **Exit criteria:** scoped approvals, idempotency, rollback, kill switches, audit
 reconstruction, and incident exercises all pass in a sandbox and limited production.
 
-- Introduce a durable approval queue and signed action tokens.
-- Enable one reversible, low-risk write workflow at a time.
-- Add monitoring, dead-letter queues, replay protection, and change management.
+- Implemented a durable exact-action approval store with separation of duties,
+  expiring signed tokens, exact payload/target binding, and single-use nonces.
+- Enabled one versioned, reversible, low-risk synthetic record-tag workflow against
+  an in-memory sandbox adapter; no production adapter or credential path exists.
+- Implemented idempotency binding, optimistic preconditions, separately approved
+  rollback actions, tenant/action kill switches, dead-letter capture, monitoring
+  metrics, and tenant-scoped hash-chained audit reconstruction.
+- Added two-client synthetic workflow fixtures and tests for cross-scope access,
+  over-permission, expiry, tampering, replay, approval bypass, payload substitution,
+  prompt injection, state conflicts, rollback, kill switches, dead letters, and audit
+  tampering.
+
+The sandbox portion of the exit criteria passes. Limited-production validation is
+blocked pending completion of prior-phase pilot gates, approved production identity
+and secret management, authoritative adapter design, retention and recovery controls,
+operational ownership, incident exercises in an approved environment, and a separate
+authorization decision for each proposed low-risk production workflow.
 
 ## Phase 6 — Intelligence and engineering scale
 
