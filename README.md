@@ -10,7 +10,7 @@ workflows, shared schemas, and offline document drafting.
 
 **Stage:** Phase 6 complete; production-readiness hardening implemented
 
-**Current milestone:** Administrator configuration and measured pilot validation
+**Current milestone:** Synthetic operator console and measured pilot validation
 
 **Safety posture:** Offline and draft-only; external delivery is disabled
 
@@ -70,6 +70,8 @@ workflows, shared schemas, and offline document drafting.
   injection, approvals, and permissions
 - A read-only FastAPI boundary with OIDC JWT validation, authenticated tenant/project
   scope, a fail-closed runtime policy gateway, rate limiting, and trace correlation
+- A localhost-only synthetic operator console API and browser UI for scoped projects,
+  agent discovery, policy visibility, deterministic routing, and durable human review
 - Qualified reviewer roles, DLP redaction, deterministic usage budgets, encrypted
   artifact retention/legal hold, and tenant-scoped backup primitives
 - Locked dependencies, SHA-pinned CI actions, dependency auditing, secret-pattern
@@ -81,9 +83,11 @@ workflows, shared schemas, and offline document drafting.
 Prerequisites: Python 3.11+.
 
 ```bash
-python -m venv .venv
+/opt/homebrew/bin/python3.12 -m venv .venv  # macOS; any Python 3.11+ works
 source .venv/bin/activate
-pip install -e '.[dev]'
+python -m pip install --upgrade pip
+pip install -r requirements.lock
+pip install --no-deps --no-build-isolation .
 cp .env.example .env
 python -m tessera_os.cli list
 python -m tessera_os.cli route "Prepare my morning briefing"
@@ -95,6 +99,23 @@ pytest
 `policy` and `integrations` read `config/security.yaml` and
 `config/integrations.yaml` respectively, so an operator can see the active
 security posture and integration status without opening a YAML file.
+
+To use the synthetic browser console:
+
+```bash
+export TESSERA_ENV=sandbox
+tessera serve
+```
+
+Open `http://127.0.0.1:8000`. The console serves its own API, uses only the
+versioned synthetic fixture, persists review decisions under ignored
+`data/runtime/`, refuses bearer credentials, and fails closed in production.
+Offline API guidance is available at `http://127.0.0.1:8000/api/docs`; the OpenAPI
+contract is at `http://127.0.0.1:8000/api/openapi.json`.
+
+Run Tessera commands from the repository checkout. A normal local install is used
+because some Homebrew Python builds ignore hidden editable-install path files. Set
+`TESSERA_ROOT` only when deliberately launching from another directory.
 
 To execute a live model call, set `OPENAI_API_KEY` and run:
 
@@ -124,6 +145,8 @@ fixtures/phase3b/    Synthetic contract and diligence records
 fixtures/phase4b/    Synthetic construction and capital records
 fixtures/automation/ Synthetic Phase 5 workflows, targets, and records
 fixtures/phase6/     Synthetic intelligence, engineering, and assurance records
+fixtures/console/    Synthetic operator-console clients, projects, and review items
+web/                 Local operator console served by FastAPI
 ```
 
 ## Design principles
@@ -152,6 +175,7 @@ fixtures/phase6/     Synthetic intelligence, engineering, and assurance records
 - [Production readiness report](docs/PRODUCTION_READINESS_REPORT.md)
 - [Production gate checklist](docs/PRODUCTION_GATE_CHECKLIST.md)
 - [Incident exercise runbook](docs/INCIDENT_EXERCISE_RUNBOOK.md)
+- [Console API](docs/CONSOLE_API.md)
 - [Contributing](CONTRIBUTING.md)
 
 ## License

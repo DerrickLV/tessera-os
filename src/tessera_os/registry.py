@@ -4,6 +4,8 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from .paths import project_root
+
 
 @dataclass(frozen=True)
 class AgentDefinition:
@@ -18,7 +20,7 @@ class AgentDefinition:
 
 class AgentRegistry:
     def __init__(self, manifest_dir: Path | None = None) -> None:
-        root = Path(__file__).resolve().parents[2]
+        root = project_root()
         self.manifest_dir = manifest_dir or root / "agents"
         self._agents = self._load()
 

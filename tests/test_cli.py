@@ -61,3 +61,13 @@ def test_invalid_log_level_falls_back_to_info(monkeypatch, capsys):
     monkeypatch.setenv("TESSERA_LOG_LEVEL", "NOT_A_LEVEL")
     _run(monkeypatch, "list")
     assert "executive_assistant" in capsys.readouterr().out
+
+
+def test_serve_starts_localhost_synthetic_console(monkeypatch):
+    calls = []
+    monkeypatch.setenv("TESSERA_ENV", "sandbox")
+    monkeypatch.setattr("uvicorn.run", lambda *args, **kwargs: calls.append((args, kwargs)))
+    _run(monkeypatch, "serve", "--port", "8123")
+    assert calls == [(('tessera_os.console:create_console_app',), {
+        "factory": True, "host": "127.0.0.1", "port": 8123,
+    })]

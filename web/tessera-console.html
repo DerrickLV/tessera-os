@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tessera OS — Console</title>
+<style>
+/* ===================================================================
+   Tessera OS Console
+   Brand tokens lifted verbatim from the Tessera AG site stylesheet
+   (charcoal / gold / cream · Cinzel headlines · Montserrat body).
+   =================================================================== */
+:root {
+  --bg: #0c1017;
+  --bg-2: #12161d;
+  --bg-3: #090c11;
+  --panel: #141922;
+  --panel-2: #1a2029;
+  --gold: #c9a24a;
+  --gold-soft: #e2c886;
+  --gold-deep: #b0893a;
+  --cream: #ece7dd;
+  --text: #c2bfb6;
+  --muted: #918e86;
+  --line: #262b34;
+  --line-gold: rgba(201,162,74,.28);
+
+  /* Status palette — validated for AA contrast on --panel.
+     Always paired with an icon + text label, never colour alone. */
+  --ok: #6cc98d;      --ok-bg: rgba(108,201,141,.12);   --ok-line: rgba(108,201,141,.3);
+  --wait: #e2c886;    --wait-bg: rgba(201,162,74,.12);  --wait-line: var(--line-gold);
+  --stop: #ef8378;    --stop-bg: rgba(239,131,120,.12); --stop-line: rgba(239,131,120,.32);
+
+  --sans: "Montserrat", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --serif: "Cinzel", "Trajan Pro", Georgia, serif;
+  --sidebar-w: 232px;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+h1,h2,h3,h4 { font-family: var(--serif); color: var(--cream); letter-spacing: .03em; margin: 0; font-weight: 600; }
+button { font-family: var(--sans); }
+::selection { background: rgba(201,162,74,.3); color: var(--cream); }
+
+.eyebrow {
+  font-size: .64rem; text-transform: uppercase; letter-spacing: .3em;
+  font-weight: 600; color: var(--gold); margin: 0 0 .55rem;
+}
+
+/* ---------------- layout ---------------- */
+.app { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; }
+
+.sidebar {
+  background: var(--bg-3);
+  border-right: 1px solid var(--line-gold);
+  padding: 22px 16px 18px;
+  display: flex; flex-direction: column;
+  position: sticky; top: 0; height: 100vh;
+}
+.brand-lockup { display: flex; align-items: center; gap: .7rem; padding: 0 6px 20px; }
+.brand-lockup .wordmark { display: flex; align-items: baseline; }
+.brand-lockup .mark { font-family: var(--serif); color: var(--cream); font-size: 1.02rem; font-weight: 600; letter-spacing: .2em; }
+.brand-lockup .os {
+  font-family: var(--serif); color: var(--gold); font-size: 1.02rem; font-weight: 600; letter-spacing: .16em;
+  margin-left: .5rem; padding-left: .5rem; border-left: 1px solid var(--line-gold);
+}
+.nav-divider { height: 1px; background: var(--line-gold); margin: 0 -16px 16px; }
+
+.navitem {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 11px 12px; color: #cfcabf; cursor: pointer;
+  font-size: .72rem; letter-spacing: .16em; text-transform: uppercase; font-weight: 500;
+  border-left: 2px solid transparent; transition: color .18s ease, background .18s ease;
+}
+.navitem:hover { color: var(--gold-soft); background: rgba(201,162,74,.05); }
+.navitem.active { color: var(--gold-soft); background: rgba(201,162,74,.08); border-left-color: var(--gold); }
+.navitem .count {
+  font-family: var(--sans); background: var(--gold); color: var(--bg-3);
+  font-size: .62rem; font-weight: 700; letter-spacing: .04em;
+  min-width: 19px; height: 19px; display: flex; align-items: center; justify-content: center; border-radius: 1px;
+}
+.navitem .count.zero { background: var(--line); color: var(--muted); }
+
+.sidebar-foot { margin-top: auto; padding: 14px 8px 0; border-top: 1px solid var(--line); }
+.sidebar-foot .who { font-size: .72rem; color: var(--muted); line-height: 1.7; }
+.sidebar-foot .est { font-family: var(--serif); color: var(--gold); letter-spacing: .28em; font-size: .6rem; margin-top: 10px; }
+.kbd-hint {
+  margin-top: 12px; font-size: .68rem; color: var(--muted); cursor: pointer;
+  display: flex; align-items: center; gap: 6px;
+}
+.kbd-hint:hover { color: var(--gold-soft); }
+kbd {
+  font-family: var(--sans); font-size: .62rem; background: var(--panel-2); border: 1px solid var(--line);
+  color: var(--text); padding: 1px 5px; border-radius: 1px; letter-spacing: .04em;
+}
+
+/* ---------------- topbar ---------------- */
+.main { min-width: 0; display: flex; flex-direction: column; }
+.topbar {
+  position: sticky; top: 0; z-index: 40;
+  background: rgba(9,12,17,.94); backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line-gold);
+  padding: 16px 30px; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.topbar h1 { font-size: 1.15rem; }
+.topbar .sub { font-size: .78rem; color: var(--muted); margin-top: 2px; }
+.demo-pill {
+  display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+  border: 1px solid var(--line-gold); color: var(--gold-soft);
+  font-size: .62rem; font-weight: 600; letter-spacing: .16em; text-transform: uppercase;
+  padding: 8px 14px; border-radius: 1px; background: rgba(201,162,74,.06);
+}
+.demo-pill .dot { width: 6px; height: 6px; background: var(--gold); border-radius: 50%; flex: none; }
+.mobile-toggle { display: none; background: none; border: 1px solid var(--line-gold); padding: 8px 10px; cursor: pointer; }
+.mobile-toggle span { display: block; width: 18px; height: 1.5px; background: var(--gold); margin: 4px 0; }
+
+.content { padding: 30px; max-width: 1280px; width: 100%; }
+.view { display: none; }
+.view.active { display: block; animation: fade .22s ease; }
+@keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+.page-intro { margin-bottom: 26px; }
+.page-intro h2 { font-size: 1.5rem; margin-bottom: .35rem; }
+.page-intro .rule { width: 54px; height: 2px; background: var(--gold); margin: 0 0 1.1rem; }
+.page-intro p { color: var(--muted); max-width: 68ch; margin: 0; font-size: .88rem; font-weight: 300; line-height: 1.75; }
+
+/* ---------------- cards ---------------- */
+.card {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 1px;
+}
+.card.gold-top { border-top: 3px solid var(--gold); }
+.card-head {
+  padding: 15px 20px; border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.card-head h3 { font-size: .98rem; letter-spacing: .05em; }
+.card-body { padding: 20px; }
+
+/* ---------------- stat tiles ---------------- */
+.stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+.stat {
+  background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--line);
+  padding: 20px; border-radius: 1px; transition: border-color .2s ease;
+}
+.stat.lead { border-top-color: var(--gold); }
+.stat .l { font-size: .62rem; text-transform: uppercase; letter-spacing: .2em; color: var(--muted); font-weight: 600; }
+.stat .n { font-family: var(--serif); font-size: 2.1rem; color: var(--cream); line-height: 1.15; margin-top: 10px; }
+.stat.lead .n { color: var(--gold-soft); }
+.stat .s { font-size: .76rem; color: var(--muted); margin-top: 6px; font-weight: 300; }
+
+/* ---------------- buttons ---------------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  font-weight: 600; font-size: .68rem; letter-spacing: .16em; text-transform: uppercase;
+  padding: 13px 26px; border-radius: 1px; cursor: pointer; border: 1px solid transparent;
+  transition: all .18s ease;
+}
+.btn-gold { background: var(--gold); color: var(--bg); }
+.btn-gold:hover { background: var(--gold-soft); }
+.btn-ghost { border-color: var(--line-gold); color: var(--gold-soft); background: none; }
+.btn-ghost:hover { border-color: var(--gold); color: var(--gold); }
+.btn-ok { background: none; border-color: var(--ok-line); color: var(--ok); }
+.btn-ok:hover { background: var(--ok-bg); border-color: var(--ok); }
+.btn-stop { background: none; border-color: var(--stop-line); color: var(--stop); }
+.btn-stop:hover { background: var(--stop-bg); border-color: var(--stop); }
+.btn-sm { padding: 9px 16px; font-size: .62rem; }
+.btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* ---------------- review queue ---------------- */
+.rq-toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+.chip {
+  font-size: .64rem; letter-spacing: .14em; text-transform: uppercase; font-weight: 600;
+  padding: 9px 15px; border: 1px solid var(--line); background: none; color: var(--muted);
+  cursor: pointer; border-radius: 1px; transition: all .18s ease;
+}
+.chip:hover { color: var(--gold-soft); border-color: var(--line-gold); }
+.chip.active { background: rgba(201,162,74,.1); border-color: var(--gold); color: var(--gold-soft); }
+.search-wrap { margin-left: auto; position: relative; }
+.search-wrap input {
+  background: var(--bg-2); border: 1px solid var(--line); color: var(--cream);
+  padding: 10px 14px 10px 34px; font-family: var(--sans); font-size: .82rem; width: 260px; border-radius: 1px;
+}
+.search-wrap input::placeholder { color: var(--muted); }
+.search-wrap input:focus { outline: none; border-color: var(--gold); }
+.search-wrap .icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: .82rem; }
+
+.rq-layout { display: grid; grid-template-columns: 370px 1fr; gap: 18px; align-items: start; }
+.rq-list { display: flex; flex-direction: column; gap: 10px; max-height: calc(100vh - 260px); overflow-y: auto; padding-right: 4px; }
+.rq-list::-webkit-scrollbar { width: 6px; }
+.rq-list::-webkit-scrollbar-thumb { background: var(--line); }
+
+.rq-item {
+  background: var(--panel); border: 1px solid var(--line); border-left: 2px solid transparent;
+  padding: 14px 16px; cursor: pointer; border-radius: 1px; transition: all .18s ease;
+}
+.rq-item:hover { border-color: var(--line-gold); border-left-color: var(--gold-deep); }
+.rq-item.selected { border-color: var(--line-gold); border-left-color: var(--gold); background: var(--panel-2); }
+.rq-item .r1 { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.rq-item .t { font-size: .89rem; color: var(--cream); font-weight: 500; line-height: 1.45; }
+.rq-item .m { font-size: .72rem; color: var(--muted); margin-top: 5px; }
+.rq-item .r2 { display: flex; justify-content: space-between; align-items: center; margin-top: 11px; gap: 8px; }
+.rq-item .age { font-size: .7rem; color: var(--muted); }
+.rq-item .age.stale { color: var(--gold-soft); }
+
+.pill {
+  display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+  font-size: .58rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+  padding: 4px 9px; border-radius: 1px; border: 1px solid;
+}
+.pill.wait { color: var(--wait); background: var(--wait-bg); border-color: var(--wait-line); }
+.pill.ok { color: var(--ok); background: var(--ok-bg); border-color: var(--ok-line); }
+.pill.stop { color: var(--stop); background: var(--stop-bg); border-color: var(--stop-line); }
+
+/* detail */
+.detail-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  min-height: 380px; color: var(--muted); text-align: center; padding: 50px 40px;
+}
+.detail-empty .big { font-family: var(--serif); font-size: 1.6rem; color: var(--line); letter-spacing: .1em; }
+.detail-empty p { margin: 0; font-size: .84rem; max-width: 34ch; font-weight: 300; }
+
+.decide-banner {
+  background: var(--bg-2); border: 1px solid var(--line-gold); border-left: 3px solid var(--gold);
+  padding: 14px 16px; margin-bottom: 20px; border-radius: 1px;
+}
+.decide-banner .lbl { font-size: .6rem; text-transform: uppercase; letter-spacing: .2em; color: var(--gold); font-weight: 600; }
+.decide-banner p { margin: 7px 0 0; font-size: .84rem; color: var(--text); line-height: 1.65; }
+.decide-banner .grp { margin-top: 9px; font-size: .74rem; color: var(--muted); }
+.decide-banner .grp b { color: var(--gold-soft); font-weight: 600; }
+
+.meta-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 24px; margin-bottom: 20px; }
+.meta-row { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: .8rem; }
+.meta-row .k { color: var(--muted); }
+.meta-row .v { color: var(--cream); text-align: right; font-weight: 500; }
+
+.sec-label {
+  font-size: .6rem; text-transform: uppercase; letter-spacing: .22em; color: var(--gold);
+  font-weight: 600; margin: 22px 0 10px;
+}
+.draft-body {
+  background: var(--bg-2); border: 1px solid var(--line); padding: 18px 20px; border-radius: 1px;
+  font-size: .88rem; line-height: 1.85; color: var(--text); white-space: pre-wrap; font-weight: 300;
+}
+.evidence { border: 1px solid var(--line); padding: 13px 15px; border-radius: 1px; margin-bottom: 9px; background: var(--bg-2); }
+.evidence .e1 { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.evidence .ttl { color: var(--cream); font-size: .82rem; font-weight: 500; }
+.evidence .sid { font-size: .68rem; color: var(--muted); font-family: var(--sans); }
+.evidence .ex { color: var(--text); font-size: .8rem; font-style: italic; margin-top: 7px; font-weight: 300; line-height: 1.6; }
+.evidence .loc { color: var(--muted); font-size: .68rem; margin-top: 8px; word-break: break-all; }
+
+.reason-note {
+  margin-top: 16px; background: var(--stop-bg); border: 1px solid var(--stop-line);
+  padding: 13px 15px; border-radius: 1px; font-size: .82rem; color: var(--text);
+}
+.reason-note b { color: var(--stop); }
+
+.decide-bar {
+  position: sticky; bottom: 0; background: var(--panel); border-top: 1px solid var(--line-gold);
+  padding: 16px 20px; display: flex; gap: 12px; align-items: center; margin: 22px -20px -20px;
+}
+.decide-bar .hint { margin-left: auto; font-size: .68rem; color: var(--muted); }
+
+/* ---------------- request ---------------- */
+.form-row { margin-bottom: 18px; }
+.form-row label { display: block; font-size: .64rem; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin-bottom: 8px; }
+.form-row textarea, .form-row input, .form-row select {
+  width: 100%; background: var(--bg-2); border: 1px solid var(--line); color: var(--cream);
+  padding: 13px 15px; font-family: var(--sans); font-size: .9rem; border-radius: 1px; resize: vertical; line-height: 1.6;
+}
+.form-row textarea:focus, .form-row input:focus, .form-row select:focus { outline: none; border-color: var(--gold); }
+.examples { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.example-chip {
+  font-size: .72rem; padding: 6px 12px; border: 1px solid var(--line); color: var(--muted);
+  cursor: pointer; border-radius: 1px; background: none; transition: all .18s ease;
+}
+.example-chip:hover { border-color: var(--line-gold); color: var(--gold-soft); }
+
+.route-result { margin-top: 24px; }
+.route-hero { display: flex; align-items: center; gap: 16px; padding: 20px; background: var(--bg-2); border: 1px solid var(--line-gold); border-radius: 1px; }
+.route-hero .glyph {
+  width: 52px; height: 52px; flex: none; border: 1px solid var(--gold); display: flex; align-items: center; justify-content: center;
+  font-family: var(--serif); color: var(--gold-soft); font-size: 1.2rem; background: var(--bg-3);
+}
+.route-hero .who { font-family: var(--serif); color: var(--cream); font-size: 1.1rem; letter-spacing: .04em; }
+.route-hero .why { font-size: .78rem; color: var(--muted); margin-top: 4px; }
+.term { display: inline-block; background: rgba(201,162,74,.1); border: 1px solid var(--line-gold); color: var(--gold-soft); font-size: .7rem; padding: 3px 9px; margin: 3px 4px 3px 0; border-radius: 1px; }
+
+/* ---------------- agents ---------------- */
+.agent-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.agent {
+  background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--gold);
+  padding: 20px 18px; border-radius: 1px; transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+.agent:hover { transform: translateY(-3px); box-shadow: 0 16px 34px rgba(0,0,0,.45); border-color: var(--line-gold); border-top-color: var(--gold); }
+.agent .glyph { font-family: var(--serif); color: var(--gold); font-size: .95rem; letter-spacing: .14em; display: block; margin-bottom: 10px; }
+.agent h3 { font-size: 1rem; letter-spacing: .04em; margin-bottom: 8px; }
+.agent .owns { font-size: .82rem; color: var(--text); font-weight: 300; line-height: 1.65; }
+.agent .bound { margin-top: 13px; padding-top: 13px; border-top: 1px solid var(--line); font-size: .76rem; color: var(--muted); line-height: 1.6; }
+.agent .bound b { color: var(--gold-soft); font-weight: 600; display: block; font-size: .58rem; text-transform: uppercase; letter-spacing: .16em; margin-bottom: 4px; }
+
+/* ---------------- policy ---------------- */
+.policy-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+.dl-row { display: flex; justify-content: space-between; gap: 16px; padding: 11px 0; border-bottom: 1px solid var(--line); font-size: .82rem; }
+.dl-row:last-child { border-bottom: 0; }
+.dl-row .k { color: var(--muted); }
+.dl-row .v { color: var(--cream); font-weight: 500; text-align: right; }
+.dl-row .v.deny { color: var(--stop); }
+.dl-row .v.gate { color: var(--gold-soft); }
+.tier { margin-bottom: 16px; }
+.tier:last-child { margin-bottom: 0; }
+.tier .tn { font-size: .6rem; text-transform: uppercase; letter-spacing: .2em; color: var(--gold); font-weight: 600; margin-bottom: 8px; }
+.tier .td { font-size: .74rem; color: var(--muted); margin-bottom: 8px; font-weight: 300; }
+.tag { display: inline-block; background: var(--bg-2); border: 1px solid var(--line); color: var(--text); font-size: .72rem; padding: 4px 10px; margin: 3px 4px 3px 0; border-radius: 1px; }
+
+.intg { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.intg:last-child { border-bottom: 0; }
+.intg .n { color: var(--cream); font-size: .88rem; font-weight: 500; }
+.intg .d { font-size: .74rem; color: var(--muted); margin-top: 3px; }
+
+/* ---------------- modal / toast ---------------- */
+.overlay {
+  position: fixed; inset: 0; background: rgba(6,8,12,.82); backdrop-filter: blur(3px);
+  display: none; align-items: center; justify-content: center; z-index: 100; padding: 24px;
+}
+.overlay.open { display: flex; }
+.modal {
+  background: var(--panel); border: 1px solid var(--line-gold); border-top: 3px solid var(--gold);
+  max-width: 520px; width: 100%; border-radius: 1px; padding: 26px;
+}
+.modal h3 { font-size: 1.1rem; margin-bottom: 6px; }
+.modal .sub { font-size: .82rem; color: var(--muted); margin-bottom: 18px; font-weight: 300; line-height: 1.65; }
+.modal textarea {
+  width: 100%; background: var(--bg-2); border: 1px solid var(--line); color: var(--cream);
+  padding: 12px 14px; font-family: var(--sans); font-size: .88rem; border-radius: 1px; resize: vertical; line-height: 1.6;
+}
+.modal textarea:focus { outline: none; border-color: var(--gold); }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+
+.help-list { display: grid; grid-template-columns: auto 1fr; gap: 10px 16px; align-items: center; font-size: .84rem; }
+.help-list .d { color: var(--text); font-weight: 300; }
+
+.toast-wrap { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%); z-index: 120; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.toast {
+  background: var(--panel-2); border: 1px solid var(--line-gold); border-left: 3px solid var(--gold);
+  padding: 14px 18px; border-radius: 1px; display: flex; align-items: center; gap: 18px;
+  box-shadow: 0 18px 44px rgba(0,0,0,.6); animation: rise .24s ease; min-width: 340px;
+}
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.toast .msg { font-size: .84rem; color: var(--cream); }
+.toast .msg small { display: block; color: var(--muted); font-size: .74rem; margin-top: 2px; }
+.toast .undo {
+  background: none; border: 1px solid var(--line-gold); color: var(--gold-soft); cursor: pointer;
+  font-size: .62rem; letter-spacing: .16em; text-transform: uppercase; font-weight: 600; padding: 8px 14px; border-radius: 1px;
+  margin-left: auto; white-space: nowrap;
+}
+.toast .undo:hover { border-color: var(--gold); color: var(--gold); }
+
+/* ---------------- responsive ---------------- */
+@media (max-width: 1100px) {
+  .agent-grid { grid-template-columns: repeat(2, 1fr); }
+  .stat-row { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 900px) {
+  .app { grid-template-columns: 1fr; }
+  .sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; width: 250px; z-index: 90;
+    transform: translateX(-100%); transition: transform .24s ease;
+  }
+  .sidebar.open { transform: none; }
+  .mobile-toggle { display: block; }
+  .rq-layout { grid-template-columns: 1fr; }
+  .rq-list { max-height: none; }
+  .policy-grid, .meta-grid { grid-template-columns: 1fr; }
+  .content { padding: 20px; }
+  .topbar { padding: 14px 20px; }
+  .demo-pill { display: none; }
+  .search-wrap { margin-left: 0; width: 100%; }
+  .search-wrap input { width: 100%; }
+}
+@media (max-width: 620px) {
+  .agent-grid, .stat-row { grid-template-columns: 1fr; }
+  .decide-bar { flex-wrap: wrap; }
+  .decide-bar .hint { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- ==================== SIDEBAR ==================== -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand-lockup">
+      <svg viewBox="0 0 120 120" width="38" height="38" aria-hidden="true">
+        <rect x="8" y="8" width="104" height="104" rx="2" fill="none" stroke="#c9a24a" stroke-width="1.5" opacity="0.55"/>
+        <text x="60" y="88" text-anchor="middle" font-family="Cinzel, Georgia, serif" font-size="82" font-weight="700" fill="#c9a24a">T</text>
+      </svg>
+      <span class="wordmark"><span class="mark">TESSERA</span><span class="os">OS</span></span>
+    </div>
+    <div class="nav-divider"></div>
+
+    <div class="navitem active" data-view="dashboard">Overview</div>
+    <div class="navitem" data-view="queue">Review Queue <span class="count" id="navCount">0</span></div>
+    <div class="navitem" data-view="request">Ask</div>
+    <div class="navitem" data-view="agents">Specialists</div>
+    <div class="navitem" data-view="policy">Guardrails</div>
+
+    <div class="sidebar-foot">
+      <div class="who" id="consoleWho">Connecting to synthetic session…</div>
+      <div class="kbd-hint" onclick="openHelp()"><kbd>?</kbd> Keyboard shortcuts</div>
+      <div class="est">MMXXV</div>
+    </div>
+  </aside>
+
+  <!-- ==================== MAIN ==================== -->
+  <div class="main">
+    <div class="topbar">
+      <button class="mobile-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+      <div style="min-width:0;">
+        <h1 id="pgTitle">Overview</h1>
+        <div class="sub" id="pgSub">What needs you today</div>
+      </div>
+      <div class="demo-pill"><span class="dot"></span><span id="environmentLabel">Connecting…</span></div>
+    </div>
+
+    <div class="content">
+
+      <!-- ============ OVERVIEW ============ -->
+      <div class="view active" id="v-dashboard">
+        <div class="stat-row" id="statRow"></div>
+        <div class="card gold-top">
+          <div class="card-head">
+            <h3>Waiting on you</h3>
+            <button class="btn btn-ghost btn-sm" onclick="switchView('queue')">Open queue</button>
+          </div>
+          <div class="card-body" id="attention" style="padding:12px 20px 20px;"></div>
+        </div>
+      </div>
+
+      <!-- ============ REVIEW QUEUE ============ -->
+      <div class="view" id="v-queue">
+        <div class="page-intro">
+          <div class="rule"></div>
+          <p>Every draft a specialist produces stops here. Nothing is sent, published, filed, or executed until you decide on it. Use <kbd>J</kbd> / <kbd>K</kbd> to move, <kbd>A</kbd> to approve, <kbd>R</kbd> to reject.</p>
+        </div>
+        <div class="rq-toolbar" id="rqToolbar"></div>
+        <div class="rq-layout">
+          <div class="rq-list" id="rqList"></div>
+          <div class="card gold-top" id="rqDetail"></div>
+        </div>
+      </div>
+
+      <!-- ============ ASK ============ -->
+      <div class="view" id="v-request">
+        <div class="page-intro">
+          <div class="rule"></div>
+          <p>Describe what you need in plain language. Tessera OS shows you which specialist would handle it and why, before anything runs. This is a preview only — no cost, nothing sent, nothing changed.</p>
+        </div>
+        <div class="card">
+          <div class="card-body">
+            <div class="form-row">
+              <label for="qTask">What do you need?</label>
+              <textarea id="qTask" rows="3" placeholder="e.g. Review the indemnity clause in the Meridian NDA">Prepare my morning briefing and follow up on outstanding emails</textarea>
+              <div class="examples" id="examples"></div>
+            </div>
+            <div class="form-row">
+              <label for="qProject">Which engagement?</label>
+              <select id="qProject" aria-label="Which engagement?"></select>
+            </div>
+            <button class="btn btn-gold" id="qGo">See who handles this</button>
+            <div class="route-result" id="qResult"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ SPECIALISTS ============ -->
+      <div class="view" id="v-agents">
+        <div class="page-intro">
+          <div class="rule"></div>
+          <p>The twelve specialists Tessera OS routes work to. Each one drafts and recommends within its lane — and each one stops at a hard line where a person has to decide.</p>
+        </div>
+        <div class="agent-grid" id="agentGrid"></div>
+      </div>
+
+      <!-- ============ GUARDRAILS ============ -->
+      <div class="view" id="v-policy">
+        <div class="page-intro">
+          <div class="rule"></div>
+          <p>What the system is and isn't allowed to do, read straight from its own configuration. These aren't descriptions of intent — they're the settings the software actually enforces.</p>
+        </div>
+        <div class="policy-grid">
+          <div class="card gold-top">
+            <div class="card-head"><h3>Default posture</h3></div>
+            <div class="card-body" id="pDefaults" style="padding-top:6px;"></div>
+          </div>
+          <div class="card gold-top">
+            <div class="card-head"><h3>Sign-in requirements</h3></div>
+            <div class="card-body" id="pAuth" style="padding-top:6px;"></div>
+          </div>
+          <div class="card gold-top">
+            <div class="card-head"><h3>Who can approve what</h3></div>
+            <div class="card-body" id="pTiers"></div>
+          </div>
+          <div class="card gold-top">
+            <div class="card-head"><h3>How long records are kept</h3></div>
+            <div class="card-body" id="pRet" style="padding-top:6px;"></div>
+          </div>
+          <div class="card gold-top">
+            <div class="card-head"><h3>Runtime controls</h3></div>
+            <div class="card-body" id="pRun" style="padding-top:6px;"></div>
+          </div>
+          <div class="card gold-top">
+            <div class="card-head"><h3>Connected systems</h3></div>
+            <div class="card-body" id="pIntg" style="padding-top:6px;"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODALS ==================== -->
+<div class="overlay" id="rejectOverlay">
+  <div class="modal">
+    <h3>Send this back</h3>
+    <p class="sub">Say what needs to change. The reason is recorded on the item so the specialist — and anyone auditing later — can see exactly why it was returned.</p>
+    <textarea id="rejectReason" rows="4" placeholder="e.g. Single-sourced — hold until a second source corroborates."></textarea>
+    <div class="modal-actions">
+      <button class="btn btn-ghost btn-sm" onclick="closeReject()">Cancel</button>
+      <button class="btn btn-stop btn-sm" onclick="confirmReject()">Send back</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="helpOverlay" onclick="if(event.target===this) closeHelp()">
+  <div class="modal">
+    <h3>Keyboard shortcuts</h3>
+    <p class="sub">Built for working a queue quickly.</p>
+    <div class="help-list">
+      <kbd>J</kbd><span class="d">Next item</span>
+      <kbd>K</kbd><span class="d">Previous item</span>
+      <kbd>A</kbd><span class="d">Approve the selected item</span>
+      <kbd>R</kbd><span class="d">Send the selected item back</span>
+      <kbd>/</kbd><span class="d">Search the queue</span>
+      <kbd>?</kbd><span class="d">This list</span>
+      <kbd>Esc</kbd><span class="d">Close</span>
+    </div>
+    <div class="modal-actions"><button class="btn btn-ghost btn-sm" onclick="closeHelp()">Close</button></div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toasts"></div>
+
+<script>
+/* ===================================================================
+   DATA
+   Shapes mirror the real Pydantic models in src/tessera_os/schemas.py
+   and review.py. The local API replaces these fallback values during boot.
+   =================================================================== */
+
+// Anchors relative timestamps so the sample always reads sensibly.
+// Replace with `new Date()` when wired to the live API.
+let NOW = new Date();
+
+// --- config/routing.json (router.py) ---
+const ROUTES = {
+  executive_assistant: ["briefing","calendar","meeting","follow-up","priorities","email"],
+  project_manager: ["project","milestone","deadline","task","status","risk register"],
+  knowledge_manager: ["knowledge","document","index","taxonomy","retrieve","summarize"],
+  proposal_manager: ["proposal","scope","fee","pricing","statement of work","rfp"],
+  contract_manager: ["contract","agreement","clause","redline","indemnity","insurance"],
+  due_diligence_manager: ["diligence","background","ownership","litigation","references"],
+  development_manager: ["entitlement","zoning","feasibility","permitting","site plan"],
+  construction_manager: ["construction","rfi","submittal","schedule","change order","safety"],
+  capital_manager: ["capital","underwriting","investor","return","loan","financing"],
+  automation_manager: ["automation","workflow","n8n","trigger","integration","webhook"],
+  intelligence_agent: ["market","competitor","news","research","trend","intelligence"],
+  codex_engineering_agent: ["code","repository","bug","test","deploy","architecture"],
+};
+const FALLBACK = "knowledge_manager";
+const MULTI_THRESHOLD = 2;
+
+// --- docs/AGENT_CATALOG.md + agents/*.json ---
+let AGENTS = [
+  { id:"executive_assistant", name:"Executive Assistant", glyph:"I", owns:"Briefings, priorities, meetings, and follow-up drafts.", bound:"Sending anything, or changing your calendar or tasks.", profile:"default" },
+  { id:"project_manager", name:"Project Manager", glyph:"II", owns:"Plans, milestones, risks, decisions, and status.", bound:"Assigning work, publishing, or changing a baseline.", profile:"default" },
+  { id:"knowledge_manager", name:"Knowledge Manager", glyph:"III", owns:"Finding, organizing, and sourcing what the firm knows.", bound:"Writing to or deleting any document or its metadata.", profile:"default" },
+  { id:"proposal_manager", name:"Proposal Manager", glyph:"IV", owns:"Scope, fees, schedule, and proposal drafts.", bound:"Committing to a price or delivering to a client.", profile:"default" },
+  { id:"contract_manager", name:"Contract Manager", glyph:"V", owns:"Clause analysis, risk flags, and redline support.", bound:"Delivering a redline, accepting terms, or signature.", profile:"high_reasoning" },
+  { id:"due_diligence_manager", name:"Due Diligence Manager", glyph:"VI", owns:"Source-backed findings and open-item registers.", bound:"Contacting anyone externally or releasing a report.", profile:"high_reasoning" },
+  { id:"development_manager", name:"Development Manager", glyph:"VII", owns:"Feasibility through construction handoff.", bound:"Filing, directing consultants, or changing a baseline.", profile:"default" },
+  { id:"construction_manager", name:"Construction Manager", glyph:"VIII", owns:"Safety signals, quality, schedule, cost, and changes.", bound:"Directing the field or approving a change order.", profile:"high_reasoning" },
+  { id:"capital_manager", name:"Capital Manager", glyph:"IX", owns:"Underwriting, capital stack, covenants, investor drafts.", bound:"Accepting terms, external delivery, or moving funds.", profile:"high_reasoning" },
+  { id:"automation_manager", name:"Automation Manager", glyph:"X", owns:"Workflow design, tests, runbooks, and incidents.", bound:"Any production write or turning a workflow on.", profile:"default" },
+  { id:"intelligence_agent", name:"Intelligence Agent", glyph:"XI", owns:"Market, policy, and competitor intelligence.", bound:"Publishing, alerting, or buying a paid source.", profile:"default" },
+  { id:"codex_engineering_agent", name:"Codex Engineering Agent", glyph:"XII", owns:"Software design, changes, tests, and releases.", bound:"Writing to the repository, dependencies, or deploying.", profile:"high_reasoning" },
+];
+let BY_ID = Object.fromEntries(AGENTS.map(a => [a.id, a]));
+
+// --- Plain-English meaning of each workflow + required reviewer group.
+//     Groups come from security.yaml → authorization.qualified_reviewer_groups ---
+const WORKFLOWS = {
+  morning_briefing: { label:"Morning briefing",
+    decide:"Approving marks this briefing as read and accurate. Nothing is sent to anyone.", group:null },
+  project_status: { label:"Project status",
+    decide:"Approving records that the status is accurate. Nothing is published to the team.", group:"Project reviewer" },
+  proposal_review: { label:"Proposal review",
+    decide:"Approving records that the scope, fee, and assumptions are correct. The proposal is not delivered to the client — delivery is a separate, still-disabled step.", group:"Proposal approver" },
+  contract_review: { label:"Contract review",
+    decide:"Approving records qualified counsel sign-off on the flagged clauses. No redline is sent and nothing is signed.", group:"Qualified counsel" },
+  capital_underwriting_review: { label:"Capital underwriting review",
+    decide:"Approving records investment-reviewer sign-off on the reconciliation. No terms are accepted and no funds move.", group:"Investment reviewer" },
+  due_diligence_review: { label:"Due diligence review",
+    decide:"Approving records that the verified-fact and allegation split is accurate. No report is released externally.", group:"Diligence reviewer" },
+  intelligence_brief_review: { label:"Intelligence brief",
+    decide:"Approving clears this brief for internal circulation only. Nothing is published or alerted outside the firm.", group:"Intelligence reviewer" },
+  construction_exception_review: { label:"Construction exception",
+    decide:"Approving records that the exception was reviewed. No field direction is given and no change is approved.", group:"Construction reviewer" },
+  engineering_pr_review: { label:"Engineering change",
+    decide:"Approving records that the change packet is ready for pull-request review. Nothing is merged or deployed.", group:"Engineering reviewer" },
+};
+function wf(key) { return WORKFLOWS[key] || { label: key.replace(/_/g," "), decide:"Approving records your review of this item.", group:null }; }
+
+// --- config/security.yaml ---
+let SECURITY = {
+  defaults: [
+    ["Tool access", "Denied by default", "deny"],
+    ["Writing to outside systems", "Requires approval", "gate"],
+    ["Destructive actions", "Requires approval", "gate"],
+    ["Reading across engagements", "Denied", "deny"],
+    ["Personal data in logs", "Redacted", "gate"],
+    ["Production writes", "Denied", "deny"],
+  ],
+  auth: [
+    ["Sign-in method", "Single sign-on (OIDC)"],
+    ["Signature algorithms", "RS256 · RS384 · RS512 · ES256"],
+    ["Required role", "tessera_user"],
+    ["Required claims", "8 verified on every request"],
+  ],
+  tiers: [
+    ["No approval needed", "Reading, searching, summarizing, drafting.", ["read","search","summarize","draft"]],
+    ["Manager approval", "Anything that leaves the building or changes a record.", ["send_message","update_crm","create_task","publish_document"]],
+    ["Principal approval", "Money, contracts, filings, deletion.", ["execute_contract","move_funds","submit_filing","delete_record"]],
+  ],
+  retention: [
+    ["Raw prompts", "30 days"],
+    ["Audit events", "2,555 days (7 years)"],
+    ["Generated artifacts", "365 days"],
+  ],
+  runtime: [
+    ["Request rate limit", "60 / minute"],
+    ["Usage budget", "Fails closed", "gate"],
+    ["Sensitive data in traces", "Redacted", "gate"],
+    ["Artifact encryption", "AES-GCM"],
+    ["Encryption keys", "Managed secret store"],
+    ["Legal hold", "Overrides deletion"],
+    ["Backups", "Scoped per tenant"],
+  ],
+};
+
+// --- config/integrations.yaml ---
+let INTEGRATIONS = [
+  { n:"Microsoft 365", d:"Mail, calendar, and selected sites — read only", s:"In pilot", live:true },
+  { n:"SharePoint", d:"Document read only", s:"In pilot", live:true },
+  { n:"HubSpot", d:"Read only", s:"Planned", live:false },
+  { n:"n8n", d:"Approval-gated", s:"Planned", live:false },
+  { n:"GitHub", d:"Repository-scoped", s:"Planned", live:false },
+];
+
+// --- review.ReviewItem[] ---
+let ITEMS = [
+  { id:"rq-1041", workflow:"morning_briefing", title:"Weekly Priorities Briefing — Aug 18",
+    agent:"executive_assistant", project:"internal-ops", status:"pending", created:"2026-08-18T12:05:00Z",
+    body:"Three commitments carry over from last week: the RiverBend fee proposal (due Friday), the Meridian NDA redline (counsel is waiting), and the Harbor Logistics diligence summary (client call Thursday).\n\nTwo new items surfaced this week: an unread follow-up from Meridian Capital's counsel, now two days old, and a referral-partner lead flagged in HubSpot with no reply yet.",
+    evidence:[
+      { id:"cal-2216", title:"Calendar — this week", loc:"outlook://calendar/week/2026-08-17", ex:"Harbor Logistics client call — Thursday 2:00pm", at:"2026-08-18T11:40:00Z" },
+      { id:"mail-8834", title:"Meridian Capital — counsel follow-up", loc:"outlook://mail/8834", ex:"Following up on the NDA redline sent Monday…", at:"2026-08-18T11:41:00Z" },
+    ]},
+  { id:"rq-1042", workflow:"proposal_review", title:"RiverBend Multifamily — Fee Proposal v2",
+    agent:"proposal_manager", project:"riverbend-multifamily", status:"pending", created:"2026-08-18T09:22:00Z",
+    body:"Scope: feasibility review, entitlement strategy memo, and capital-readiness assessment for the 84-unit RiverBend site.\n\nFee: $42,000 fixed, billed 30 / 40 / 30 against three milestones.\n\nAssumptions: the seller-provided survey is current within 90 days. Environmental Phase II is excluded.\n\nThis version corrects the schedule from v1 to reflect the client's revised closing date.",
+    evidence:[
+      { id:"fee-sched-2026-q3", title:"Approved fee schedule — 2026 Q3", loc:"internal://fee-schedules/2026-q3", ex:"Multifamily feasibility + entitlement bundle: $38k–$46k fixed", at:"2026-08-17T16:00:00Z" },
+      { id:"tmpl-fee-v4", title:"Fee proposal template v4", loc:"internal://templates/proposal/v4", ex:"Standard 30/40/30 milestone structure", at:"2026-08-17T16:02:00Z" },
+    ]},
+  { id:"rq-1043", workflow:"contract_review", title:"NDA Redline — Meridian Capital",
+    agent:"contract_manager", project:"meridian-capital-intro", status:"pending", created:"2026-08-17T15:48:00Z",
+    body:"Flagged: Section 4(b) extends the non-solicit to 36 months. The approved playbook standard is 12–18 months, and anything beyond 24 is set to escalate.\n\nSection 6 sets governing law to Delaware rather than the counterparty's home state. That's within acceptable range, but worth confirming with the client before it's locked.\n\nNo other deviations from the approved NDA playbook were found. Recommend a counterproposal on 4(b) before signature.",
+    evidence:[
+      { id:"playbook-nda-v3", title:"NDA negotiation playbook v3", loc:"internal://playbooks/nda/v3", ex:"Non-solicit standard: 12–18 months; escalate anything beyond 24", at:"2026-08-17T15:30:00Z" },
+      { id:"doc-meridian-nda", title:"Meridian Capital — draft NDA received", loc:"sharepoint://meridian/legal/nda-draft-v1.docx", ex:"Section 4(b): …for a period of thirty-six (36) months…", at:"2026-08-17T15:31:00Z" },
+    ]},
+  { id:"rq-1044", workflow:"capital_underwriting_review", title:"Q3 Model Reconciliation — Harbor Logistics",
+    agent:"capital_manager", project:"harbor-logistics-refi", status:"pending", created:"2026-08-16T18:10:00Z",
+    body:"Reconciled the lender model against our internal underwriting.\n\nDSCR: 1.31x in the lender model vs 1.28x internally. The variance traces to a $14,200/yr insurance escalation the lender model holds flat.\n\nLTV is unchanged at 62%. Downside sensitivity (7.5% vacancy, +75bps on rate) still clears covenant at 1.11x DSCR.\n\nRecommend flagging the insurance variance to the lender before any term sheet is executed.",
+    evidence:[
+      { id:"model-lender-v2", title:"Lender underwriting model v2", loc:"internal://capital/harbor-logistics/lender-model-v2.xlsx", ex:"Insurance: $61,200/yr (held flat)", at:"2026-08-16T17:50:00Z" },
+      { id:"model-internal-v5", title:"Internal underwriting model v5", loc:"internal://capital/harbor-logistics/internal-model-v5.xlsx", ex:"Insurance: $75,400/yr (escalated)", at:"2026-08-16T17:52:00Z" },
+    ]},
+  { id:"rq-1045", workflow:"due_diligence_review", title:"Ownership & Litigation — Harbor Logistics LLC",
+    agent:"due_diligence_manager", project:"harbor-logistics-refi", status:"accepted", created:"2026-08-14T10:00:00Z",
+    by:"Synthetic Reviewer B", at:"2026-08-14T16:20:00Z",
+    body:"Verified: single-member LLC, sole member confirmed against the state filing. No open litigation in the three jurisdictions searched.\n\nAllegation, not verified: a since-closed vendor dispute referenced in a 2024 local news item. No second source corroborates it, so it is recorded as an allegation and excluded from the risk rating.",
+    evidence:[
+      { id:"sos-filing-2026", title:"Secretary of State filing", loc:"offline://public-records/sos/harbor-logistics-2026", ex:"Sole member confirmed", at:"2026-08-14T09:20:00Z" },
+      { id:"court-search-2026", title:"Litigation search — 3 jurisdictions", loc:"offline://public-records/litigation/harbor-logistics", ex:"No open matters found", at:"2026-08-14T09:25:00Z" },
+    ]},
+  { id:"rq-1046", workflow:"intelligence_brief_review", title:"Competitor Financing Activity — Weekly",
+    agent:"intelligence_agent", project:"internal-ops", status:"rejected", created:"2026-08-13T08:00:00Z",
+    by:"Synthetic Reviewer B", at:"2026-08-13T11:15:00Z",
+    reason:"Single-sourced. Hold until a second source corroborates before this circulates.",
+    body:"One monitored source reports a regional competitor closed a $22M credit facility this week.\n\nNo second source corroborates as of this brief. Flagged for hold under the single-source rule for high-impact findings.",
+    evidence:[
+      { id:"src-industry-wire-0814", title:"Industry wire — regional financing roundup", loc:"offline://sources/industry-wire/2026-08-14", ex:"…closed a $22M facility with an undisclosed lender…", at:"2026-08-14T07:00:00Z" },
+    ]},
+];
+
+let PROJECTS = [];
+
+async function api(path, options = {}) {
+  const response = await fetch(path, {
+    ...options,
+    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+  });
+  if (!response.ok) {
+    let message = `Request failed (${response.status})`;
+    try { message = (await response.json()).detail || message; } catch (_) { /* status is enough */ }
+    throw new Error(message);
+  }
+  return response.json();
+}
+
+function displayValue(value) {
+  if (Array.isArray(value)) return value.join(" · ");
+  if (typeof value === "boolean") return value ? "Enabled" : "Disabled";
+  return String(value).replaceAll("_", " ");
+}
+
+function normalizeReview(item) {
+  return {
+    id:item.id, workflow:item.workflow, title:item.title, agent:item.created_by,
+    project:item.project_id, status:item.status, created:item.created_at,
+    by:item.reviewed_by, at:item.reviewed_at, reason:item.review_reason,
+    body:item.body,
+    evidence:item.evidence.map(e => ({
+      id:e.source_id, title:e.title, loc:e.locator, ex:e.excerpt, at:e.retrieved_at,
+    })),
+  };
+}
+
+function securityForConsole(source) {
+  return {
+    defaults: [
+      ["Tool access", displayValue(source.defaults.tool_access), "deny"],
+      ["Writing to outside systems", displayValue(source.defaults.external_writes), "gate"],
+      ["Destructive actions", displayValue(source.defaults.destructive_actions), "gate"],
+      ["Reading across engagements", displayValue(source.defaults.cross_project_retrieval), "deny"],
+      ["Personal data in logs", displayValue(source.defaults.pii_logging), "gate"],
+      ["Production writes", displayValue(source.defaults.production_writes), "deny"],
+    ],
+    auth: [
+      ["Sign-in method", displayValue(source.authentication.protocol)],
+      ["Signature algorithms", displayValue(source.authentication.production_algorithms)],
+      ["Required role", source.authentication.required_group],
+      ["Required claims", `${source.authentication.required_claims.length} verified on every request`],
+    ],
+    tiers: [
+      ["No approval needed", "Reading, searching, summarizing, drafting.", source.approval_tiers.none],
+      ["Manager approval", "Anything that leaves the building or changes a record.", source.approval_tiers.manager],
+      ["Principal approval", "Money, contracts, filings, deletion.", source.approval_tiers.executive],
+    ],
+    retention: [
+      ["Raw prompts", `${source.retention.raw_prompt_days} days`],
+      ["Audit events", `${source.retention.audit_event_days} days`],
+      ["Generated artifacts", `${source.retention.generated_artifact_days} days`],
+    ],
+    runtime: Object.entries(source.runtime_controls).map(([key, value]) =>
+      [key.replaceAll("_", " "), displayValue(value), key.includes("dlp") ? "gate" : ""]),
+  };
+}
+
+async function loadConsoleData() {
+  const bootstrap = await api("/v1/console/bootstrap");
+  const glyphs = ["I","II","III","IV","V","VI","VII","VIII","IX","X","XI","XII"];
+  AGENTS = bootstrap.agents.map((agent, index) => ({
+    id:agent.id, name:agent.name, glyph:glyphs[index] || String(index + 1),
+    owns:agent.owns, bound:agent.boundary, profile:agent.profile,
+  }));
+  BY_ID = Object.fromEntries(AGENTS.map(agent => [agent.id, agent]));
+  SECURITY = securityForConsole(bootstrap.security);
+  INTEGRATIONS = bootstrap.integrations.map(item => ({
+    n:item.name.replaceAll("_", " "), d:item.detail,
+    s:item.status === "pilot" ? "In pilot" : "Planned", live:item.status === "pilot",
+  }));
+  ITEMS = bootstrap.review_items.map(normalizeReview);
+  PROJECTS = bootstrap.projects;
+  NOW = new Date();
+  document.getElementById("consoleWho").textContent = bootstrap.session.display_name;
+  document.getElementById("environmentLabel").textContent = `${bootstrap.session.environment} · API connected`;
+  document.getElementById("qProject").innerHTML = PROJECTS.map(project =>
+    `<option value="${esc(project.id)}">${esc(project.name)} · ${esc(project.phase)}</option>`
+  ).join("");
+}
+
+const EXAMPLES = [
+  "Review the indemnity clause in the Meridian NDA",
+  "What's the entitlement risk on the RiverBend site?",
+  "Draft a fee proposal for a new multifamily engagement",
+  "Summarize this week's competitor news",
+];
+
+/* ===================================================================
+   ROUTING — direct port of Router.route() in src/tessera_os/router.py
+   =================================================================== */
+function routeTask(task) {
+  const norm = task.toLowerCase();
+  const matches = {};
+  for (const [agent, terms] of Object.entries(ROUTES)) {
+    const hit = terms.filter(t => norm.includes(t));
+    if (hit.length) matches[agent] = hit;
+  }
+  const ranked = Object.keys(matches).sort((a,b) =>
+    (matches[b].length - matches[a].length) || a.localeCompare(b));
+  const primary = ranked[0] || FALLBACK;
+  const supporting = ranked.slice(1).filter(a => matches[a].length >= MULTI_THRESHOLD);
+  return { primary, supporting, matches, matched: ranked.length > 0 };
+}
+
+/* ===================================================================
+   HELPERS
+   =================================================================== */
+function ago(iso) {
+  const mins = Math.floor((NOW - new Date(iso)) / 60000);
+  if (mins < 60) return mins <= 1 ? "just now" : mins + " minutes ago";
+  const h = Math.floor(mins / 60);
+  if (h < 24) return h === 1 ? "1 hour ago" : h + " hours ago";
+  const d = Math.floor(h / 24);
+  return d === 1 ? "yesterday" : d + " days ago";
+}
+function waitingDays(iso) { return (NOW - new Date(iso)) / 86400000; }
+// Duration phrasing for items still waiting ("Waiting 2 days"), which reads
+// differently from elapsed phrasing ("yesterday") used on settled items.
+function waitLabel(iso) {
+  const mins = Math.floor((NOW - new Date(iso)) / 60000);
+  if (mins < 60) return mins <= 1 ? "a moment" : mins + " minutes";
+  const h = Math.floor(mins / 60);
+  if (h < 24) return h === 1 ? "1 hour" : h + " hours";
+  const d = Math.floor(h / 24);
+  return d === 1 ? "1 day" : d + " days";
+}
+function absTime(iso) {
+  return new Date(iso).toLocaleString(undefined,
+    { weekday:"short", month:"short", day:"numeric", hour:"numeric", minute:"2-digit" });
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c])); }
+function pill(status) {
+  if (status === "pending")  return '<span class="pill wait">● Waiting</span>';
+  if (status === "accepted") return '<span class="pill ok">✓ Approved</span>';
+  return '<span class="pill stop">✕ Sent back</span>';
+}
+
+/* ===================================================================
+   STATE + RENDER
+   =================================================================== */
+let filter = "pending", selected = null, search = "", pendingReject = null;
+
+const PAGES = {
+  dashboard: ["Overview", "What needs you today"],
+  queue:     ["Review Queue", "Drafts waiting on a decision"],
+  request:   ["Ask", "See who handles a task before it runs"],
+  agents:    ["Specialists", "The twelve agents and where each one stops"],
+  policy:    ["Guardrails", "What the system may and may not do"],
+};
+
+function pendingItems() { return ITEMS.filter(i => i.status === "pending"); }
+
+function switchView(v) {
+  document.querySelectorAll(".navitem").forEach(n => n.classList.toggle("active", n.dataset.view === v));
+  document.querySelectorAll(".view").forEach(el => el.classList.remove("active"));
+  document.getElementById("v-" + v).classList.add("active");
+  document.getElementById("pgTitle").textContent = PAGES[v][0];
+  document.getElementById("pgSub").textContent = PAGES[v][1];
+  document.getElementById("sidebar").classList.remove("open");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function renderCount() {
+  const n = pendingItems().length;
+  const el = document.getElementById("navCount");
+  el.textContent = n;
+  el.classList.toggle("zero", n === 0);
+}
+
+function renderDashboard() {
+  const pend = pendingItems();
+  const oldest = pend.length ? Math.max(...pend.map(i => waitingDays(i.created))) : 0;
+  const stats = [
+    { l:"Waiting on you", n:pend.length, s:pend.length ? "drafts need a decision" : "queue is clear", lead:true },
+    { l:"Longest wait", n: pend.length ? (oldest < 1 ? "<1d" : Math.floor(oldest) + "d") : "—", s:"oldest item in the queue" },
+    { l:"Specialists", n:AGENTS.length, s:"configured and routing" },
+    { l:"Sent externally", n:"None", s:"every output stays internal" },
+  ];
+  document.getElementById("statRow").innerHTML = stats.map(s => `
+    <div class="stat ${s.lead ? "lead" : ""}">
+      <div class="l">${s.l}</div><div class="n">${s.n}</div><div class="s">${s.s}</div>
+    </div>`).join("");
+
+  const sorted = pend.slice().sort((a,b) => new Date(a.created) - new Date(b.created));
+  document.getElementById("attention").innerHTML = sorted.length ? sorted.map(i => {
+    const stale = waitingDays(i.created) >= 2;
+    return `
+    <div class="rq-item" style="margin-top:10px;" onclick="jumpTo('${i.id}')">
+      <div class="r1">
+        <div style="min-width:0;">
+          <div class="t">${esc(i.title)}</div>
+          <div class="m">${esc(BY_ID[i.agent].name)} · ${esc(wf(i.workflow).label)}</div>
+        </div>
+        ${pill(i.status)}
+      </div>
+      <div class="r2">
+        <span class="age ${stale ? "stale" : ""}" title="${absTime(i.created)}">Waiting ${waitLabel(i.created)}</span>
+        <span style="font-size:.7rem;color:var(--muted);">${esc(i.project)}</span>
+      </div>
+    </div>`; }).join("")
+    : `<div class="detail-empty" style="min-height:150px;"><div class="big">✓</div><p>Nothing is waiting. Every draft has been reviewed.</p></div>`;
+}
+
+function jumpTo(id) {
+  selected = id;
+  filter = ITEMS.find(i => i.id === id).status;
+  switchView("queue"); renderQueue();
+}
+
+function renderToolbar() {
+  const c = { pending:0, accepted:0, rejected:0 };
+  ITEMS.forEach(i => c[i.status]++);
+  const chips = [["pending","Waiting",c.pending],["accepted","Approved",c.accepted],
+                 ["rejected","Sent back",c.rejected],["all","All",ITEMS.length]];
+  document.getElementById("rqToolbar").innerHTML =
+    chips.map(([k,l,n]) => `<button class="chip ${filter===k?"active":""}" onclick="setFilter('${k}')">${l} · ${n}</button>`).join("") +
+    `<div class="search-wrap"><span class="icon">⌕</span>
+       <input id="rqSearch" type="text" placeholder="Search the queue…" value="${esc(search)}"
+              oninput="onSearch(this.value)"></div>`;
+}
+function setFilter(k) { filter = k; renderQueue(); }
+function onSearch(v) {
+  search = v; renderQueue();
+  const el = document.getElementById("rqSearch");
+  el.focus(); el.setSelectionRange(el.value.length, el.value.length);
+}
+
+function visibleItems() {
+  const q = search.trim().toLowerCase();
+  return ITEMS
+    .filter(i => filter === "all" || i.status === filter)
+    .filter(i => !q || [i.title, i.project, BY_ID[i.agent].name, wf(i.workflow).label]
+      .join(" ").toLowerCase().includes(q))
+    .sort((a,b) => new Date(b.created) - new Date(a.created));
+}
+
+function renderQueue() {
+  renderToolbar();
+  const items = visibleItems();
+  if (items.length && !items.some(i => i.id === selected)) selected = items[0].id;
+  if (!items.length) selected = null;
+
+  document.getElementById("rqList").innerHTML = items.length ? items.map(i => {
+    const stale = i.status === "pending" && waitingDays(i.created) >= 2;
+    return `
+    <div class="rq-item ${selected===i.id?"selected":""}" onclick="selectItem('${i.id}')">
+      <div class="r1">
+        <div style="min-width:0;">
+          <div class="t">${esc(i.title)}</div>
+          <div class="m">${esc(BY_ID[i.agent].name)} · ${esc(wf(i.workflow).label)}</div>
+        </div>
+        ${pill(i.status)}
+      </div>
+      <div class="r2">
+        <span class="age ${stale?"stale":""}" title="${absTime(i.created)}">${i.status==="pending"?"Waiting "+waitLabel(i.created):ago(i.created)}</span>
+        <span style="font-size:.7rem;color:var(--muted);">${esc(i.project)}</span>
+      </div>
+    </div>`; }).join("")
+    : `<div class="detail-empty" style="min-height:160px;"><p>${search ? "Nothing matches that search." : "Nothing in this view."}</p></div>`;
+
+  renderDetail();
+}
+
+function selectItem(id) {
+  selected = id; renderQueue();
+  // On narrow screens the detail pane sits below the list, so bring it into view.
+  if (window.matchMedia("(max-width: 900px)").matches) {
+    document.getElementById("rqDetail").scrollIntoView({ behavior:"smooth", block:"start" });
+  }
+}
+
+function renderDetail() {
+  const el = document.getElementById("rqDetail");
+  const i = ITEMS.find(x => x.id === selected);
+  if (!i) {
+    el.innerHTML = `<div class="detail-empty">
+        <div class="big">TG</div>
+        <p>Choose an item on the left to read the full draft and the evidence behind it.</p>
+      </div>`;
+    return;
+  }
+  const w = wf(i.workflow);
+  el.innerHTML = `
+    <div class="card-head">
+      <h3>${esc(i.title)}</h3>
+      ${pill(i.status)}
+    </div>
+    <div class="card-body">
+      ${i.status === "pending" ? `
+        <div class="decide-banner">
+          <div class="lbl">What approving means</div>
+          <p>${esc(w.decide)}</p>
+          ${w.group ? `<div class="grp">Reviewer required: <b>${esc(w.group)}</b></div>` : ""}
+        </div>` : ""}
+
+      <div class="meta-grid">
+        <div class="meta-row"><span class="k">Prepared by</span><span class="v">${esc(BY_ID[i.agent].name)}</span></div>
+        <div class="meta-row"><span class="k">Type</span><span class="v">${esc(w.label)}</span></div>
+        <div class="meta-row"><span class="k">Engagement</span><span class="v">${esc(i.project)}</span></div>
+        <div class="meta-row"><span class="k">Submitted</span><span class="v" title="${absTime(i.created)}">${ago(i.created)}</span></div>
+        ${i.by ? `<div class="meta-row"><span class="k">Decided by</span><span class="v">${esc(i.by)}</span></div>
+                  <div class="meta-row"><span class="k">Decided</span><span class="v" title="${absTime(i.at)}">${ago(i.at)}</span></div>` : ""}
+      </div>
+
+      <div class="sec-label">The draft</div>
+      <div class="draft-body">${esc(i.body)}</div>
+
+      ${i.reason ? `<div class="reason-note"><b>Sent back:</b> ${esc(i.reason)}</div>` : ""}
+
+      <div class="sec-label">Evidence behind it · ${i.evidence.length} source${i.evidence.length===1?"":"s"}</div>
+      ${i.evidence.map(e => `
+        <div class="evidence">
+          <div class="e1"><span class="ttl">${esc(e.title)}</span><span class="sid">${esc(e.id)}</span></div>
+          <div class="ex">“${esc(e.ex)}”</div>
+          <div class="loc">${esc(e.loc)} · retrieved ${ago(e.at)}</div>
+        </div>`).join("")}
+
+      ${i.status === "pending" ? `
+        <div class="decide-bar">
+          <button class="btn btn-ok btn-sm" onclick="approve('${i.id}')">✓ Approve</button>
+          <button class="btn btn-stop btn-sm" onclick="openReject('${i.id}')">✕ Send back</button>
+          <span class="hint"><kbd>A</kbd> approve · <kbd>R</kbd> send back</span>
+        </div>` : ""}
+    </div>`;
+}
+
+/* ---------------- decisions + undo ---------------- */
+function approve(id) { decide(id, "accepted", "Approved in the synthetic console"); }
+
+function openReject(id) {
+  pendingReject = id;
+  document.getElementById("rejectReason").value = "";
+  document.getElementById("rejectOverlay").classList.add("open");
+  setTimeout(() => document.getElementById("rejectReason").focus(), 60);
+}
+function closeReject() { pendingReject = null; document.getElementById("rejectOverlay").classList.remove("open"); }
+function confirmReject() {
+  const reason = document.getElementById("rejectReason").value.trim();
+  if (reason.length < 3) {
+    document.getElementById("rejectReason").focus();
+    document.getElementById("rejectReason").placeholder = "A reason of at least three characters is required.";
+    return;
+  }
+  const id = pendingReject;
+  closeReject();
+  decide(id, "rejected", reason);
+}
+
+async function decide(id, decisionStatus, reason) {
+  const i = ITEMS.find(x => x.id === id);
+  if (!i || i.status !== "pending") return;
+  try {
+    const updated = await api(`/v1/reviews/${encodeURIComponent(id)}/${decisionStatus === "accepted" ? "accept" : "reject"}`, {
+      method:"POST", body:JSON.stringify({ reason }),
+    });
+    ITEMS = ITEMS.map(candidate => candidate.id === id ? normalizeReview(updated) : candidate);
+    renderAll();
+    toast(decisionStatus === "accepted" ? "Approved" : "Sent back", i.title);
+  } catch (error) {
+    toast("Decision failed", error.message);
+  }
+}
+
+function toast(head, sub, undo) {
+  const wrap = document.getElementById("toasts");
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.innerHTML = `<div class="msg">${esc(head)}<small>${esc(sub)}</small></div>`;
+  if (undo) {
+    const btn = document.createElement("button");
+    btn.className = "undo"; btn.textContent = "Undo";
+    btn.onclick = () => { undo(); el.remove(); };
+    el.appendChild(btn);
+  }
+  wrap.appendChild(el);
+  setTimeout(() => el.remove(), 8000);
+}
+
+/* ---------------- other views ---------------- */
+function renderAgents() {
+  document.getElementById("agentGrid").innerHTML = AGENTS.map(a => `
+    <div class="agent">
+      <span class="glyph">${a.glyph}</span>
+      <h3>${esc(a.name)}</h3>
+      <div class="owns">${esc(a.owns)}</div>
+      <div class="bound"><b>Stops before</b>${esc(a.bound)}</div>
+    </div>`).join("");
+}
+
+function renderPolicy() {
+  document.getElementById("pDefaults").innerHTML = SECURITY.defaults.map(([k,v,c]) =>
+    `<div class="dl-row"><span class="k">${k}</span><span class="v ${c||""}">${v}</span></div>`).join("");
+  document.getElementById("pAuth").innerHTML = SECURITY.auth.map(([k,v]) =>
+    `<div class="dl-row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join("");
+  document.getElementById("pTiers").innerHTML = SECURITY.tiers.map(([n,d,tags]) => `
+    <div class="tier"><div class="tn">${n}</div><div class="td">${d}</div>
+      <div>${tags.map(t => `<span class="tag">${t}</span>`).join("")}</div></div>`).join("");
+  document.getElementById("pRet").innerHTML = SECURITY.retention.map(([k,v]) =>
+    `<div class="dl-row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join("");
+  document.getElementById("pRun").innerHTML = SECURITY.runtime.map(([k,v,c]) =>
+    `<div class="dl-row"><span class="k">${k}</span><span class="v ${c||""}">${v}</span></div>`).join("");
+  document.getElementById("pIntg").innerHTML = INTEGRATIONS.map(i => `
+    <div class="intg">
+      <div><div class="n">${esc(i.n)}</div><div class="d">${esc(i.d)}</div></div>
+      <span class="pill ${i.live?"wait":""}" ${i.live?"":'style="color:var(--muted);border-color:var(--line);"'}>${esc(i.s)}</span>
+    </div>`).join("");
+}
+
+async function renderRoute() {
+  const task = document.getElementById("qTask").value.trim();
+  const project = document.getElementById("qProject").value;
+  if (!task) return;
+  const button = document.getElementById("qGo");
+  button.disabled = true;
+  let r;
+  try {
+    const envelope = await api("/v1/route", {
+      method:"POST", body:JSON.stringify({ task, project_id:project }),
+    });
+    const decision = envelope.decision;
+    r = { primary:decision.primary_agent, supporting:decision.supporting_agents,
+          matches:decision.matched_terms, matched:Object.keys(decision.matched_terms).length > 0 };
+  } catch (error) {
+    document.getElementById("qResult").innerHTML = `<div class="reason-note"><b>API unavailable:</b> ${esc(error.message)}</div>`;
+    button.disabled = false;
+    return;
+  }
+  button.disabled = false;
+  const a = BY_ID[r.primary];
+  document.getElementById("qResult").innerHTML = `
+    <div class="route-hero">
+      <div class="glyph">${a.glyph}</div>
+      <div style="min-width:0;">
+        <div class="who">${esc(a.name)}</div>
+        <div class="why">${r.matched
+          ? "Matched on " + esc(r.matches[r.primary].join(", "))
+          : "No specialist keywords matched, so this falls to the Knowledge Manager"} · ${esc(project)}</div>
+      </div>
+    </div>
+    <div style="margin-top:16px;">
+      <div class="meta-row"><span class="k">Stops before</span><span class="v">${esc(a.bound)}</span></div>
+      <div class="meta-row"><span class="k">Also involved</span><span class="v">${
+        r.supporting.length ? r.supporting.map(s => esc(BY_ID[s].name)).join(", ") : "No one else"}</span></div>
+    </div>
+    ${Object.keys(r.matches).length ? `
+      <div class="sec-label">Why it routed this way</div>
+      ${Object.entries(r.matches).map(([id, terms]) => `
+        <div style="margin-bottom:9px;font-size:.8rem;">
+          <span style="color:var(--cream);">${esc(BY_ID[id].name)}</span>
+          ${terms.map(t => `<span class="term">${esc(t)}</span>`).join("")}
+        </div>`).join("")}` : ""}`;
+}
+
+function renderExamples() {
+  document.getElementById("examples").innerHTML = EXAMPLES.map(e =>
+    `<button class="example-chip" onclick="useExample(this)">${esc(e)}</button>`).join("");
+}
+function useExample(btn) {
+  document.getElementById("qTask").value = btn.textContent;
+  renderRoute();
+}
+
+/* ---------------- help ---------------- */
+function openHelp() { document.getElementById("helpOverlay").classList.add("open"); }
+function closeHelp() { document.getElementById("helpOverlay").classList.remove("open"); }
+
+/* ---------------- keyboard ---------------- */
+document.addEventListener("keydown", e => {
+  const typing = /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
+  if (e.key === "Escape") { closeReject(); closeHelp(); if (typing) document.activeElement.blur(); return; }
+  if (typing) return;
+  if (e.key === "?") { openHelp(); return; }
+  if (document.getElementById("rejectOverlay").classList.contains("open")) return;
+
+  const onQueue = document.getElementById("v-queue").classList.contains("active");
+  if (!onQueue) return;
+
+  if (e.key === "/") { e.preventDefault(); document.getElementById("rqSearch")?.focus(); return; }
+  const items = visibleItems();
+  const idx = items.findIndex(i => i.id === selected);
+  if (e.key === "j" || e.key === "J") { e.preventDefault(); if (items[idx+1]) selectItem(items[idx+1].id); }
+  if (e.key === "k" || e.key === "K") { e.preventDefault(); if (items[idx-1]) selectItem(items[idx-1].id); }
+  if ((e.key === "a" || e.key === "A") && selected) { e.preventDefault(); approve(selected); }
+  if ((e.key === "r" || e.key === "R") && selected) { e.preventDefault(); openReject(selected); }
+});
+
+/* ---------------- boot ---------------- */
+document.querySelectorAll(".navitem").forEach(n =>
+  n.addEventListener("click", () => switchView(n.dataset.view)));
+document.getElementById("qGo").addEventListener("click", renderRoute);
+
+function renderAll() { renderCount(); renderDashboard(); renderQueue(); }
+async function initializeConsole() {
+  await loadConsoleData();
+  renderAll();
+  renderAgents();
+  renderPolicy();
+  renderExamples();
+  await renderRoute();
+}
+initializeConsole().catch(error => {
+  document.getElementById("environmentLabel").textContent = "API unavailable";
+  document.getElementById("attention").innerHTML =
+    `<div class="reason-note"><b>Could not connect:</b> ${esc(error.message)}. Start the service with <code>tessera serve</code>.</div>`;
+});
+</script>
+</body>
+</html>

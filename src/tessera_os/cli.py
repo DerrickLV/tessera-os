@@ -53,6 +53,9 @@ def main() -> None:
     run.add_argument("--user-id", required=True)
     commands.add_parser("policy", help="Show the active security policy (config/security.yaml)")
     commands.add_parser("integrations", help="Show integration status (config/integrations.yaml)")
+    serve = commands.add_parser("serve", help="Run the synthetic localhost operator console")
+    serve.add_argument("--host", default="127.0.0.1", choices=["127.0.0.1", "localhost"])
+    serve.add_argument("--port", default=8000, type=int)
     args = parser.parse_args()
 
     if args.command == "policy":
@@ -60,6 +63,15 @@ def main() -> None:
         return
     if args.command == "integrations":
         _print_integrations()
+        return
+    if args.command == "serve":
+        if os.getenv("TESSERA_ENV", "sandbox") not in {"sandbox", "test"}:
+            raise RuntimeError("The synthetic console only runs in sandbox or test")
+        os.environ.setdefault("TESSERA_ENV", "sandbox")
+        import uvicorn
+
+        uvicorn.run("tessera_os.console:create_console_app", factory=True,
+                    host=args.host, port=args.port)
         return
 
     orchestrator = TesseraOrchestrator()

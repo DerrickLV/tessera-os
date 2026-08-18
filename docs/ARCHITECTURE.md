@@ -108,6 +108,19 @@ managed key service, durable database, centralized monitoring, backups, or incid
 ownership. Those administrator and human-validation gates are tracked in
 `PRODUCTION_GATE_CHECKLIST.md`.
 
+## Synthetic operator console
+
+`tessera serve` binds the console to localhost and serves `web/tessera-console.html`
+from the same FastAPI origin as the API. `console.py` provides a fixed synthetic
+identity, scoped project catalog, registry and configuration views, deterministic
+routing, and the durable review queue. It rejects bearer tokens to prevent a real
+credential from being pasted into the sandbox and refuses to start when
+`TESSERA_ENV=production`. Console state is stored only under ignored `data/runtime/`.
+
+The sandbox console is an operator-evaluation surface, not a substitute for the OIDC
+boundary in `service.py`. Production deployments must use `create_app()` with managed
+authentication and storage rather than `create_console_app()`.
+
 Phase 5 does not weaken this boundary. Its only executable adapter is an in-memory
 synthetic record store whose targets must use `synthetic://`. Production action
 adapters, credentials, and irreversible workflows are intentionally absent.

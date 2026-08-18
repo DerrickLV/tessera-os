@@ -1,0 +1,64 @@
+{
+  "notice": "All organizations, projects, people, records, dates, and amounts are synthetic.",
+  "clients": [
+    {"id": "client-riverbend", "name": "RiverBend Residential (Synthetic)"},
+    {"id": "client-meridian", "name": "Meridian Capital (Synthetic)"},
+    {"id": "client-harbor", "name": "Harbor Logistics (Synthetic)"},
+    {"id": "client-internal", "name": "Tessera Internal Sandbox"}
+  ],
+  "projects": [
+    {"id": "riverbend-multifamily", "client_id": "client-riverbend", "name": "RiverBend Multifamily", "phase": "entitlement", "status": "active", "manager_agent_id": "development_manager", "summary": "Synthetic 84-unit planning and entitlement exercise."},
+    {"id": "meridian-capital-intro", "client_id": "client-meridian", "name": "Meridian Capital Introduction", "phase": "contracting", "status": "active", "manager_agent_id": "contract_manager", "summary": "Synthetic NDA and commercial review exercise."},
+    {"id": "harbor-logistics-refi", "client_id": "client-harbor", "name": "Harbor Logistics Refinance", "phase": "underwriting", "status": "active", "manager_agent_id": "capital_manager", "summary": "Synthetic diligence and refinancing exercise."},
+    {"id": "internal-ops", "client_id": "client-internal", "name": "Internal Operations", "phase": "operations", "status": "active", "manager_agent_id": "executive_assistant", "summary": "Synthetic internal briefing and intelligence exercise."}
+  ],
+  "review_items": [
+    {
+      "id": "rq-1041", "tenant_id": "tenant-synthetic", "workflow": "morning_briefing", "title": "Weekly Priorities Briefing — Aug 18", "created_by": "executive_assistant", "project_id": "internal-ops", "status": "pending", "created_at": "2026-08-18T12:05:00Z",
+      "body": "Three synthetic commitments carry over: a fee proposal, an NDA review, and a diligence summary. Two new synthetic follow-ups remain unread. DRAFT — HUMAN REVIEW REQUIRED.",
+      "evidence": [
+        {"source_id": "cal-2216", "title": "Synthetic calendar — this week", "locator": "offline://console/calendar/week", "excerpt": "Synthetic client call — Thursday at 2:00pm", "retrieved_at": "2026-08-18T11:40:00Z"},
+        {"source_id": "mail-8834", "title": "Synthetic counsel follow-up", "locator": "offline://console/mail/8834", "excerpt": "Following up on the synthetic NDA draft...", "retrieved_at": "2026-08-18T11:41:00Z"}
+      ]
+    },
+    {
+      "id": "rq-1042", "tenant_id": "tenant-synthetic", "workflow": "proposal_review", "title": "RiverBend Multifamily — Fee Proposal v2", "created_by": "proposal_manager", "project_id": "riverbend-multifamily", "status": "pending", "created_at": "2026-08-18T09:22:00Z", "required_reviewer_group": "proposal_approver",
+      "body": "Synthetic scope: feasibility review, entitlement strategy memo, and capital-readiness assessment. Synthetic fee: $42,000 in three milestone payments. DRAFT — HUMAN REVIEW REQUIRED.",
+      "evidence": [
+        {"source_id": "fee-sched-2026-q3", "title": "Synthetic approved fee schedule", "locator": "offline://console/fees/2026-q3", "excerpt": "Synthetic feasibility and entitlement range: $38k–$46k", "retrieved_at": "2026-08-17T16:00:00Z"},
+        {"source_id": "tmpl-fee-v4", "title": "Synthetic proposal template v4", "locator": "offline://console/templates/proposal-v4", "excerpt": "Standard synthetic 30/40/30 milestone structure", "retrieved_at": "2026-08-17T16:02:00Z"}
+      ]
+    },
+    {
+      "id": "rq-1043", "tenant_id": "tenant-synthetic", "workflow": "contract_review", "title": "NDA Review — Meridian Capital", "created_by": "contract_manager", "project_id": "meridian-capital-intro", "status": "pending", "created_at": "2026-08-17T15:48:00Z", "required_reviewer_group": "qualified_counsel",
+      "body": "Synthetic issue: the non-solicit term is 36 months while the approved playbook range is 12–18 months. Recommend qualified counsel review before any external use. DRAFT — NOT LEGAL ADVICE.",
+      "evidence": [
+        {"source_id": "playbook-nda-v3", "title": "Synthetic NDA playbook v3", "locator": "offline://console/playbooks/nda-v3", "excerpt": "Synthetic standard: 12–18 months; escalate beyond 24", "retrieved_at": "2026-08-17T15:30:00Z"},
+        {"source_id": "doc-meridian-nda", "title": "Synthetic draft NDA", "locator": "offline://console/contracts/nda-v1", "excerpt": "Section 4(b): thirty-six (36) months", "retrieved_at": "2026-08-17T15:31:00Z"}
+      ]
+    },
+    {
+      "id": "rq-1044", "tenant_id": "tenant-synthetic", "workflow": "capital_underwriting_review", "title": "Underwriting Reconciliation — Harbor Logistics", "created_by": "capital_manager", "project_id": "harbor-logistics-refi", "status": "pending", "created_at": "2026-08-16T18:10:00Z", "required_reviewer_group": "investment_reviewer",
+      "body": "Synthetic reconciliation: DSCR differs by 0.03x because one model omits a synthetic insurance escalation. The downside case remains above its synthetic covenant threshold. DRAFT — INVESTMENT REVIEW REQUIRED.",
+      "evidence": [
+        {"source_id": "model-lender-v2", "title": "Synthetic lender model v2", "locator": "offline://console/models/lender-v2", "excerpt": "Synthetic insurance: $61,200 per year", "retrieved_at": "2026-08-16T17:50:00Z"},
+        {"source_id": "model-internal-v5", "title": "Synthetic internal model v5", "locator": "offline://console/models/internal-v5", "excerpt": "Synthetic insurance: $75,400 per year", "retrieved_at": "2026-08-16T17:52:00Z"}
+      ]
+    },
+    {
+      "id": "rq-1045", "tenant_id": "tenant-synthetic", "workflow": "due_diligence_review", "title": "Synthetic Ownership and Litigation Summary", "created_by": "due_diligence_manager", "project_id": "harbor-logistics-refi", "status": "accepted", "created_at": "2026-08-14T10:00:00Z", "reviewed_by": "synthetic-reviewer-b", "reviewed_at": "2026-08-14T16:20:00Z", "review_reason": "Synthetic evidence and uncertainty labels reviewed.", "required_reviewer_group": "diligence_reviewer",
+      "body": "Verified synthetic facts and open items are separated from one uncorroborated allegation. DRAFT — NO EXTERNAL RELEASE.",
+      "evidence": [
+        {"source_id": "sos-filing-2026", "title": "Synthetic registry filing", "locator": "offline://console/records/registry", "excerpt": "Synthetic ownership record", "retrieved_at": "2026-08-14T09:20:00Z"},
+        {"source_id": "court-search-2026", "title": "Synthetic litigation search", "locator": "offline://console/records/litigation", "excerpt": "No synthetic open matters found", "retrieved_at": "2026-08-14T09:25:00Z"}
+      ]
+    },
+    {
+      "id": "rq-1046", "tenant_id": "tenant-synthetic", "workflow": "intelligence_brief_review", "title": "Synthetic Financing Activity — Weekly Brief", "created_by": "intelligence_agent", "project_id": "internal-ops", "status": "rejected", "created_at": "2026-08-13T08:00:00Z", "reviewed_by": "synthetic-reviewer-b", "reviewed_at": "2026-08-13T11:15:00Z", "review_reason": "Single-sourced; wait for synthetic corroboration.", "required_reviewer_group": "intelligence_reviewer",
+      "body": "One synthetic source reports financing activity. No second source corroborates it, so the item is excluded from decision support.",
+      "evidence": [
+        {"source_id": "src-industry-wire-0814", "title": "Synthetic industry wire", "locator": "offline://console/sources/industry-wire", "excerpt": "Synthetic financing report", "retrieved_at": "2026-08-14T07:00:00Z"}
+      ]
+    }
+  ]
+}
