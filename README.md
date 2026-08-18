@@ -1,15 +1,18 @@
 # Tessera OS
 
 Tessera OS is an AI operating system for development, construction management,
-capital, advisory, and internal operations. This repository is the Phase 2
-read-only pilot: a policy-aware orchestrator, twelve specialist agents,
-ACL-preserving retrieval, human review workflows, shared schemas, and prompts.
+capital, advisory, and internal operations. This repository includes the Phase 2
+read-only pilot and Phase 3A Proposal Manager foundation: a policy-aware
+orchestrator, twelve specialist agents, ACL-preserving retrieval, human review
+workflows, shared schemas, and offline document drafting.
 
 ## Status
 
-**Stage:** Phase 2 — Read-only pilot  
-**Current milestone:** ACL-preserving retrieval and human review workflows  
-**Safety posture:** Read-only by default; external writes require explicit approval
+**Stage:** Phase 3A — Proposal Manager foundation
+
+**Current milestone:** Cited, versioned, Word-ready proposal drafts
+
+**Safety posture:** Offline and draft-only; external delivery is disabled
 
 ## What is included
 
@@ -20,6 +23,14 @@ ACL-preserving retrieval, human review workflows, shared schemas, and prompts.
 - A local CLI and smoke tests that run without API credentials
 - Read-only Microsoft Graph/SharePoint adapter, ACL-preserving knowledge index,
   and durable review queue for morning briefing and project-status drafts
+- Client/project-scoped approved proposal language, versioned templates, and
+  versioned approved fee schedules
+- Structured proposal scope, deliverables, exclusions, assumptions, schedule,
+  staffing, and pricing with source-linked citations
+- Proposal version comparison, review-queue submission, and deterministic DOCX
+  generation suitable for Word
+- Synthetic proposal fixtures for two fictional clients and multiple projects,
+  plus isolation, hallucination, pricing, injection, citation, and delivery tests
 - Architecture, governance, and phased implementation documentation
 
 ## Quick start
@@ -56,6 +67,7 @@ prompts/             Versioned orchestrator and specialist instructions
 specs/agents/        Human-readable agent charters and acceptance criteria
 src/tessera_os/      Runnable Python package
 tests/               Offline routing and registry tests
+fixtures/proposals/  Synthetic Phase 3A clients, language, templates, and fees
 ```
 
 ## Design principles
@@ -74,6 +86,7 @@ tests/               Offline routing and registry tests
 - [Implementation roadmap](docs/ROADMAP.md)
 - [Integration contracts](docs/INTEGRATIONS.md)
 - [Pilot operations](docs/PILOT_OPERATIONS.md)
+- [Phase 3A readiness report](docs/PHASE_3A_READINESS_REPORT.md)
 - [Contributing](CONTRIBUTING.md)
 
 ## License

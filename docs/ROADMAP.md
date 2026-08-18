@@ -39,14 +39,34 @@ fail-closed ACL-preserving knowledge index, cited draft workflows, and a durable
 SQLite review queue. Production exit criteria still require tenant-specific app
 registration, approved SharePoint sites, pilot acceptance, and measured budgets.
 
-## Phase 3 — High-value document workflows
+## Phase 3A — Proposal Manager foundation (implemented; pilot validation pending)
 
-**Recommended agents:** Proposal, Contract, and Due Diligence Managers.
+**Recommended agent:** Proposal Manager.
+
+**Exit criteria:** reviewer time reduction demonstrated; unsupported-claim and
+citation targets met; every proposal remains internal until a future delivery
+control is separately designed, approved, and tested.
+
+- Implemented approved proposal-language records with tenant, client, and project access controls.
+- Implemented versioned proposal templates and approved, effective-dated fee schedules.
+- Added typed scope, deliverable, exclusion, assumption, schedule, staffing, and pricing models.
+- Added deterministic cited draft generation, version comparison, human review submission,
+  and Word-ready DOCX artifacts.
+- Added two-client, multiple-project synthetic fixtures and policy regression tests.
+- External delivery remains disabled; all outputs are draft-only and offline.
+
+Production exit criteria still require representative human acceptance testing,
+measured reviewer-time savings, model-quality evaluation if model drafting is added,
+retention/backup controls, and a separately approved outbound-delivery design.
+
+## Phase 3B — Contract and Due Diligence document workflows (not started)
+
+**Recommended agents:** Contract and Due Diligence Managers.
 
 **Exit criteria:** reviewer time reduction demonstrated; issue-recall and unsupported-
 claim targets met; every outbound artifact passes human approval.
 
-- Version proposal components, fee rules, and clause playbooks.
+- Version clause playbooks and diligence taxonomies.
 - Add document comparison, structured extraction, and source-linked reports.
 - Add legal/commercial and diligence-specific evaluation suites.
 

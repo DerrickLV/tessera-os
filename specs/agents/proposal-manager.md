@@ -14,6 +14,12 @@
 4. Identify risk, ownership, timing, dependencies, and any approval packet.
 5. Return the result for orchestrator synthesis; do not perform approval-gated actions.
 
+Phase 3A uses only approved, versioned language, templates, and effective fee
+schedules available to the authenticated tenant, client, and project. Every
+material drafted item must cite an authorized source. Drafts enter the internal
+human review queue and may be rendered as Word-ready artifacts, but external
+delivery remains disabled even after internal acceptance.
+
 ## Acceptance criteria
 
 No invented credentials or price authority; exclusions and assumptions are explicit; external delivery is approval-gated.

@@ -43,10 +43,14 @@ later only for workflows whose ownership truly transfers.
 - **Registry:** loads versioned agent manifests and prompt locations.
 - **Router:** transparent keyword baseline suitable for offline tests.
 - **Orchestrator:** chooses a specialist and controls live execution.
-- **Policy gateway (next):** evaluates identity, scope, action, sensitivity, and risk.
+- **Policy boundaries:** evaluate identity, tenant/client/project scope, approval,
+  approved proposal content, and fee authority before use.
 - **Tool adapters (next):** typed read/write interfaces with idempotency and audit IDs.
-- **Knowledge plane (next):** tenant/project-filtered retrieval with source ACLs.
-- **Evaluation harness (next):** golden tasks, policy attacks, and regression scoring.
+- **Knowledge plane:** tenant/project-filtered retrieval with source ACLs.
+- **Proposal plane:** access-controlled language, versioned templates, fee schedules,
+  typed sections, citations, comparisons, internal review, and DOCX generation.
+- **Evaluation harness:** offline regression tests for routing, policy attacks,
+  isolation, citations, approvals, and proposal commercial controls.
 
 ## Data model
 
