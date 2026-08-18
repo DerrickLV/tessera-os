@@ -55,6 +55,9 @@ later only for workflows whose ownership truly transfers.
   schedules/costs, immutable baselines, safety escalation, and deterministic variance.
 - **Capital plane:** reconciled model versions, deterministic underwriting metrics,
   covenant monitoring, sensitivities, and investment-review queues.
+- **Sandbox action plane:** versioned low-risk workflows, exact approval packets,
+  separation of duties, signed single-use tokens, idempotency and precondition checks,
+  reversible receipts, kill switches, dead letters, monitoring, and tamper-evident audit.
 - **Evaluation harness:** offline regression tests for routing, policy attacks,
   isolation, citations, approvals, and proposal commercial controls.
 
@@ -70,3 +73,7 @@ The included runtime is intentionally a starter. Before production, add durable
 identity, tenant isolation, encrypted secrets, retrieval ACL enforcement, approval
 state, audit storage, integration retries, rate limits, data-loss prevention, and
 operational monitoring.
+
+Phase 5 does not weaken this boundary. Its only executable adapter is an in-memory
+synthetic record store whose targets must use `synthetic://`. Production action
+adapters, credentials, and irreversible workflows are intentionally absent.
