@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+from collections.abc import Callable
 from typing import Annotated
 from uuid import UUID, uuid4
 
@@ -96,15 +97,20 @@ class RouteEnvelope(BaseModel):
 def create_app(*, auth_settings: AuthSettings | None = None,
                audit_store: RuntimeAuditStore | None = None,
                rate_limiter: RateLimiter | None = None,
-               registry: AgentRegistry | None = None) -> FastAPI:
+               registry: AgentRegistry | None = None,
+               context_provider: Callable[..., UserContext] | None = None,
+               enable_docs: bool = False) -> FastAPI:
     settings = auth_settings or AuthSettings.from_environment()
-    authenticator = JWTAuthenticator(settings)
+    authenticator = context_provider or JWTAuthenticator(settings)
     registry = registry or AgentRegistry()
     orchestrator = TesseraOrchestrator(registry=registry)
     gateway = PolicyGateway()
     audit_store = audit_store or RuntimeAuditStore("tessera-runtime.db")
     rate_limiter = rate_limiter or RateLimiter()
-    app = FastAPI(title="Tessera OS", version="0.7.0", docs_url=None, redoc_url=None)
+    app = FastAPI(title="Tessera OS", version="0.8.0",
+                  docs_url="/api/docs" if enable_docs else None,
+                  redoc_url=None,
+                  openapi_url="/api/openapi.json" if enable_docs else None)
 
     @app.get("/health")
     def health() -> dict[str, str]:

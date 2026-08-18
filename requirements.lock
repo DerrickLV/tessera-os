@@ -222,7 +222,9 @@ typing-inspection==0.4.4
 urllib3==2.7.0
     # via requests
 uvicorn==0.52.3
-    # via mcp
+    # via
+    #   mcp
+    #   tessera-os (pyproject.toml)
 websockets==16.1.1
     # via openai-agents
 

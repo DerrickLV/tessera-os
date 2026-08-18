@@ -3,12 +3,13 @@
 import json
 from pathlib import Path
 
+from .paths import project_root
 from .schemas import RouteDecision
 
 
 class Router:
     def __init__(self, config_path: Path | None = None) -> None:
-        root = Path(__file__).resolve().parents[2]
+        root = project_root()
         data = json.loads((config_path or root / "config/routing.json").read_text())
         self.routes: dict[str, list[str]] = data["routes"]
         self.fallback: str = data["fallback"]

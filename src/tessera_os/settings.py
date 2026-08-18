@@ -23,7 +23,7 @@ from typing import Any
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
-_CONFIG_DIR = Path(__file__).resolve().parents[2] / "config"
+from .paths import project_root
 
 # Matches shell-style ${NAME:-default} and ${NAME} placeholders used in the
 # YAML config (e.g. config/models.yaml's `${TESSERA_MODEL_DEFAULT:-gpt-5.6-terra}`).
@@ -146,7 +146,7 @@ class IntegrationSettings(BaseModel):
 
 
 def _load(filename: str, model: type[BaseModel], *, config_dir: Path | None = None) -> BaseModel:
-    path = (config_dir or _CONFIG_DIR) / filename
+    path = (config_dir or project_root() / "config") / filename
     data = yaml.safe_load(path.read_text()) or {}
     data = _resolve_env_placeholders(data)
     return model.model_validate(data)

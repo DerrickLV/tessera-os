@@ -183,6 +183,21 @@ Production exit requires representative acceptance testing, approved source and 
 governance, isolated CI infrastructure, repository identity and permission design,
 measured quality/cost/latency targets, and separate approval for every external action.
 
+## Operator console integration (synthetic foundation implemented)
+
+- Added a localhost-only FastAPI console with a fixed synthetic identity and explicit
+  refusal to run in production or accept bearer credentials.
+- Added scoped synthetic clients and projects, agent/configuration discovery,
+  deterministic routing, dashboard status, review filtering, and durable qualified
+  accept/reject decisions.
+- Connected the browser console to live API calls, removed real-person display names,
+  escaped evidence content, and kept all external delivery and writes disabled.
+- Added OpenAPI documentation and API/browser-contract regression coverage.
+
+Production UI exit criteria remain real OIDC integration, accessibility and human
+acceptance testing, deployed storage and observability, session/CSRF design, security
+review, and completion of `PRODUCTION_GATE_CHECKLIST.md`.
+
 ## Initial backlog
 
 1. Completed: define `tenant_id` and project ACL contracts across shared schemas.

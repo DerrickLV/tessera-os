@@ -56,13 +56,57 @@ class ReviewQueue:
         return item
 
     def list_pending(self, *, context: UserContext) -> list[ReviewItem]:
+        return self.list_items(context=context, status=ReviewStatus.PENDING)
+
+    def list_items(self, *, context: UserContext,
+                   status: ReviewStatus | None = None) -> list[ReviewItem]:
         with self._connect() as connection:
-            rows = connection.execute(
-                "SELECT * FROM review_items WHERE tenant_id = ? AND status = ? ORDER BY created_at",
-                (context.tenant_id, ReviewStatus.PENDING.value)).fetchall()
+            if status is None:
+                rows = connection.execute(
+                    "SELECT * FROM review_items WHERE tenant_id = ? ORDER BY created_at DESC",
+                    (context.tenant_id,)).fetchall()
+            else:
+                rows = connection.execute(
+                    "SELECT * FROM review_items WHERE tenant_id = ? AND status = ? "
+                    "ORDER BY created_at DESC", (context.tenant_id, status.value)).fetchall()
         return [self._decode(row) for row in rows
                 if (row["project_id"] is None and row["created_by"] == context.user_id)
                 or row["project_id"] in context.project_ids]
+
+    def get(self, item_id: str, *, context: UserContext) -> ReviewItem:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM review_items WHERE id = ?", (item_id,)).fetchone()
+        if row is None:
+            raise KeyError(item_id)
+        if row["tenant_id"] != context.tenant_id:
+            raise ReviewAccessDenied("Review item belongs to another tenant")
+        if row["project_id"] is None:
+            authorized = row["created_by"] == context.user_id
+        else:
+            authorized = row["project_id"] in context.project_ids
+        if not authorized:
+            raise ReviewAccessDenied("Review item is outside authenticated scope")
+        return self._decode(row)
+
+    def seed(self, items: list[ReviewItem]) -> int:
+        """Insert deterministic synthetic fixtures without replacing existing decisions."""
+        inserted = 0
+        with self._connect() as connection:
+            for item in items:
+                cursor = connection.execute("""INSERT OR IGNORE INTO review_items
+                    (id, tenant_id, project_id, created_by, workflow, title, body,
+                     evidence_json, status, created_at, reviewed_by, reviewed_at,
+                     review_reason, required_reviewer_group)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (item.id, item.tenant_id, item.project_id, item.created_by,
+                     item.workflow, item.title, item.body,
+                     json.dumps([e.model_dump(mode="json") for e in item.evidence]),
+                     item.status.value, item.created_at.isoformat(), item.reviewed_by,
+                     item.reviewed_at.isoformat() if item.reviewed_at else None,
+                     item.review_reason, item.required_reviewer_group))
+                inserted += cursor.rowcount
+        return inserted
 
     def accept(self, *, item_id: str, context: UserContext, reason: str) -> ReviewItem:
         return self._transition(item_id=item_id, context=context,
