@@ -76,6 +76,7 @@ def is_stale(item: Evidence, *, now: datetime, freshness_days: int) -> bool:
 
 class DraftManagerBase:
     workflow: str
+    reviewer_group: str | None = None
 
     def __init__(self, *, review_queue: ReviewQueue, freshness_days: int = 45) -> None:
         self.review_queue = review_queue
@@ -87,7 +88,8 @@ class DraftManagerBase:
             raise ScopeDenied("Draft is outside the authenticated scope")
         return self.review_queue.submit(tenant_id=tenant_id, project_id=project_id,
             created_by=context.user_id, workflow=self.workflow, title=title,
-            body=body, evidence=evidence)
+            body=body, evidence=evidence,
+            required_reviewer_group=self.reviewer_group)
 
     @staticmethod
     def request_external_action(action: str) -> None:

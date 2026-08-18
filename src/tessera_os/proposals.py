@@ -344,7 +344,8 @@ class ProposalManager:
             raise ScopeDenied("Draft is outside the authenticated scope")
         return self.review_queue.submit(tenant_id=draft.tenant_id, project_id=draft.project_id,
             created_by=context.user_id, workflow="proposal_review", title=draft.title,
-            body=self.to_markdown(draft), evidence=draft.evidence)
+            body=self.to_markdown(draft), evidence=draft.evidence,
+            required_reviewer_group="proposal_approver")
 
     @staticmethod
     def request_external_delivery(*, review_item: ReviewItem) -> None:

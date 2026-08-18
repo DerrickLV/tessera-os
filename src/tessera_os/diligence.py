@@ -103,6 +103,7 @@ class DiligenceLibrary:
 
 class DueDiligenceManager(DraftManagerBase):
     workflow = "due_diligence_review"
+    reviewer_group = "diligence_reviewer"
 
     def __init__(self, *, library: DiligenceLibrary, review_queue,
                  freshness_days: int = 90) -> None:

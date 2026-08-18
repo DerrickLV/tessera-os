@@ -475,7 +475,8 @@ class DevelopmentManager:
             raise ScopeDenied("Development draft is outside the authenticated scope")
         return self.review_queue.submit(tenant_id=draft.tenant_id, project_id=draft.project_id,
             created_by=context.user_id, workflow="development_stage_gate_review",
-            title=draft.title, body=self.to_markdown(draft), evidence=draft.evidence)
+            title=draft.title, body=self.to_markdown(draft), evidence=draft.evidence,
+            required_reviewer_group="development_approver")
 
     def request_baseline_change(self, *, context: UserContext, client_id: str,
                                 project_id: str, rationale: str) -> ReviewItem:
@@ -483,7 +484,8 @@ class DevelopmentManager:
         return self.review_queue.submit(tenant_id=context.tenant_id, project_id=project_id,
             created_by=context.user_id, workflow="development_baseline_change_request",
             title=f"Baseline change request — {dataset.project.name}",
-            body=f"DRAFT — NO BASELINE MODIFIED\n\nRationale: {rationale}", evidence=[])
+            body=f"DRAFT — NO BASELINE MODIFIED\n\nRationale: {rationale}", evidence=[],
+            required_reviewer_group="development_approver")
 
     @staticmethod
     def request_external_action(action: str) -> None:

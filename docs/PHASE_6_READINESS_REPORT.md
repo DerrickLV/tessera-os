@@ -41,12 +41,15 @@ repository writes, pull-request creation, releases, deployments, or artifact act
 
 ## Verification
 
-Ruff and all 85 offline repository tests pass. Phase 6 tests cover two synthetic clients
-and multiple projects, access isolation, stale evidence, digest tampering, unlicensed
-sources, missing corroboration, source diversity, prompt injection, review queues,
-path traversal, out-of-scope files, failed CI, dependency/configuration/destructive
-changes, repository and deployment bypasses, quality/security/cost/latency regressions,
-evaluation cadence, citation integrity, and activation bypass.
+Phase 6 originally passed 107 offline repository tests. The subsequent production-
+readiness hardening suite raises the repository total to 121 tests; see
+`PRODUCTION_READINESS_REPORT.md` for current whole-repository verification.
+Phase 6 tests cover two synthetic clients and multiple projects, access isolation,
+stale evidence, digest tampering, unlicensed sources, missing corroboration, source
+diversity, prompt injection, review queues, path traversal, out-of-scope files, failed
+CI, dependency/configuration/destructive changes, repository and deployment bypasses,
+quality/security/cost/latency regressions, evaluation cadence, citation integrity, and
+activation bypass.
 
 ## Gates before production
 

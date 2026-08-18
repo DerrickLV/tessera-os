@@ -4,6 +4,27 @@ defaults:
   destructive_actions: require_approval
   cross_project_retrieval: deny
   pii_logging: redact
+  production_writes: deny
+authentication:
+  protocol: oidc_jwt
+  required_claims: [iss, aud, sub, tenant_id, project_ids, groups, iat, exp]
+  production_algorithms: [RS256, RS384, RS512, ES256]
+  required_group: tessera_user
+authorization:
+  central_policy_gateway: required
+  fail_closed: true
+  qualified_reviewer_groups:
+    contract_review: qualified_counsel
+    capital_underwriting_review: investment_reviewer
+    construction_exception_review: construction_reviewer
+    development_stage_gate_review: development_approver
+    development_baseline_change_request: development_approver
+    proposal_review: proposal_approver
+    due_diligence_review: diligence_reviewer
+    project_status: project_reviewer
+    intelligence_brief_review: intelligence_reviewer
+    engineering_pr_review: engineering_reviewer
+    artifact_assurance_review: assurance_reviewer
 approval_tiers:
   none: [read, search, summarize, draft]
   manager: [send_message, update_crm, create_task, publish_document]
@@ -12,3 +33,11 @@ retention:
   raw_prompt_days: 30
   audit_event_days: 2555
   generated_artifact_days: 365
+runtime_controls:
+  rate_limit_per_minute: 60
+  usage_budget: fail_closed
+  trace_dlp: redact
+  artifact_encryption: aes_gcm
+  encryption_key_source: managed_secret_store
+  legal_hold_overrides_retention: true
+  tenant_scoped_backup: true

@@ -68,6 +68,29 @@ later only for workflows whose ownership truly transfers.
 - **Evaluation harness:** offline regression tests for routing, policy attacks,
   isolation, citations, approvals, and proposal commercial controls.
 
+## Configuration
+
+Two formats are in use, deliberately, and each is a single source of truth
+loaded by exactly one place in the code — nothing here is duplicated across
+formats:
+
+- **JSON, loaded directly:** `agents/*.json` (`registry.py`) and
+  `config/routing.json` (`router.py`). These define what the router and
+  registry need at process start and stay simple key/value data.
+- **YAML, loaded via `settings.py`:** `config/models.yaml`,
+  `config/security.yaml`, and `config/integrations.yaml`. `settings.py`
+  validates each against a Pydantic model and resolves any
+  `${VAR:-default}` placeholder against the environment (used by
+  `models.yaml` for `TESSERA_MODEL_DEFAULT` / `TESSERA_MODEL_HIGH_REASONING`).
+  `orchestrator.py` reads `models.yaml` for model selection and run policy;
+  `cli.py`'s `policy` and `integrations` commands surface `security.yaml` and
+  `integrations.yaml` to an operator.
+
+Do not add a second copy of either file in the other format — that was the
+exact drift risk closed in the August 18, 2026 review. If a config value
+needs to be both human-editable YAML and fast-loading JSON, generate one from
+the other at build time rather than hand-maintaining both.
+
 ## Data model
 
 Every run should carry `tenant_id`, `project_id`, `user_id`, role claims, correlation
@@ -76,10 +99,14 @@ approval state. These are security boundaries, not optional metadata.
 
 ## Production boundaries
 
-The included runtime is intentionally a starter. Before production, add durable
-identity, tenant isolation, encrypted secrets, retrieval ACL enforcement, approval
-state, audit storage, integration retries, rate limits, data-loss prevention, and
-operational monitoring.
+The repository includes reference implementations for OIDC JWT validation, tenant and
+project authorization, retrieval ACLs, exact-action approvals, rate limits, usage
+budgets, DLP redaction, correlated audit traces, encrypted artifact retention, legal
+holds, and tenant-scoped backup. They fail closed and keep production writes disabled.
+They are not evidence that an actual deployment has configured a real identity provider,
+managed key service, durable database, centralized monitoring, backups, or incident
+ownership. Those administrator and human-validation gates are tracked in
+`PRODUCTION_GATE_CHECKLIST.md`.
 
 Phase 5 does not weaken this boundary. Its only executable adapter is an in-memory
 synthetic record store whose targets must use `synthetic://`. Production action

@@ -8,9 +8,9 @@ workflows, shared schemas, and offline document drafting.
 
 ## Status
 
-**Stage:** Phase 6 — Intelligence and engineering scale foundation
+**Stage:** Phase 6 complete; production-readiness hardening implemented
 
-**Current milestone:** Offline intelligence, PR-only engineering, and continuous assurance
+**Current milestone:** Administrator configuration and measured pilot validation
 
 **Safety posture:** Offline and draft-only; external delivery is disabled
 
@@ -68,6 +68,12 @@ workflows, shared schemas, and offline document drafting.
 - Deterministic recurring evaluation gates for prompt, model, integration, and policy
   candidates across quality, citations, unsupported claims, latency, cost, isolation,
   injection, approvals, and permissions
+- A read-only FastAPI boundary with OIDC JWT validation, authenticated tenant/project
+  scope, a fail-closed runtime policy gateway, rate limiting, and trace correlation
+- Qualified reviewer roles, DLP redaction, deterministic usage budgets, encrypted
+  artifact retention/legal hold, and tenant-scoped backup primitives
+- Locked dependencies, SHA-pinned CI actions, dependency auditing, secret-pattern
+  scanning, CODEOWNERS, Dependabot configuration, and Python 3.11/3.12 CI coverage
 - Architecture, governance, and phased implementation documentation
 
 ## Quick start
@@ -81,19 +87,27 @@ pip install -e '.[dev]'
 cp .env.example .env
 python -m tessera_os.cli list
 python -m tessera_os.cli route "Prepare my morning briefing"
+python -m tessera_os.cli policy
+python -m tessera_os.cli integrations
 pytest
 ```
+
+`policy` and `integrations` read `config/security.yaml` and
+`config/integrations.yaml` respectively, so an operator can see the active
+security posture and integration status without opening a YAML file.
 
 To execute a live model call, set `OPENAI_API_KEY` and run:
 
 ```bash
-python -m tessera_os.cli run "Summarize the current project risks"
+python -m tessera_os.cli run "Summarize the current project risks" \
+  --tenant-id synthetic-tenant --project-id synthetic-project --user-id local-user
 ```
 
 The starter uses `gpt-5.6-terra` as the balanced default and reserves
-`gpt-5.6-sol` for complex legal, diligence, and engineering work. Override either
-with environment variables; validate quality and cost on representative Tessera
-tasks before production use.
+`gpt-5.6-sol` for complex legal, diligence, and engineering work, both defined
+in `config/models.yaml`. Override either with the `TESSERA_MODEL_DEFAULT` /
+`TESSERA_MODEL_HIGH_REASONING` environment variables; validate quality and cost
+on representative Tessera tasks before production use.
 
 ## Repository map
 
@@ -135,6 +149,9 @@ fixtures/phase6/     Synthetic intelligence, engineering, and assurance records
 - [Phase 0–4 foundation audit](docs/PHASE_0_4_FOUNDATION_AUDIT.md)
 - [Phase 5 readiness report](docs/PHASE_5_READINESS_REPORT.md)
 - [Phase 6 readiness report](docs/PHASE_6_READINESS_REPORT.md)
+- [Production readiness report](docs/PRODUCTION_READINESS_REPORT.md)
+- [Production gate checklist](docs/PRODUCTION_GATE_CHECKLIST.md)
+- [Incident exercise runbook](docs/INCIDENT_EXERCISE_RUNBOOK.md)
 - [Contributing](CONTRIBUTING.md)
 
 ## License

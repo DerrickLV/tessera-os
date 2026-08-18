@@ -186,7 +186,8 @@ class EngineeringManager:
             raise ScopeDenied("Engineering packet is outside the authenticated scope")
         return self.review_queue.submit(tenant_id=packet.tenant_id, project_id=packet.project_id,
             created_by=context.user_id, workflow="engineering_pr_review", title=packet.title,
-            body=self.to_markdown(packet), evidence=packet.evidence)
+            body=self.to_markdown(packet), evidence=packet.evidence,
+            required_reviewer_group="engineering_reviewer")
 
     @staticmethod
     def request_repository_or_release_action(action: str) -> None:
