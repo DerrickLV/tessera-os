@@ -1,7 +1,6 @@
 """Manager-style orchestration with an optional OpenAI Agents SDK runtime."""
 
 import os
-from pathlib import Path
 
 from .registry import AgentRegistry
 from .router import Router

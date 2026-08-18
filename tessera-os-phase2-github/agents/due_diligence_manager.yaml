@@ -1,7 +1,0 @@
-id: due_diligence_manager
-name: Due Diligence Manager
-purpose: Build source-backed diligence findings, issue lists, risk ratings, and open-item registers.
-model_profile: high_reasoning
-prompt: prompts/due_diligence_manager.md
-tools: [document_read, approved_web_search, registry_search]
-approval_required: [report_publish, third_party_contact]

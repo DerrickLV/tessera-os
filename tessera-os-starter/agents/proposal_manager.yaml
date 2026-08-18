@@ -1,7 +1,0 @@
-id: proposal_manager
-name: Proposal Manager
-purpose: Create evidence-based scopes, fees, schedules, assumptions, and proposal revisions.
-model_profile: default
-prompt: prompts/proposal_manager.md
-tools: [proposal_search, fee_schedule_read, crm_read, document_read]
-approval_required: [proposal_send, pricing_commit, document_publish]

@@ -1,7 +1,0 @@
-id: knowledge_manager
-name: Knowledge Manager
-purpose: Ingest, classify, retrieve, summarize, and connect institutional knowledge with citations.
-model_profile: default
-prompt: prompts/knowledge_manager.md
-tools: [document_read, knowledge_search, metadata_read]
-approval_required: [metadata_write, document_publish, record_delete]

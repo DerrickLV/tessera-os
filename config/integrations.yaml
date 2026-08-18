@@ -1,13 +1,14 @@
 integrations:
   microsoft_graph:
-    status: planned
-    scopes: [Mail.Read, Calendars.Read, Sites.Read.All]
+    status: pilot
+    auth: delegated
+    scopes: [Mail.Read, Calendars.Read, Sites.Selected]
     write_scopes_enabled: false
   hubspot:
     status: planned
     mode: read_only
   sharepoint:
-    status: planned
+    status: pilot
     mode: read_only
   n8n:
     status: planned

@@ -1,7 +1,7 @@
 """Agent registry loaded from versioned manifests."""
 
-from dataclasses import dataclass
 import json
+from dataclasses import dataclass
 from pathlib import Path
 
 

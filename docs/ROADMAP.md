@@ -23,7 +23,7 @@ all agent prompts/specs are reviewed; traces contain required run metadata.
 - Add model/prompt version registry, structured logging, usage budgets, and tracing.
 - Implement evaluation harness for routing, citations, injection, and approvals.
 
-## Phase 2 — Read-only pilot
+## Phase 2 — Read-only pilot (implemented; deployment validation pending)
 
 **Recommended agents:** Knowledge Manager, Executive Assistant, Project Manager.
 
@@ -33,6 +33,11 @@ cost and latency within agreed budgets; documented support and incident process.
 - Connect SharePoint and Microsoft Graph with read-only delegated scopes.
 - Ingest authorized documents with ACL-preserving retrieval.
 - Deliver morning briefings and project status drafts to a review queue.
+
+Implementation includes a delegated, GET-only Microsoft Graph boundary, a
+fail-closed ACL-preserving knowledge index, cited draft workflows, and a durable
+SQLite review queue. Production exit criteria still require tenant-specific app
+registration, approved SharePoint sites, pilot acceptance, and measured budgets.
 
 ## Phase 3 — High-value document workflows
 
