@@ -2,16 +2,15 @@
 
 Tessera OS is an AI operating system for development, construction management,
 capital, advisory, and internal operations. This repository includes the Phase 2
-read-only pilot, Phase 3A Proposal Manager foundation, and Phase 4A Development
-Manager foundation: a policy-aware
+read-only pilot and the Phase 3 and Phase 4 manager foundations: a policy-aware
 orchestrator, twelve specialist agents, ACL-preserving retrieval, human review
 workflows, shared schemas, and offline document drafting.
 
 ## Status
 
-**Stage:** Phase 4A — Development Manager and shared project-control foundation
+**Stage:** Phase 4B — Construction and Capital Manager foundations
 
-**Current milestone:** Cited development controls, deterministic variances, and stage gates
+**Current milestone:** Phase 0–4 foundation audit and pilot validation
 
 **Safety posture:** Offline and draft-only; external delivery is disabled
 
@@ -42,6 +41,17 @@ workflows, shared schemas, and offline document drafting.
   consultant direction, gate approvals, and baseline mutation disabled
 - Synthetic development fixtures for two fictional clients and three projects,
   plus Phase 4A policy and calculation regression tests
+- Cited Contract Manager clause comparison against approved playbooks, with exact
+  clause locations, legal-uncertainty labels, and counsel review queues
+- Reproducible Due Diligence Manager reports that separate verified facts,
+  allegations, and open items; corroborate material facts; and prohibit
+  protected-trait inference
+- Construction Manager exception dashboards for safety, quality, schedule, cost,
+  RFIs, submittals, and change exposure, including urgent human safety escalation
+- Capital Manager model reconciliation, deterministic underwriting metrics,
+  covenant tests, and downside/base/upside sensitivities
+- Synthetic Phase 3B and 4B fixtures for two clients and multiple projects, with
+  cross-scope, citation, injection, version, calculation, and approval-bypass tests
 - Architecture, governance, and phased implementation documentation
 
 ## Quick start
@@ -80,6 +90,8 @@ src/tessera_os/      Runnable Python package
 tests/               Offline routing and registry tests
 fixtures/proposals/  Synthetic Phase 3A clients, language, templates, and fees
 fixtures/development/ Synthetic Phase 4A development project-control records
+fixtures/phase3b/    Synthetic contract and diligence records
+fixtures/phase4b/    Synthetic construction and capital records
 ```
 
 ## Design principles
@@ -100,6 +112,9 @@ fixtures/development/ Synthetic Phase 4A development project-control records
 - [Pilot operations](docs/PILOT_OPERATIONS.md)
 - [Phase 3A readiness report](docs/PHASE_3A_READINESS_REPORT.md)
 - [Phase 4A readiness report](docs/PHASE_4A_READINESS_REPORT.md)
+- [Phase 3B readiness report](docs/PHASE_3B_READINESS_REPORT.md)
+- [Phase 4B readiness report](docs/PHASE_4B_READINESS_REPORT.md)
+- [Phase 0–4 foundation audit](docs/PHASE_0_4_FOUNDATION_AUDIT.md)
 - [Contributing](CONTRIBUTING.md)
 
 ## License
