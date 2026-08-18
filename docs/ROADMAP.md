@@ -146,13 +146,30 @@ and secret management, authoritative adapter design, retention and recovery cont
 operational ownership, incident exercises in an approved environment, and a separate
 authorization decision for each proposed low-risk production workflow.
 
-## Phase 6 — Intelligence and engineering scale
+## Phase 6 — Intelligence and engineering scale (offline foundation implemented; production blocked)
 
 **Recommended agents:** Intelligence Agent and Codex Engineering Agent.
 
-- Add monitored source lists, freshness policies, and intelligence alerts.
-- Add isolated engineering workspaces, CI checks, PR-only changes, and release gates.
-- Continuously re-evaluate prompts, models, integrations, and policy attacks.
+- Implemented tenant/client/project-scoped monitored source lists restricted to
+  approved `offline://` sources, with license approval, content digests, per-source
+  freshness policies, source diversity, corroboration, cited briefs, and internal alerts.
+- Implemented isolated engineering workspace definitions, traversal-free allowed paths,
+  CI evidence, deterministic PR-readiness gates, and blocked dependency, production
+  configuration, destructive, direct-main, secret, and deployment actions.
+- Implemented deterministic recurring comparison gates for prompt, model, integration,
+  and policy candidates across accuracy, citation correctness, unsupported claims,
+  latency, cost, cross-project isolation, prompt injection, approval bypass, and
+  over-permission tests.
+- Added two-client synthetic fixtures and adversarial tests for scope isolation,
+  freshness, source integrity and licensing, source diversity, injection, path escape,
+  unsafe changes, failed CI, release bypass, evaluation regression, cadence, citations,
+  and activation bypass.
+
+Production intelligence retrieval, source purchasing, alert delivery, repository writes,
+pull-request creation, release/deployment, and artifact activation remain disabled.
+Production exit requires representative acceptance testing, approved source and license
+governance, isolated CI infrastructure, repository identity and permission design,
+measured quality/cost/latency targets, and separate approval for every external action.
 
 ## Initial backlog
 

@@ -1,0 +1,66 @@
+{
+  "notice": "All clients, projects, sources, intelligence, repositories, changes, checks, and evaluations are synthetic and offline.",
+  "intelligence": [
+    {
+      "id":"decision-monitor","title":"Project Aurora intelligence brief",
+      "access":{"tenant_id":"tenant-synthetic","client_id":"client-northstar","project_id":"project-aurora"},
+      "sources":[
+        {"id":"agency-calendar","name":"Synthetic Planning Agency Calendar","kind":"primary","locator":"offline://aurora/agency/calendar","topic":"policy","max_age_hours":72,"license_approved":true,"owner":"Synthetic intelligence owner","access":{"tenant_id":"tenant-synthetic","client_id":"client-northstar","project_id":"project-aurora"}},
+        {"id":"market-bulletin","name":"Synthetic Market Bulletin","kind":"secondary","locator":"offline://aurora/market/bulletin","topic":"market","max_age_hours":168,"license_approved":true,"owner":"Synthetic intelligence owner","access":{"tenant_id":"tenant-synthetic","client_id":"client-northstar","project_id":"project-aurora"}}
+      ],
+      "snapshots":[
+        {"source_id":"agency-calendar","captured_at":"2026-08-17T12:00:00Z","title":"Synthetic revised calendar","content":"Synthetic planning agency adopted a revised review calendar.","content_digest":"c78d66c3c098d3a7a09fb14ab5a1fecfb7e2629c3885c03c672409dc4c152cec"},
+        {"source_id":"market-bulletin","captured_at":"2026-08-16T12:00:00Z","title":"Synthetic pricing bulletin","content":"Synthetic market bulletin reports stable construction pricing.","content_digest":"21b45b6246da2927646f2558b2795251e0d9339d54470c3f4ddf5fdb5202485b"}
+      ],
+      "findings":[{"id":"calendar-impact","topic":"Policy and market","event":"The fictional review calendar changed while synthetic pricing remained stable.","interpretation":"The schedule assumption may require review without a corresponding pricing escalation.","scenarios":["Review duration increases by two weeks.","Agency absorbs the change without project delay."],"recommendation":"Ask the accountable human to review the schedule assumption.","decision_relevance":"May affect timing of the next internal gate.","uncertainty":"No project-specific agency determination exists.","impact":"high","source_ids":["agency-calendar","market-bulletin"]}],
+      "retrieved_notes":[]
+    },
+    {
+      "id":"decision-monitor","title":"Project Tidepool intelligence brief",
+      "access":{"tenant_id":"tenant-synthetic","client_id":"client-harbor","project_id":"project-tidepool"},
+      "sources":[{"id":"coastal-calendar","name":"Synthetic Coastal Calendar","kind":"primary","locator":"offline://tidepool/agency/calendar","topic":"policy","max_age_hours":72,"license_approved":true,"owner":"Synthetic Harbor owner","access":{"tenant_id":"tenant-synthetic","client_id":"client-harbor","project_id":"project-tidepool"}}],
+      "snapshots":[{"source_id":"coastal-calendar","captured_at":"2026-08-17T12:00:00Z","title":"Synthetic coastal workshop","content":"Synthetic coastal agency scheduled a policy workshop.","content_digest":"ec2c91aa5cf99f751b6bb5acb05cb03307d85fd794f0c3f209eddfb63a35aafc"}],
+      "findings":[{"id":"workshop","topic":"Policy","event":"A fictional policy workshop was scheduled.","interpretation":"No project impact is established.","scenarios":["No relevant policy change.","A future proposal affects review timing."],"recommendation":"Continue monitoring the approved source.","decision_relevance":"Informational only.","uncertainty":"Workshop content is unavailable.","impact":"low","source_ids":["coastal-calendar"]}],"retrieved_notes":[]
+    }
+  ],
+  "engineering": [
+    {
+      "workspace":{"id":"workspace-router","repository":"synthetic/tessera","access":{"tenant_id":"tenant-synthetic","client_id":"client-northstar","project_id":"project-aurora"},"base_commit":"bd659a9","branch":"agent/synthetic-router-test","isolated_root":"sandbox://workspaces/aurora/router","allowed_paths":["src/tessera_os/router.py","tests"],"production_config_paths":["config/production"],"dependency_changes_allowed":false,"deployment_allowed":false},
+      "change_set":{"id":"router-test-change","title":"Synthetic router regression change","access":{"tenant_id":"tenant-synthetic","client_id":"client-northstar","project_id":"project-aurora"},"workspace_id":"workspace-router","acceptance_criteria":["Routing regression passes."],"changes":[{"path":"tests/test_router.py","purpose":"Add a synthetic route case.","content_digest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","source_ids":["issue-router"]}],"checks":[{"id":"ruff","command":"ruff check src tests","passed":true,"output_digest":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","completed_at":"2026-08-17T12:00:00Z","source_ids":["ci-router"]},{"id":"pytest","command":"pytest -q","passed":true,"output_digest":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","completed_at":"2026-08-17T12:01:00Z","source_ids":["ci-router"]}],"migration_plan":"No data migration.","rollback_plan":"Close the draft PR and discard the isolated branch.","release_notes":"Adds synthetic router regression coverage.","evidence":[{"source_id":"issue-router","title":"Synthetic engineering issue","locator":"offline://engineering/issue/router","retrieved_at":"2026-08-17T12:00:00Z"},{"source_id":"ci-router","title":"Synthetic CI result","locator":"offline://engineering/ci/router","retrieved_at":"2026-08-17T12:01:00Z"}],"retrieved_notes":[]}
+    },
+    {
+      "workspace":{"id":"workspace-harbor","repository":"synthetic/tessera","access":{"tenant_id":"tenant-synthetic","client_id":"client-harbor","project_id":"project-tidepool"},"base_commit":"bd659a9","branch":"agent/synthetic-harbor-test","isolated_root":"sandbox://workspaces/tidepool/test","allowed_paths":["tests"],"production_config_paths":["config/production"],"dependency_changes_allowed":false,"deployment_allowed":false},
+      "change_set":{"id":"harbor-test-change","title":"Synthetic Harbor test change","access":{"tenant_id":"tenant-synthetic","client_id":"client-harbor","project_id":"project-tidepool"},"workspace_id":"workspace-harbor","acceptance_criteria":["Synthetic test passes."],"changes":[{"path":"tests/test_router.py","purpose":"Add a fictional Harbor case.","content_digest":"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd","source_ids":["issue-harbor"]}],"checks":[{"id":"pytest","command":"pytest -q","passed":true,"output_digest":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee","completed_at":"2026-08-17T12:00:00Z","source_ids":["ci-harbor"]}],"migration_plan":"None.","rollback_plan":"Discard isolated branch.","release_notes":"Synthetic tests only.","evidence":[{"source_id":"issue-harbor","title":"Synthetic Harbor issue","locator":"offline://engineering/issue/harbor"},{"source_id":"ci-harbor","title":"Synthetic Harbor CI","locator":"offline://engineering/ci/harbor"}],"retrieved_notes":[]}
+    }
+  ],
+  "assurance": [
+    {
+      "id":"prompt-eval","title":"Orchestrator prompt candidate evaluation","access":{"tenant_id":"tenant-synthetic","client_id":"client-northstar","project_id":"project-aurora"},
+      "baseline":{"artifact_id":"orchestrator-prompt","kind":"prompt","version":"1.0","evaluated_at":"2026-08-01T12:00:00Z","metrics":{"accuracy":0.90,"citation_correctness":0.96,"unsupported_claim_rate":0.02,"latency_ms":1000,"cost_units":1.0},"security":{"cross_project_isolation":true,"prompt_injection":true,"approval_bypass":true,"over_permission":true},"case_count":50,"evidence_ids":["eval-prompt-base"]},
+      "candidate":{"artifact_id":"orchestrator-prompt","kind":"prompt","version":"1.1","evaluated_at":"2026-08-17T12:00:00Z","metrics":{"accuracy":0.94,"citation_correctness":0.98,"unsupported_claim_rate":0.01,"latency_ms":1050,"cost_units":1.02},"security":{"cross_project_isolation":true,"prompt_injection":true,"approval_bypass":true,"over_permission":true},"case_count":60,"evidence_ids":["eval-prompt-candidate"]},
+      "policy":{"minimum_accuracy":0.90,"minimum_citation_correctness":0.95,"maximum_unsupported_claim_rate":0.03,"maximum_latency_regression_percent":10,"maximum_cost_regression_percent":10,"cadence_days":30,"minimum_cases":50},
+      "evidence":[{"source_id":"eval-prompt-base","title":"Synthetic prompt baseline results"},{"source_id":"eval-prompt-candidate","title":"Synthetic prompt candidate results"}]
+    },
+    {
+      "id":"model-eval","title":"Model candidate evaluation","access":{"tenant_id":"tenant-synthetic","client_id":"client-northstar","project_id":"project-aurora"},
+      "baseline":{"artifact_id":"default-model","kind":"model","version":"a","evaluated_at":"2026-08-01T12:00:00Z","metrics":{"accuracy":0.92,"citation_correctness":0.97,"unsupported_claim_rate":0.02,"latency_ms":1000,"cost_units":1.0},"security":{"cross_project_isolation":true,"prompt_injection":true,"approval_bypass":true,"over_permission":true},"case_count":50,"evidence_ids":["eval-model-base"]},
+      "candidate":{"artifact_id":"default-model","kind":"model","version":"b","evaluated_at":"2026-08-17T12:00:00Z","metrics":{"accuracy":0.94,"citation_correctness":0.98,"unsupported_claim_rate":0.01,"latency_ms":1300,"cost_units":1.2},"security":{"cross_project_isolation":true,"prompt_injection":false,"approval_bypass":true,"over_permission":true},"case_count":60,"evidence_ids":["eval-model-candidate"]},
+      "policy":{"minimum_accuracy":0.90,"minimum_citation_correctness":0.95,"maximum_unsupported_claim_rate":0.03,"maximum_latency_regression_percent":10,"maximum_cost_regression_percent":10,"cadence_days":30,"minimum_cases":50},
+      "evidence":[{"source_id":"eval-model-base","title":"Synthetic model baseline results"},{"source_id":"eval-model-candidate","title":"Synthetic model candidate results"}]
+    },
+    {
+      "id":"integration-eval","title":"Integration candidate evaluation","access":{"tenant_id":"tenant-synthetic","client_id":"client-northstar","project_id":"project-aurora"},
+      "baseline":{"artifact_id":"graph-reader","kind":"integration","version":"1","evaluated_at":"2026-08-01T12:00:00Z","metrics":{"accuracy":0.95,"citation_correctness":0.99,"unsupported_claim_rate":0.01,"latency_ms":500,"cost_units":0.2},"security":{"cross_project_isolation":true,"prompt_injection":true,"approval_bypass":true,"over_permission":true},"case_count":50,"evidence_ids":["eval-integration-base"]},
+      "candidate":{"artifact_id":"graph-reader","kind":"integration","version":"2","evaluated_at":"2026-08-17T12:00:00Z","metrics":{"accuracy":0.96,"citation_correctness":0.99,"unsupported_claim_rate":0.01,"latency_ms":520,"cost_units":0.2},"security":{"cross_project_isolation":true,"prompt_injection":true,"approval_bypass":true,"over_permission":true},"case_count":60,"evidence_ids":["eval-integration-candidate"]},
+      "policy":{"minimum_accuracy":0.90,"minimum_citation_correctness":0.95,"maximum_unsupported_claim_rate":0.03,"maximum_latency_regression_percent":10,"maximum_cost_regression_percent":10,"cadence_days":30,"minimum_cases":50},
+      "evidence":[{"source_id":"eval-integration-base","title":"Synthetic integration baseline"},{"source_id":"eval-integration-candidate","title":"Synthetic integration candidate"}]
+    },
+    {
+      "id":"policy-eval","title":"Policy candidate evaluation","access":{"tenant_id":"tenant-synthetic","client_id":"client-harbor","project_id":"project-tidepool"},
+      "baseline":{"artifact_id":"approval-policy","kind":"policy","version":"1","evaluated_at":"2026-08-01T12:00:00Z","metrics":{"accuracy":0.95,"citation_correctness":0.99,"unsupported_claim_rate":0.01,"latency_ms":100,"cost_units":0.1},"security":{"cross_project_isolation":true,"prompt_injection":true,"approval_bypass":true,"over_permission":true},"case_count":50,"evidence_ids":["eval-policy-base"]},
+      "candidate":{"artifact_id":"approval-policy","kind":"policy","version":"2","evaluated_at":"2026-08-17T12:00:00Z","metrics":{"accuracy":0.96,"citation_correctness":0.99,"unsupported_claim_rate":0.01,"latency_ms":100,"cost_units":0.1},"security":{"cross_project_isolation":true,"prompt_injection":true,"approval_bypass":true,"over_permission":true},"case_count":60,"evidence_ids":["eval-policy-candidate"]},
+      "policy":{"minimum_accuracy":0.90,"minimum_citation_correctness":0.95,"maximum_unsupported_claim_rate":0.03,"maximum_latency_regression_percent":10,"maximum_cost_regression_percent":10,"cadence_days":30,"minimum_cases":50},
+      "evidence":[{"source_id":"eval-policy-base","title":"Synthetic policy baseline"},{"source_id":"eval-policy-candidate","title":"Synthetic policy candidate"}]
+    }
+  ]
+}
