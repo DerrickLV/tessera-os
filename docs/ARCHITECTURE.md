@@ -58,6 +58,13 @@ later only for workflows whose ownership truly transfers.
 - **Sandbox action plane:** versioned low-risk workflows, exact approval packets,
   separation of duties, signed single-use tokens, idempotency and precondition checks,
   reversible receipts, kill switches, dead letters, monitoring, and tamper-evident audit.
+- **Intelligence plane:** allowlisted offline sources, license and freshness policy,
+  snapshot digests, corroborated findings, source diversity, cited briefs, and
+  human-reviewed internal alerts.
+- **Engineering plane:** isolated workspace definitions, repository-relative path
+  boundaries, evidence-backed CI checks, PR-only change packets, and release gates.
+- **Assurance plane:** versioned prompt, model, integration, and policy comparisons
+  with deterministic quality, security, latency, cost, and evaluation-cadence gates.
 - **Evaluation harness:** offline regression tests for routing, policy attacks,
   isolation, citations, approvals, and proposal commercial controls.
 

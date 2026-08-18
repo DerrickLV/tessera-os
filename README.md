@@ -8,9 +8,9 @@ workflows, shared schemas, and offline document drafting.
 
 ## Status
 
-**Stage:** Phase 5 — Sandbox gated-actions foundation
+**Stage:** Phase 6 — Intelligence and engineering scale foundation
 
-**Current milestone:** Gated-action sandbox validation; production writes remain disabled
+**Current milestone:** Offline intelligence, PR-only engineering, and continuous assurance
 
 **Safety posture:** Offline and draft-only; external delivery is disabled
 
@@ -59,6 +59,15 @@ workflows, shared schemas, and offline document drafting.
   hash-chained audit reconstruction
 - A synthetic in-memory record adapter for one reversible tag workflow; production
   targets, credentials, external actions, and irreversible writes remain disabled
+- Allowlisted offline intelligence sources with approved licenses, content digests,
+  per-source freshness policies, source diversity, corroboration, cited briefs, and
+  internal human-reviewed alerts
+- Isolated engineering workspace definitions, path controls, cited CI evidence,
+  deterministic PR-readiness gates, and blocked dependency, production-config,
+  destructive, direct-main, and deployment actions
+- Deterministic recurring evaluation gates for prompt, model, integration, and policy
+  candidates across quality, citations, unsupported claims, latency, cost, isolation,
+  injection, approvals, and permissions
 - Architecture, governance, and phased implementation documentation
 
 ## Quick start
@@ -100,6 +109,7 @@ fixtures/development/ Synthetic Phase 4A development project-control records
 fixtures/phase3b/    Synthetic contract and diligence records
 fixtures/phase4b/    Synthetic construction and capital records
 fixtures/automation/ Synthetic Phase 5 workflows, targets, and records
+fixtures/phase6/     Synthetic intelligence, engineering, and assurance records
 ```
 
 ## Design principles
@@ -124,6 +134,7 @@ fixtures/automation/ Synthetic Phase 5 workflows, targets, and records
 - [Phase 4B readiness report](docs/PHASE_4B_READINESS_REPORT.md)
 - [Phase 0–4 foundation audit](docs/PHASE_0_4_FOUNDATION_AUDIT.md)
 - [Phase 5 readiness report](docs/PHASE_5_READINESS_REPORT.md)
+- [Phase 6 readiness report](docs/PHASE_6_READINESS_REPORT.md)
 - [Contributing](CONTRIBUTING.md)
 
 ## License
