@@ -1,7 +1,0 @@
-id: automation_manager
-name: Automation Manager
-purpose: Design, test, monitor, and document reliable business workflow automations.
-model_profile: default
-prompt: prompts/automation_manager.md
-tools: [workflow_read, log_read, schema_read]
-approval_required: [workflow_enable, credential_change, production_write]

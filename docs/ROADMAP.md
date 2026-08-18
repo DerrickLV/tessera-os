@@ -13,7 +13,7 @@ approved data classification, retention, identity, and audit design; baseline ev
 - Approve action tiers and human review responsibilities.
 - Create golden datasets using sanitized or synthetic content.
 
-## Phase 1 — Foundation (this repository)
+## Phase 1 — Foundation (implemented; deployment validation pending)
 
 **Exit criteria:** reproducible local environment; registry and routing tests pass;
 all agent prompts/specs are reviewed; traces contain required run metadata.
@@ -22,6 +22,13 @@ all agent prompts/specs are reviewed; traces contain required run metadata.
 - Add a durable API/service boundary and authenticated user context.
 - Add model/prompt version registry, structured logging, usage budgets, and tracing.
 - Implement evaluation harness for routing, citations, injection, and approvals.
+
+Implementation now includes a read-only authenticated FastAPI boundary, centralized
+fail-closed runtime authorization, correlated audit traces, rate limits, usage budgets,
+DLP redaction, encrypted retained artifacts, legal holds, tenant-scoped backup, locked
+dependencies, and hardened CI. Production exit still requires real identity-provider
+configuration, managed keys and storage, administrator-enforced repository controls,
+restore and incident exercises, and representative human pilot acceptance.
 
 ## Phase 2 — Read-only pilot (implemented; deployment validation pending)
 
@@ -150,6 +157,11 @@ authorization decision for each proposed low-risk production workflow.
 
 **Recommended agents:** Intelligence Agent and Codex Engineering Agent.
 
+**Exit criteria:** approved source and license governance; isolated CI infrastructure
+and repository identity/permission design reviewed separately from this codebase;
+measured quality, cost, and latency targets per artifact kind; zero autonomous
+intelligence retrieval, repository writes, releases, or assurance-gated activation.
+
 - Implemented tenant/client/project-scoped monitored source lists restricted to
   approved `offline://` sources, with license approval, content digests, per-source
   freshness policies, source diversity, corroboration, cited briefs, and internal alerts.
@@ -173,10 +185,11 @@ measured quality/cost/latency targets, and separate approval for every external 
 
 ## Initial backlog
 
-1. Define `tenant_id` and project ACL contract across every schema.
-2. Implement policy decision and approval packet schemas.
-3. Add FastAPI service with SSO-ready authentication boundary.
-4. Add structured output types for each specialist.
-5. Add synthetic eval fixtures and CI.
-6. Implement read-only SharePoint retrieval adapter.
-7. Pilot cited project-status generation with one project team.
+1. Completed: define `tenant_id` and project ACL contracts across shared schemas.
+2. Completed: implement policy decisions, qualified review, and approval packets.
+3. Completed in code: add a read-only FastAPI service with an OIDC-ready boundary.
+4. Completed: add structured output types for each specialist.
+5. Completed: add multi-client synthetic fixtures, adversarial evaluations, and CI.
+6. Completed in code: implement the GET-only, ACL-preserving SharePoint boundary.
+7. Pending external validation: pilot cited project-status generation with an approved
+   project team and record measured quality, latency, cost, and reviewer acceptance.

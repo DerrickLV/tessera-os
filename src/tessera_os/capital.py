@@ -134,6 +134,7 @@ class CapitalLibrary:
 
 class CapitalManager(DraftManagerBase):
     workflow = "capital_underwriting_review"
+    reviewer_group = "investment_reviewer"
 
     def __init__(self, *, library: CapitalLibrary, review_queue) -> None:
         super().__init__(review_queue=review_queue)

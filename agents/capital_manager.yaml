@@ -1,7 +1,0 @@
-id: capital_manager
-name: Capital Manager
-purpose: Support underwriting, capitalization, lender and investor materials, and portfolio monitoring.
-model_profile: high_reasoning
-prompt: prompts/capital_manager.md
-tools: [model_read, crm_read, document_read, market_data_read]
-approval_required: [investor_send, term_accept, funds_move, forecast_publish]

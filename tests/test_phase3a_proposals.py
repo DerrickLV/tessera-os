@@ -28,7 +28,8 @@ FIXTURES = Path(__file__).parents[1] / "fixtures" / "proposals" / "phase3a.json"
 
 def northstar_context(*projects: str) -> UserContext:
     return UserContext(tenant_id="tenant-synthetic", user_id="ava-fictional",
-                       project_ids=set(projects or ("project-aurora",)))
+                       project_ids=set(projects or ("project-aurora",)),
+                       group_ids={"proposal_approver"})
 
 
 def request(**overrides) -> ProposalRequest:
@@ -139,7 +140,8 @@ def test_review_queue_is_internal_and_external_delivery_stays_disabled(tmp_path)
     assert item.status == "pending"
     assert item.workflow == "proposal_review"
     assert "DRAFT — HUMAN REVIEW REQUIRED" in item.body
-    accepted = workflow.review_queue.accept(item_id=item.id, context=context,
+    reviewer = context.model_copy(update={"user_id": "proposal-reviewer"})
+    accepted = workflow.review_queue.accept(item_id=item.id, context=reviewer,
                                              reason="Synthetic content reviewed")
     with pytest.raises(ExternalDeliveryDisabled):
         workflow.request_external_delivery(review_item=accepted)

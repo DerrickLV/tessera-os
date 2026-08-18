@@ -160,6 +160,7 @@ class ConstructionLibrary:
 
 class ConstructionManager(DraftManagerBase):
     workflow = "construction_exception_review"
+    reviewer_group = "construction_reviewer"
 
     def __init__(self, *, library: ConstructionLibrary, review_queue) -> None:
         super().__init__(review_queue=review_queue)

@@ -207,7 +207,8 @@ class IntelligenceManager:
             raise ScopeDenied("Intelligence brief is outside the authenticated scope")
         return self.review_queue.submit(tenant_id=brief.tenant_id, project_id=brief.project_id,
             created_by=context.user_id, workflow="intelligence_brief_review", title=brief.title,
-            body=self.to_markdown(brief), evidence=brief.evidence)
+            body=self.to_markdown(brief), evidence=brief.evidence,
+            required_reviewer_group="intelligence_reviewer")
 
     @staticmethod
     def request_external_action(action: str) -> None:

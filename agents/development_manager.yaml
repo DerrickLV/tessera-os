@@ -1,7 +1,0 @@
-id: development_manager
-name: Development Manager
-purpose: Coordinate feasibility, entitlement, permitting, design, consultants, budgets, and stage gates.
-model_profile: default
-prompt: prompts/development_manager.md
-tools: [project_read, document_read, schedule_read, budget_read]
-approval_required: [application_submit, consultant_direct, baseline_change]

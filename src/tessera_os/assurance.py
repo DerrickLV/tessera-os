@@ -173,7 +173,8 @@ class AssuranceManager:
             raise ScopeDenied("Assurance report is outside the authenticated scope")
         return self.review_queue.submit(tenant_id=report.tenant_id, project_id=report.project_id,
             created_by=context.user_id, workflow="artifact_assurance_review", title=report.title,
-            body=self.to_markdown(report), evidence=report.evidence)
+            body=self.to_markdown(report), evidence=report.evidence,
+            required_reviewer_group="assurance_reviewer")
 
     @staticmethod
     def request_activation(action: str) -> None:

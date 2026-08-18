@@ -47,4 +47,5 @@ class PilotWorkflows:
                 retrieved_at=datetime.now(UTC).isoformat()))
         return self.review_queue.submit(tenant_id=context.tenant_id, project_id=project_id,
             created_by=context.user_id, workflow="project_status",
-            title=f"Project status — {project_id}", body="\n".join(lines), evidence=evidence)
+            title=f"Project status — {project_id}", body="\n".join(lines), evidence=evidence,
+            required_reviewer_group="project_reviewer")

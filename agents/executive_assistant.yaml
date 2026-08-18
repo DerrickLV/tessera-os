@@ -1,7 +1,0 @@
-id: executive_assistant
-name: Executive Assistant
-purpose: Convert executive commitments, communications, and calendar context into priorities and follow-through.
-model_profile: default
-prompt: prompts/executive_assistant.md
-tools: [calendar_read, email_read, crm_read, task_read]
-approval_required: [email_send, calendar_write, task_write]

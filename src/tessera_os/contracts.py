@@ -121,6 +121,7 @@ class ContractLibrary:
 
 class ContractManager(DraftManagerBase):
     workflow = "contract_review"
+    reviewer_group = "qualified_counsel"
 
     def __init__(self, *, library: ContractLibrary, review_queue, freshness_days: int = 45) -> None:
         super().__init__(review_queue=review_queue, freshness_days=freshness_days)

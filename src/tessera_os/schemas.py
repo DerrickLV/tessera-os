@@ -89,6 +89,7 @@ class ReviewItem(BaseModel):
     reviewed_by: str | None = None
     reviewed_at: datetime | None = None
     review_reason: str | None = None
+    required_reviewer_group: str | None = None
 
 
 class AgentResponse(BaseModel):

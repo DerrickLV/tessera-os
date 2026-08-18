@@ -26,9 +26,10 @@ class ReviewQueue:
                 created_by TEXT NOT NULL, workflow TEXT NOT NULL, title TEXT NOT NULL,
                 body TEXT NOT NULL, evidence_json TEXT NOT NULL, status TEXT NOT NULL,
                 created_at TEXT NOT NULL, reviewed_by TEXT, reviewed_at TEXT,
-                review_reason TEXT)""")
+                review_reason TEXT, required_reviewer_group TEXT)""")
             existing = {row[1] for row in connection.execute("PRAGMA table_info(review_items)")}
-            for name in ("reviewed_by", "reviewed_at", "review_reason"):
+            for name in ("reviewed_by", "reviewed_at", "review_reason",
+                         "required_reviewer_group"):
                 if name not in existing:
                     connection.execute(f"ALTER TABLE review_items ADD COLUMN {name} TEXT")
 
@@ -38,18 +39,20 @@ class ReviewQueue:
         return connection
 
     def submit(self, *, tenant_id: str, project_id: str | None, created_by: str,
-               workflow: str, title: str, body: str, evidence: list[Evidence]) -> ReviewItem:
+               workflow: str, title: str, body: str, evidence: list[Evidence],
+               required_reviewer_group: str | None = None) -> ReviewItem:
         item = ReviewItem(id=str(uuid4()), tenant_id=tenant_id, project_id=project_id,
                           created_by=created_by, workflow=workflow, title=title,
-                          body=body, evidence=evidence)
+                          body=body, evidence=evidence,
+                          required_reviewer_group=required_reviewer_group)
         with self._connect() as connection:
             connection.execute("""INSERT INTO review_items
                 (id, tenant_id, project_id, created_by, workflow, title, body,
-                 evidence_json, status, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                 evidence_json, status, created_at, required_reviewer_group)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (item.id, item.tenant_id, item.project_id, item.created_by, item.workflow,
                  item.title, item.body, json.dumps([e.model_dump(mode="json") for e in evidence]),
-                 item.status.value, item.created_at.isoformat()))
+                 item.status.value, item.created_at.isoformat(), required_reviewer_group))
         return item
 
     def list_pending(self, *, context: UserContext) -> list[ReviewItem]:
@@ -89,6 +92,11 @@ class ReviewQueue:
                 authorized = row["project_id"] in context.project_ids
             if not authorized:
                 raise ReviewAccessDenied("User is not authorized to disposition this review item")
+            if (row["required_reviewer_group"]
+                    and row["required_reviewer_group"] not in context.group_ids):
+                raise ReviewAccessDenied("User lacks the required qualified reviewer role")
+            if row["required_reviewer_group"] and row["created_by"] == context.user_id:
+                raise ReviewAccessDenied("Qualified reviews require separation of duties")
             if row["status"] != ReviewStatus.PENDING.value:
                 raise InvalidReviewTransition("Only pending review items can be dispositioned")
             connection.execute(
