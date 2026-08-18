@@ -86,6 +86,9 @@ class ReviewItem(BaseModel):
     evidence: list[Evidence] = Field(default_factory=list)
     status: ReviewStatus = ReviewStatus.PENDING
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    reviewed_by: str | None = None
+    reviewed_at: datetime | None = None
+    review_reason: str | None = None
 
 
 class AgentResponse(BaseModel):
