@@ -6,10 +6,6 @@ no Schedule A, and clause language that is unenforceable in the governing
 jurisdiction.
 """
 
-import shutil
-
-import pytest
-
 from tessera_os.clauses import ClauseLibrary, DealProfile, Party
 
 LIBRARY = "fixtures/clause_library"
@@ -178,7 +174,6 @@ def test_a_filled_document_reads_cleanly():
 
 # --- Word output ------------------------------------------------------------
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js not available")
 def test_the_document_renders_to_branded_word(tmp_path):
     from tessera_os.agreement_docx import render_agreement_docx
 
@@ -189,3 +184,15 @@ def test_the_document_renders_to_branded_word(tmp_path):
                                    markdown=filled.markdown)
     assert output.is_file()
     assert output.stat().st_size > 10_000
+
+    from docx import Document
+
+    rendered = Document(output)
+    body = "\n".join(paragraph.text for paragraph in rendered.paragraphs)
+    header = rendered.sections[0].header.paragraphs[0].text
+    footer = rendered.sections[0].footer.paragraphs[0].text
+    assert "Operating Agreement — Harbor HoldCo" in body
+    assert "DRAFT — FOR QUALIFIED COUNSEL REVIEW" in body
+    assert "TESSERA GROUP" in header
+    assert "Harbor HoldCo" in footer
+    assert rendered.tables
