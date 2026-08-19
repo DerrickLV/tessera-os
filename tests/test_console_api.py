@@ -1,10 +1,12 @@
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
 from tessera_os.console import create_console_app
+from tessera_os.governance import VentureProfile, recommend_structure
 from tessera_os.schemas import UserContext
 from tessera_os.workspace import PilotTaskRequest
 
@@ -36,12 +38,12 @@ def test_bootstrap_is_synthetic_scoped_and_configuration_backed(tmp_path, monkey
     assert "synthetic" in payload["notice"].lower()
     assert payload["session"]["tenant_id"] == "tenant-synthetic"
     assert payload["session"]["synthetic"] is True
-    assert len(payload["agents"]) == 12
+    assert len(payload["agents"]) == 13
     assert len(payload["projects"]) == 4
     assert payload["project_controls"][0]["registers"]
     assert payload["dashboard"] == {
         "pending_reviews": 4,
-        "active_agents": 12,
+        "active_agents": 13,
         "pilot_integrations": 2,
         "integration_count": 5,
         "external_writes": "disabled",
@@ -219,12 +221,15 @@ def test_workspace_reset_removes_drafts_and_restores_fixture_reviews(tmp_path, m
     assert len(api.get("/v1/reviews").json()) == 6
 
 
-def test_one_project_exposes_four_distinct_controlled_workflows(tmp_path, monkeypatch):
+def test_one_project_exposes_structure_and_four_controlled_workflows(tmp_path, monkeypatch):
     api = client(tmp_path, monkeypatch)
     options = api.get("/v1/projects/riverbend-multifamily/workflows").json()
-    assert len(options) == 4
+    assert len(options) == 5
+    assert "entity_structuring" in {item["workflow"] for item in options}
     titles = set()
     for option in options:
+        if option["workflow"] == "entity_structuring":
+            continue
         response = api.post("/v1/workspace/run", json={
             "project_id": "riverbend-multifamily",
             "workflow": option["workflow"],
@@ -346,3 +351,49 @@ def test_live_comparison_is_flag_gated_and_preserves_artifact_shape(tmp_path, mo
     assert payload["deterministic"]["source_mode"] == "deterministic"
     assert payload["live"]["source_mode"] == "live"
     assert payload["deterministic"]["comparison_artifact_id"] == payload["live"]["id"]
+
+
+def test_structure_api_requires_review_and_preserves_lineage(tmp_path, monkeypatch):
+    api = client(tmp_path, monkeypatch)
+    venture = VentureProfile(
+        venture="Northstar Housing (Synthetic)", home_state="Texas",
+        activity="real_estate_hold", real_property=True,
+        initial_capital=2_000_000, expected_hold_years=5,
+        operators_take_compensation=False,
+    )
+    payload = {
+        "project_id": "riverbend-multifamily",
+        "venture": venture.model_dump(mode="json"),
+        "counterparty": "Cedar Capital (Synthetic)",
+        "evidence": [{
+            "source_id": "synthetic-structure-intake",
+            "title": "Synthetic structure intake",
+            "locator": "fixture://structure/northstar",
+            "excerpt": "Fictional evidence for an API integration test.",
+            "retrieved_at": datetime.now(UTC).isoformat(),
+        }],
+        "open_question_answers": {
+            item.question: "Answered in synthetic API fixture."
+            for item in recommend_structure(venture).open_questions
+        },
+    }
+    recommendation = api.post("/v1/structure/recommendations", json=payload)
+    assert recommendation.status_code == 200
+    memo = recommendation.json()
+    assert memo["status"] == "draft"
+
+    bypass = api.post(
+        f"/v1/structure/recommendations/{memo['id']}/draft", json=payload)
+    assert bypass.status_code == 409
+
+    submitted = api.post(f"/v1/artifacts/{memo['id']}/submit").json()
+    accepted = api.post(
+        f"/v1/reviews/{submitted['review_item_id']}/accept",
+        json={"reason": "Synthetic qualified review completed."},
+    )
+    assert accepted.status_code == 200
+
+    drafted = api.post(
+        f"/v1/structure/recommendations/{memo['id']}/draft", json=payload)
+    assert drafted.status_code == 200
+    assert drafted.json()["source_artifact_id"] == memo["id"]

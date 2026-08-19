@@ -14,6 +14,7 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field, HttpUrl, model_validator
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from .identity import BASE_GROUP, EntraGroupMap
 from .integrations import MicrosoftGraphReader
 from .microsoft import (
     AllowlistedSharePointReader,
@@ -77,9 +78,14 @@ class SessionCodec:
     def __init__(self, secret: str) -> None:
         self.secret = secret
 
-    def issue(self, *, user_id: str, tenant_id: str, display_name: str) -> str:
+    def issue(self, *, user_id: str, tenant_id: str, display_name: str,
+              group_ids: list[str] | None = None) -> str:
         now = datetime.now(UTC)
+        # ``grp`` carries the *mapped Tessera* groups, resolved once at sign-in
+        # through the Entra group map. The browser can read the cookie's claims
+        # but cannot mint them — the session is signed server-side.
         return jwt.encode({"sub": user_id, "tid": tenant_id, "name": display_name,
+            "grp": sorted(group_ids or []),
             "iss": self.issuer, "aud": self.audience, "iat": now,
             "exp": now + timedelta(hours=8)}, self.secret, algorithm="HS256")
 
@@ -106,6 +112,7 @@ def create_portal_app(*, portal_settings: PortalSettings | None = None,
     broker = broker or MicrosoftConnectionBroker(settings=microsoft,
         cache_path=settings.data_dir / "microsoft-token-cache.bin")
     codec = SessionCodec(settings.session_secret)
+    group_map = EntraGroupMap.from_environment()
     sharepoint = AllowlistedSharePointReader(settings=microsoft,
         graph_factory=lambda provider: MicrosoftGraphReader(provider),
         token_provider=broker.token)
@@ -128,8 +135,14 @@ def create_portal_app(*, portal_settings: PortalSettings | None = None,
         if claims["sub"] not in settings.allowed_user_ids:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                                 detail="User is not invited to this Tessera portal")
+        # Groups were resolved from Entra membership at sign-in and travel in
+        # the signed session. Every privileged group — qualified_counsel,
+        # tessera_partner — exists only if an administrator mapped the Entra
+        # group and the user's token carried it. Nothing here may add one.
+        mapped = claims.get("grp") or []
         return UserContext(tenant_id=claims["tid"], user_id=claims["sub"],
-                           project_ids=set(settings.projects), group_ids={"tessera_user"})
+                           project_ids=set(settings.projects),
+                           group_ids={BASE_GROUP, *mapped})
 
     def current_claims(
         tessera_session: Annotated[str | None, Cookie()] = None,
@@ -175,7 +188,8 @@ def create_portal_app(*, portal_settings: PortalSettings | None = None,
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                                 detail="Microsoft user is not invited to Tessera")
         token = codec.issue(user_id=identity.user_id, tenant_id=identity.tenant_id,
-                            display_name=identity.display_name or identity.username or "Tessera User")
+                            display_name=identity.display_name or identity.username or "Tessera User",
+                            group_ids=sorted(group_map.resolve(identity.entra_group_ids)))
         response = RedirectResponse(str(settings.app_url), status_code=status.HTTP_303_SEE_OTHER)
         response.set_cookie("tessera_session", token, httponly=True, secure=True,
             samesite="lax", max_age=8 * 60 * 60, path="/")

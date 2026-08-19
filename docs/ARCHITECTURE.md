@@ -51,6 +51,9 @@ later only for workflows whose ownership truly transfers.
   typed sections, citations, comparisons, internal review, and DOCX generation.
 - **Contract and diligence plane:** approved clause playbooks, exact clause citations,
   claim classification, corroboration, source logs, and qualified-review queues.
+- **Structure plane:** synthetic entity/governance evaluation, evidence freshness,
+  blocking questions and conflicts, qualified-counsel review, input fingerprints, and
+  recommendation-to-agreement lineage.
 - **Project-control plane:** development stage gates, construction exceptions, versioned
   schedules/costs, immutable baselines, safety escalation, and deterministic variance.
 - **Capital plane:** reconciled model versions, deterministic underwriting metrics,

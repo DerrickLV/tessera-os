@@ -73,7 +73,7 @@ def test_counsel_notes_become_escalations(tmp_path):
 
 def test_open_terms_become_unknowns(tmp_path):
     artifact = draft(tmp_path)
-    assert any("member_approval_threshold" in item for item in artifact.unknowns)
+    assert any("ordinary_course_threshold" in item for item in artifact.unknowns)
 
 
 def test_a_less_protective_substitution_is_a_ranked_finding(tmp_path):

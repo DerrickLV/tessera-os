@@ -142,6 +142,8 @@ class PilotArtifact(BaseModel):
     amended_body: str | None = None
     amended_by: str | None = None
     comparison_artifact_id: str | None = None
+    input_fingerprint: str | None = None
+    source_artifact_id: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     events: list[ArtifactEvent] = Field(default_factory=list)
@@ -185,6 +187,13 @@ _INJECTION = re.compile(
     r"send (this|it) externally|move funds|submit (the )?(filing|permit|application)|"
     r"deploy (to )?production)"
 )
+
+
+def reject_unsafe_instruction(*values: str) -> None:
+    """Fail closed when user-controlled text attempts to override system policy."""
+    if any(_INJECTION.search(value) for value in values if value):
+        raise PilotWorkspaceError(
+            "Unsafe instruction detected; external actions and policy overrides are disabled")
 
 
 class PilotArtifactStore:
@@ -292,9 +301,7 @@ class PilotWorkspace:
     def run(self, request: PilotTaskRequest, *, context: UserContext) -> PilotArtifact:
         if request.project_id not in context.project_ids:
             raise PermissionError("Project is outside authenticated scope")
-        if request.task and _INJECTION.search(request.task):
-            raise PilotWorkspaceError(
-                "Unsafe instruction detected; external actions and policy overrides are disabled")
+        reject_unsafe_instruction(request.task)
         try:
             template = self.templates[(request.project_id, request.workflow)]
             client_id = self.project_clients[request.project_id]

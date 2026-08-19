@@ -12,6 +12,7 @@ from typing import Any, Protocol
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from pydantic import BaseModel, Field, SecretStr, model_validator
 
+from .identity import ZONE_LABEL, TrustZone, ZonePolicy
 from .integrations import MicrosoftGraphReader
 from .schemas import SourceDocument, UserContext
 
@@ -24,6 +25,22 @@ class SharePointProjectResource(BaseModel):
     site_id: str = Field(min_length=1)
     drive_id: str = Field(min_length=1)
     folder_item_id: str = "root"
+    # Which trust boundary of the Tessera governance model this resource sits
+    # in. Defaults to Internal — the most restrictive zone — so a mapping that
+    # forgets to declare its zone fails closed rather than open.
+    zone: TrustZone = "internal"
+    client_id: str | None = Field(
+        default=None,
+        description="Required for engagement-zone resources: the one client this "
+                    "workspace is walled to.")
+
+    @model_validator(mode="after")
+    def engagement_names_its_client(self) -> SharePointProjectResource:
+        if self.zone == "engagement" and not self.client_id:
+            raise MicrosoftConfigurationError(
+                "An engagement-zone SharePoint resource must name its client — "
+                "the wall between clients is the zone's entire purpose")
+        return self
 
 
 class MicrosoftPilotSettings(BaseModel):
@@ -52,6 +69,15 @@ class MicrosoftPilotSettings(BaseModel):
             raise MicrosoftConfigurationError(
                 "At least one approved project-to-SharePoint mapping is required")
         return self
+
+    def zone_policy(self) -> ZonePolicy:
+        """The trust-boundary policy implied by the approved resource map."""
+        return ZonePolicy(
+            resource_zones={project: resource.zone
+                            for project, resource in self.project_resources.items()},
+            resource_clients={project: resource.client_id
+                              for project, resource in self.project_resources.items()
+                              if resource.client_id})
 
     @classmethod
     def from_environment(cls) -> MicrosoftPilotSettings:
@@ -141,6 +167,10 @@ class MicrosoftIdentity(BaseModel):
     user_id: str
     username: str | None = None
     display_name: str | None = None
+    # Entra security-group object IDs from the token's ``groups`` claim. Absent
+    # in the groups-overage case, in which case this is empty and the user
+    # carries no privileged Tessera groups — fail closed, never guess.
+    entra_group_ids: list[str] = Field(default_factory=list)
 
 
 class MicrosoftConnectionBroker:
@@ -205,8 +235,10 @@ class MicrosoftConnectionBroker:
         if tenant_id != self.settings.tenant_id or not user_id:
             self.disconnect()
             raise MicrosoftConfigurationError("Microsoft identity tenant or user is invalid")
+        groups = claims.get("groups")
         return MicrosoftIdentity(tenant_id=tenant_id, user_id=user_id,
-            username=claims.get("preferred_username"), display_name=claims.get("name"))
+            username=claims.get("preferred_username"), display_name=claims.get("name"),
+            entra_group_ids=list(groups) if isinstance(groups, list) else [])
 
     def token(self) -> str:
         if self._auth_client is None:
@@ -239,6 +271,7 @@ class AllowlistedSharePointReader:
         self.settings = settings
         self.graph_factory = graph_factory
         self.token_provider = token_provider
+        self.zones = settings.zone_policy()
 
     def project_documents(self, *, context: UserContext,
                           project_id: str) -> list[SourceDocument]:
@@ -249,6 +282,15 @@ class AllowlistedSharePointReader:
         except KeyError as exc:
             raise MicrosoftConfigurationError(
                 "Project has no approved SharePoint resource mapping") from exc
-        return self.graph_factory(self.token_provider).sharepoint_documents(
+        # Trust boundary before transport: an Internal-zone library is readable
+        # only by the partners' group, whatever SharePoint's own ACLs say today.
+        zone = self.zones.check_read(context=context, project_id=project_id)
+        documents = self.graph_factory(self.token_provider).sharepoint_documents(
             site_id=resource.site_id, drive_id=resource.drive_id,
             folder_item_id=resource.folder_item_id, context=context, project_id=project_id)
+        for document in documents:
+            document.metadata.setdefault("trust_zone", zone)
+            document.metadata.setdefault("trust_zone_label", ZONE_LABEL[zone])
+            if resource.client_id:
+                document.metadata.setdefault("client_id", resource.client_id)
+        return documents

@@ -43,20 +43,22 @@ class FakeAuthClient:
         self.accounts.remove(account)
 
 
-def settings(*, enabled=True, scopes=("User.Read", "Sites.Selected")):
+def settings(*, enabled=True, scopes=("User.Read", "Sites.Selected"),
+             zone="engagement", client_id="client-pilot"):
     return MicrosoftPilotSettings(
         enabled=enabled, tenant_id="tenant-id", client_id="client-id",
         client_secret="secret", cache_key="not-used-by-fake-client", scopes=scopes,
         project_resources={"project-1": {
             "site_id": "approved-site", "drive_id": "approved-drive",
             "folder_item_id": "approved-folder",
+            "zone": zone, "client_id": client_id,
         }},
     )
 
 
-def context(projects=("project-1",)):
+def context(projects=("project-1",), groups=("project-team",)):
     return UserContext(tenant_id="tenant-a", user_id="alice",
-                       project_ids=set(projects), group_ids={"project-team"})
+                       project_ids=set(projects), group_ids=set(groups))
 
 
 def test_settings_reject_write_broad_and_unmapped_configuration():

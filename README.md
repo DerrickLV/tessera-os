@@ -3,7 +3,7 @@
 Tessera OS is an AI operating system for development, construction management,
 capital, advisory, and internal operations. This repository includes the Phase 2
 read-only pilot and the Phase 3 and Phase 4 manager foundations: a policy-aware
-orchestrator, twelve specialist agents, ACL-preserving retrieval, human review
+orchestrator, thirteen specialist agents, ACL-preserving retrieval, human review
 workflows, shared schemas, and offline document drafting.
 
 ## Status
@@ -17,7 +17,7 @@ workflows, shared schemas, and offline document drafting.
 ## What is included
 
 - A deterministic routing layer and OpenAI Agents SDK adapter
-- Specifications and prompts for 12 core agents
+- Specifications and prompts for 13 core agents
 - Shared request, response, evidence, and approval schemas
 - Central model, routing, security, and integration configuration
 - A local CLI and smoke tests that run without API credentials
@@ -75,6 +75,9 @@ workflows, shared schemas, and offline document drafting.
 - A persistent interactive pilot workspace that runs deterministic project workflows,
   creates cited draft artifacts with quality metrics and audit history, and submits them
   to qualified human review without model calls or external actions
+- A synthetic Structure Manager that produces cited entity/governance recommendations,
+  blocks stale or unresolved inputs, and permits agreement drafting only from the exact
+  qualified-counsel-approved recommendation version
 - Qualified reviewer roles, DLP redaction, deterministic usage budgets, encrypted
   artifact retention/legal hold, and tenant-scoped backup primitives
 - Locked dependencies, SHA-pinned CI actions, dependency auditing, secret-pattern
@@ -164,6 +167,7 @@ fixtures/phase4b/    Synthetic construction and capital records
 fixtures/automation/ Synthetic Phase 5 workflows, targets, and records
 fixtures/phase6/     Synthetic intelligence, engineering, and assurance records
 fixtures/console/    Synthetic operator-console clients, projects, and review items
+fixtures/clause_library/ Synthetic drafting clauses and Structure Manager samples
 web/                 Local operator console served by FastAPI
 ```
 

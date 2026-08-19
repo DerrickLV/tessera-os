@@ -1,6 +1,7 @@
 # Prompt assumptions to confirm
 
-The twelve specialist prompts were rewritten on 18 August 2026. Tessera's
+The original twelve specialist prompts were rewritten on 18 August 2026. The
+synthetic Structure Manager was added afterward under its own evidence and review controls. Tessera's
 *doctrine* in them was drawn from stated firm philosophy and public positioning.
 The items below are **inferences that were not sourced from a Tessera record**,
 and a model will apply them as if authoritative.
@@ -12,7 +13,7 @@ change here needs the same change in the named prompt file.
 
 ---
 
-## A. Firm doctrine — applies across all twelve prompts
+## A. Firm doctrine — applies across the original twelve prompts
 
 | # | Encoded as | Where | Who |
 |---|---|---|---|

@@ -4,62 +4,18 @@
   "clauses": [],
   "variables": [
     {
-      "name": "term_length",
-      "label": "Engagement length",
-      "kind": "text",
-      "help": "How long the agreement runs before it expires. State a period, not a date.",
+      "name": "accounting_basis",
+      "label": "Accounting basis",
+      "kind": "choice",
+      "choices": [
+        "GAAP",
+        "the income tax basis of accounting",
+        "the cash basis of accounting"
+      ],
       "defaults_by_posture": {
-        "protective": "twelve (12) months",
-        "standard": "twelve (12) months",
-        "accommodating": "twenty-four (24) months"
-      }
-    },
-    {
-      "name": "survival_sections",
-      "label": "Sections that survive termination",
-      "kind": "text",
-      "help": "List every section intended to outlive the agreement \u2014 confidentiality, IP, liability, indemnity, dispute resolution."
-    },
-    {
-      "name": "retainer_amount",
-      "label": "Retainer due on execution",
-      "kind": "money",
-      "help": "Applied against the final invoice. Required for a first engagement or an unrepresented counterparty.",
-      "defaults_by_posture": {
-        "protective": "$10,000",
-        "standard": "$5,000"
-      }
-    },
-    {
-      "name": "expense_threshold",
-      "label": "Expense pre-approval threshold",
-      "kind": "money",
-      "help": "Single expenses above this need written client approval before they are incurred.",
-      "defaults_by_posture": {
-        "protective": "$500",
-        "standard": "$1,000",
-        "accommodating": "$2,500"
-      }
-    },
-    {
-      "name": "fee_percentage",
-      "label": "Success fee",
-      "kind": "percent",
-      "help": "Percentage of Transaction Value payable on closing. Confirm the broker-registration position before using any success fee.",
-      "defaults_by_posture": {
-        "protective": "3%",
-        "standard": "2%"
-      }
-    },
-    {
-      "name": "confidentiality_years",
-      "label": "Confidentiality period (years)",
-      "kind": "years",
-      "help": "How long confidentiality obligations run after disclosure. Trade secrets are protected for as long as they remain trade secrets.",
-      "defaults_by_posture": {
-        "protective": "5",
-        "standard": "3",
-        "accommodating": "2"
+        "protective": "GAAP",
+        "standard": "the income tax basis of accounting",
+        "accommodating": "the income tax basis of accounting"
       }
     },
     {
@@ -67,6 +23,16 @@
       "label": "Advisory cadence cap",
       "kind": "text",
       "help": "Bounds an open-ended advisory scope. For example, 'eight (8) hours per month'."
+    },
+    {
+      "name": "annual_report_days",
+      "label": "Annual report deadline (days)",
+      "kind": "days",
+      "defaults_by_posture": {
+        "protective": "90",
+        "standard": "120",
+        "accommodating": "150"
+      }
     },
     {
       "name": "arbitration_provider",
@@ -85,10 +51,199 @@
       }
     },
     {
-      "name": "jurisdiction",
-      "label": "Governing jurisdiction",
+      "name": "binding_sections",
+      "label": "Binding sections of the memo",
       "kind": "text",
-      "help": "Taken from the deal profile. Stated as it should read in the document, e.g. 'the State of Texas'."
+      "help": "Exactly which sections survive the non-binding statement — typically confidentiality, exclusivity, expenses, and governing law."
+    },
+    {
+      "name": "buyer_party",
+      "label": "Party receiving exclusivity",
+      "kind": "text"
+    },
+    {
+      "name": "buyout_cash_percent",
+      "label": "Cash due at closing on a buy-out",
+      "kind": "percent",
+      "help": "The rest is carried on a secured note. Too high and the right is unexercisable by a working business; too low and the seller carries credit risk for years.",
+      "defaults_by_posture": {
+        "protective": "20%",
+        "standard": "20%",
+        "accommodating": "30%"
+      }
+    },
+    {
+      "name": "buyout_note_months",
+      "label": "Buy-out note term (months)",
+      "kind": "months",
+      "defaults_by_posture": {
+        "protective": "36",
+        "standard": "36",
+        "accommodating": "60"
+      }
+    },
+    {
+      "name": "buysell_closing_days",
+      "label": "Buy-sell closing window (days)",
+      "kind": "days",
+      "defaults_by_posture": {
+        "protective": "60",
+        "standard": "90",
+        "accommodating": "120"
+      }
+    },
+    {
+      "name": "buysell_election_days",
+      "label": "Buy-sell election window (days)",
+      "kind": "days",
+      "defaults_by_posture": {
+        "protective": "30",
+        "standard": "45",
+        "accommodating": "60"
+      }
+    },
+    {
+      "name": "capital_call_days",
+      "label": "Capital call notice (days)",
+      "kind": "days",
+      "help": "How long members have to fund after a call notice.",
+      "defaults_by_posture": {
+        "protective": "15",
+        "standard": "30",
+        "accommodating": "45"
+      }
+    },
+    {
+      "name": "company_purpose",
+      "label": "Stated company purpose",
+      "kind": "text",
+      "help": "Narrow enough to be a real constraint on the manager, broad enough for the intended business."
+    },
+    {
+      "name": "confidentiality_years",
+      "label": "Confidentiality period (years)",
+      "kind": "years",
+      "help": "How long confidentiality obligations run after disclosure. Trade secrets are protected for as long as they remain trade secrets.",
+      "defaults_by_posture": {
+        "protective": "5",
+        "standard": "3",
+        "accommodating": "2"
+      }
+    },
+    {
+      "name": "deadlock_buysell_days",
+      "label": "Days after the deadlock notice before buy-sell is available",
+      "kind": "days",
+      "help": "Available only where the deadlock also materially impairs ordinary-course operation. Shortening this makes the buy-sell easier to trigger.",
+      "defaults_by_posture": {
+        "protective": "60",
+        "standard": "60",
+        "accommodating": "90"
+      }
+    },
+    {
+      "name": "deadlock_mediation_days",
+      "label": "Days to complete mediation",
+      "kind": "days",
+      "defaults_by_posture": {
+        "protective": "30",
+        "standard": "30",
+        "accommodating": "45"
+      }
+    },
+    {
+      "name": "deadlock_mediation_trigger_days",
+      "label": "Days of negotiation before mediation",
+      "kind": "days",
+      "defaults_by_posture": {
+        "protective": "15",
+        "standard": "15",
+        "accommodating": "20"
+      }
+    },
+    {
+      "name": "deadlock_meeting_days",
+      "label": "Days between deadlock meetings",
+      "kind": "days",
+      "defaults_by_posture": {
+        "protective": "15",
+        "standard": "30",
+        "accommodating": "30"
+      }
+    },
+    {
+      "name": "deadlock_wait_days",
+      "label": "Days before a deadlock notice may be served",
+      "kind": "days",
+      "help": "Business days from the day the matter is first raised in writing.",
+      "defaults_by_posture": {
+        "protective": "15",
+        "standard": "15",
+        "accommodating": "20"
+      }
+    },
+    {
+      "name": "death_election_days",
+      "label": "Days to exercise the purchase right on a triggering event",
+      "kind": "days",
+      "defaults_by_posture": {
+        "protective": "90",
+        "standard": "90",
+        "accommodating": "120"
+      }
+    },
+    {
+      "name": "default_loan_rate",
+      "label": "Member default loan rate",
+      "kind": "percent",
+      "help": "Interest on a member loan funding another member's shortfall. Confirm against the usury limit.",
+      "defaults_by_posture": {
+        "protective": "12%",
+        "standard": "10%",
+        "accommodating": "8%"
+      }
+    },
+    {
+      "name": "disability_aggregate_days",
+      "label": "Disability — days within the trailing window",
+      "kind": "days",
+      "defaults_by_posture": {
+        "protective": "120",
+        "standard": "120",
+        "accommodating": "150"
+      }
+    },
+    {
+      "name": "disability_consecutive_days",
+      "label": "Disability — consecutive days",
+      "kind": "days",
+      "help": "Check this against any disability policy the company or the members carry; a mismatch leaves a funding gap.",
+      "defaults_by_posture": {
+        "protective": "90",
+        "standard": "90",
+        "accommodating": "120"
+      }
+    },
+    {
+      "name": "disability_window_days",
+      "label": "Disability — trailing window (days)",
+      "kind": "days",
+      "defaults_by_posture": {
+        "protective": "180",
+        "standard": "180",
+        "accommodating": "180"
+      }
+    },
+    {
+      "name": "drag_threshold",
+      "label": "Drag-along threshold",
+      "kind": "percent",
+      "help": "Units required to force a sale. Higher protects the minority; lower protects the exit.",
+      "defaults_by_posture": {
+        "protective": "75%",
+        "standard": "66.7%",
+        "accommodating": "51%"
+      }
     },
     {
       "name": "entity_statute",
@@ -97,10 +252,105 @@
       "help": "Include the leading article, e.g. 'the Delaware Limited Liability Company Act'. Clause text does not supply one."
     },
     {
-      "name": "company_purpose",
-      "label": "Stated company purpose",
+      "name": "exclusivity_days",
+      "label": "Exclusivity period (days)",
+      "kind": "days",
+      "help": "Keep it short and tied to a diligence milestone.",
+      "defaults_by_posture": {
+        "protective": "45",
+        "standard": "30",
+        "accommodating": "21"
+      }
+    },
+    {
+      "name": "expense_threshold",
+      "label": "Expense pre-approval threshold",
+      "kind": "money",
+      "help": "Single expenses above this need written client approval before they are incurred.",
+      "defaults_by_posture": {
+        "protective": "$500",
+        "standard": "$1,000",
+        "accommodating": "$2,500"
+      }
+    },
+    {
+      "name": "failed_close_discount",
+      "label": "Failed-close purchase discount",
+      "kind": "percent",
+      "help": "Price at which the non-defaulting member may buy after a failed buy-sell close, as a percentage of the stated price.",
+      "defaults_by_posture": {
+        "protective": "80%",
+        "standard": "85%",
+        "accommodating": "90%"
+      }
+    },
+    {
+      "name": "fee_percentage",
+      "label": "Success fee",
+      "kind": "percent",
+      "help": "Percentage of Transaction Value payable on closing. Confirm the broker-registration position before using any success fee.",
+      "defaults_by_posture": {
+        "protective": "3%",
+        "standard": "2%"
+      }
+    },
+    {
+      "name": "fmv_agreement_days",
+      "label": "Days for the members to agree on value",
+      "kind": "days",
+      "defaults_by_posture": {
+        "protective": "15",
+        "standard": "15",
+        "accommodating": "30"
+      }
+    },
+    {
+      "name": "fmv_appraiser_days",
+      "label": "Days to appoint appraisers",
+      "kind": "days",
+      "defaults_by_posture": {
+        "protective": "15",
+        "standard": "15",
+        "accommodating": "30"
+      }
+    },
+    {
+      "name": "fmv_convergence_percent",
+      "label": "Convergence band before a third appraiser",
+      "kind": "percent",
+      "help": "If the two appraisals land within this band, the value is their average. Widening it avoids a third appraiser but accepts a looser number.",
+      "defaults_by_posture": {
+        "protective": "10%",
+        "standard": "10%",
+        "accommodating": "15%"
+      }
+    },
+    {
+      "name": "fmv_determination_days",
+      "label": "Days for the appraisers to determine value",
+      "kind": "days",
+      "defaults_by_posture": {
+        "protective": "30",
+        "standard": "30",
+        "accommodating": "45"
+      }
+    },
+    {
+      "name": "jurisdiction",
+      "label": "Governing jurisdiction",
       "kind": "text",
-      "help": "Narrow enough to be a real constraint on the manager, broad enough for the intended business."
+      "help": "Taken from the deal profile. Stated as it should read in the document, e.g. 'the State of Texas'."
+    },
+    {
+      "name": "litigation_threshold",
+      "label": "Litigation approval threshold",
+      "kind": "money",
+      "help": "Above this amount, commencing or settling litigation is a Reserved Matter.",
+      "defaults_by_posture": {
+        "protective": "$50,000",
+        "standard": "$100,000",
+        "accommodating": "$250,000"
+      }
     },
     {
       "name": "manager_name",
@@ -120,25 +370,36 @@
       }
     },
     {
-      "name": "capital_call_days",
-      "label": "Capital call notice (days)",
-      "kind": "days",
-      "help": "How long members have to fund after a call notice.",
+      "name": "noncompete_months",
+      "label": "Non-compete period after departure (months)",
+      "kind": "months",
+      "help": "Enforceability turns entirely on the governing state. Counsel confirms the permissible period before this is circulated.",
       "defaults_by_posture": {
-        "protective": "15",
-        "standard": "30",
-        "accommodating": "45"
+        "protective": "12",
+        "standard": "12",
+        "accommodating": "6"
       }
     },
     {
-      "name": "default_loan_rate",
-      "label": "Member default loan rate",
-      "kind": "percent",
-      "help": "Interest on a member loan funding another member's shortfall. Confirm against the usury limit.",
+      "name": "nonsolicit_months",
+      "label": "Non-solicit period (months)",
+      "kind": "months",
+      "help": "Usually the covenant that matters most — relationships walk out more often than trade secrets do.",
       "defaults_by_posture": {
-        "protective": "12%",
-        "standard": "10%",
-        "accommodating": "8%"
+        "protective": "24",
+        "standard": "18",
+        "accommodating": "12"
+      }
+    },
+    {
+      "name": "ordinary_course_threshold",
+      "label": "Ordinary-course authority threshold",
+      "kind": "money",
+      "help": "The hinge of the whole governance design. Below it one principal acts alone; above it the Major Decision rule applies. Test it against a normal month of spending before adopting.",
+      "defaults_by_posture": {
+        "protective": "$25,000",
+        "standard": "$50,000",
+        "accommodating": "$100,000"
       }
     },
     {
@@ -153,6 +414,22 @@
       }
     },
     {
+      "name": "promote_holder",
+      "label": "Promote holder",
+      "kind": "text",
+      "help": "Who receives the promote on residual distributions."
+    },
+    {
+      "name": "quarterly_report_days",
+      "label": "Quarterly report deadline (days)",
+      "kind": "days",
+      "defaults_by_posture": {
+        "protective": "30",
+        "standard": "45",
+        "accommodating": "60"
+      }
+    },
+    {
       "name": "residual_split",
       "label": "Residual split to members",
       "kind": "percent",
@@ -164,10 +441,55 @@
       }
     },
     {
-      "name": "promote_holder",
-      "label": "Promote holder",
+      "name": "retainer_amount",
+      "label": "Retainer due on execution",
+      "kind": "money",
+      "help": "Applied against the final invoice. Required for a first engagement or an unrepresented counterparty.",
+      "defaults_by_posture": {
+        "protective": "$10,000",
+        "standard": "$5,000"
+      }
+    },
+    {
+      "name": "rofr_completion_days",
+      "label": "ROFR completion window (days)",
+      "kind": "days",
+      "defaults_by_posture": {
+        "protective": "60",
+        "standard": "90",
+        "accommodating": "120"
+      }
+    },
+    {
+      "name": "rofr_days",
+      "label": "Right of first refusal window (days)",
+      "kind": "days",
+      "defaults_by_posture": {
+        "protective": "45",
+        "standard": "30",
+        "accommodating": "20"
+      }
+    },
+    {
+      "name": "seller_party",
+      "label": "Party granting exclusivity",
+      "kind": "text"
+    },
+    {
+      "name": "survival_sections",
+      "label": "Sections that survive termination",
       "kind": "text",
-      "help": "Who receives the promote on residual distributions."
+      "help": "List every section intended to outlive the agreement — confidentiality, IP, liability, indemnity, dispute resolution."
+    },
+    {
+      "name": "tag_notice_days",
+      "label": "Tag-along notice (days)",
+      "kind": "days",
+      "defaults_by_posture": {
+        "protective": "30",
+        "standard": "20",
+        "accommodating": "15"
+      }
     },
     {
       "name": "tax_distribution_days",
@@ -192,159 +514,25 @@
       }
     },
     {
-      "name": "quarterly_report_days",
-      "label": "Quarterly report deadline (days)",
-      "kind": "days",
-      "defaults_by_posture": {
-        "protective": "30",
-        "standard": "45",
-        "accommodating": "60"
-      }
-    },
-    {
-      "name": "annual_report_days",
-      "label": "Annual report deadline (days)",
-      "kind": "days",
-      "defaults_by_posture": {
-        "protective": "90",
-        "standard": "120",
-        "accommodating": "150"
-      }
-    },
-    {
-      "name": "accounting_basis",
-      "label": "Accounting basis",
-      "kind": "choice",
-      "choices": [
-        "GAAP",
-        "the income tax basis of accounting",
-        "the cash basis of accounting"
-      ],
-      "defaults_by_posture": {
-        "protective": "GAAP",
-        "standard": "the income tax basis of accounting",
-        "accommodating": "the income tax basis of accounting"
-      }
-    },
-    {
-      "name": "litigation_threshold",
-      "label": "Litigation approval threshold",
-      "kind": "money",
-      "help": "Above this amount, commencing or settling litigation is a Reserved Matter.",
-      "defaults_by_posture": {
-        "protective": "$50,000",
-        "standard": "$100,000",
-        "accommodating": "$250,000"
-      }
-    },
-    {
-      "name": "rofr_days",
-      "label": "Right of first refusal window (days)",
-      "kind": "days",
-      "defaults_by_posture": {
-        "protective": "45",
-        "standard": "30",
-        "accommodating": "20"
-      }
-    },
-    {
-      "name": "rofr_completion_days",
-      "label": "ROFR completion window (days)",
-      "kind": "days",
-      "defaults_by_posture": {
-        "protective": "60",
-        "standard": "90",
-        "accommodating": "120"
-      }
-    },
-    {
-      "name": "tag_notice_days",
-      "label": "Tag-along notice (days)",
-      "kind": "days",
-      "defaults_by_posture": {
-        "protective": "30",
-        "standard": "20",
-        "accommodating": "15"
-      }
-    },
-    {
-      "name": "drag_threshold",
-      "label": "Drag-along threshold",
-      "kind": "percent",
-      "help": "Units required to force a sale. Higher protects the minority; lower protects the exit.",
-      "defaults_by_posture": {
-        "protective": "75%",
-        "standard": "66.7%",
-        "accommodating": "51%"
-      }
-    },
-    {
-      "name": "deadlock_meeting_days",
-      "label": "Days between deadlock meetings",
-      "kind": "days",
-      "defaults_by_posture": {
-        "protective": "15",
-        "standard": "30",
-        "accommodating": "30"
-      }
-    },
-    {
-      "name": "buysell_election_days",
-      "label": "Buy-sell election window (days)",
-      "kind": "days",
-      "defaults_by_posture": {
-        "protective": "30",
-        "standard": "45",
-        "accommodating": "60"
-      }
-    },
-    {
-      "name": "buysell_closing_days",
-      "label": "Buy-sell closing window (days)",
-      "kind": "days",
-      "defaults_by_posture": {
-        "protective": "60",
-        "standard": "90",
-        "accommodating": "120"
-      }
-    },
-    {
-      "name": "failed_close_discount",
-      "label": "Failed-close purchase discount",
-      "kind": "percent",
-      "help": "Price at which the non-defaulting member may buy after a failed buy-sell close, as a percentage of the stated price.",
-      "defaults_by_posture": {
-        "protective": "80%",
-        "standard": "85%",
-        "accommodating": "90%"
-      }
-    },
-    {
-      "name": "binding_sections",
-      "label": "Binding sections of the memo",
+      "name": "term_length",
+      "label": "Engagement length",
       "kind": "text",
-      "help": "Exactly which sections survive the non-binding statement \u2014 typically confidentiality, exclusivity, expenses, and governing law."
-    },
-    {
-      "name": "exclusivity_days",
-      "label": "Exclusivity period (days)",
-      "kind": "days",
-      "help": "Keep it short and tied to a diligence milestone.",
+      "help": "How long the agreement runs before it expires. State a period, not a date.",
       "defaults_by_posture": {
-        "protective": "45",
-        "standard": "30",
-        "accommodating": "21"
+        "protective": "twelve (12) months",
+        "standard": "twelve (12) months",
+        "accommodating": "twenty-four (24) months"
       }
     },
     {
-      "name": "seller_party",
-      "label": "Party granting exclusivity",
-      "kind": "text"
-    },
-    {
-      "name": "buyer_party",
-      "label": "Party receiving exclusivity",
-      "kind": "text"
+      "name": "triggering_cure_days",
+      "label": "Cure period for a material breach (days)",
+      "kind": "days",
+      "defaults_by_posture": {
+        "protective": "30",
+        "standard": "30",
+        "accommodating": "45"
+      }
     }
   ]
 }

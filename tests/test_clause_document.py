@@ -6,10 +6,6 @@ no Schedule A, and clause language that is unenforceable in the governing
 jurisdiction.
 """
 
-import shutil
-
-import pytest
-
 from tessera_os.clauses import ClauseLibrary, DealProfile, Party
 
 LIBRARY = "fixtures/clause_library"
@@ -178,7 +174,6 @@ def test_a_filled_document_reads_cleanly():
 
 # --- Word output ------------------------------------------------------------
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js not available")
 def test_the_document_renders_to_branded_word(tmp_path):
     from tessera_os.agreement_docx import render_agreement_docx
 
@@ -189,3 +184,36 @@ def test_the_document_renders_to_branded_word(tmp_path):
                                    markdown=filled.markdown)
     assert output.is_file()
     assert output.stat().st_size > 10_000
+
+    from docx import Document
+
+    rendered = Document(output)
+    body = "\n".join(paragraph.text for paragraph in rendered.paragraphs)
+    header = rendered.sections[0].header.paragraphs[0].text
+    footer = rendered.sections[0].footer.paragraphs[0].text
+    assert "Operating Agreement — Harbor HoldCo" in body
+    assert "DRAFT — FOR QUALIFIED COUNSEL REVIEW" in body
+    assert "TESSERA GROUP" in header
+    assert "Harbor HoldCo" in footer
+    assert rendered.tables
+
+
+def test_a_structure_memo_renders_on_the_same_paper(tmp_path):
+    """Same brand, different banner -- a memo is not a draft agreement."""
+    from docx import Document
+
+    from tessera_os.agreement_docx import render_structure_docx
+    from tessera_os.governance import VentureProfile, recommend_structure
+
+    rec = recommend_structure(VentureProfile(
+        venture="Harbor HoldCo", home_state="Oklahoma", real_property=True))
+    output = render_structure_docx(rec, tmp_path / "memo.docx")
+    rendered = Document(output)
+    header = rendered.sections[0].header.paragraphs[0].text
+    body = "\n".join(paragraph.text for paragraph in rendered.paragraphs)
+    assert "TESSERA GROUP" in header
+    assert "not legal or tax advice" in header
+    assert "Structure Recommendation — Harbor HoldCo" in body
+    # Italic and third-level headings must not reach the page as raw markdown.
+    assert "*" not in body
+    assert "###" not in body

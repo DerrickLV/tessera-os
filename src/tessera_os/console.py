@@ -17,7 +17,13 @@ from pydantic import BaseModel, Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from .clauses import Clause, ClauseLibrary
-from .drafting import AgreementDrafter, AgreementDraftRequest
+from .drafting import (
+    AgreementDrafter,
+    AgreementDraftRequest,
+    StructureAdvisor,
+    StructureRequest,
+)
+from .governance import VentureProfile, recommend_structure
 from .microsoft import (
     MicrosoftConfigurationError,
     MicrosoftConnectionBroker,
@@ -30,7 +36,14 @@ from .policy import Environment
 from .registry import AgentDefinition, AgentRegistry
 from .review import InvalidReviewTransition, ReviewAccessDenied, ReviewQueue
 from .runtime_controls import RateLimiter, RuntimeAuditStore
-from .schemas import AgentRequest, ReviewItem, ReviewReasonCategory, ReviewStatus, UserContext
+from .schemas import (
+    AgentRequest,
+    Evidence,
+    ReviewItem,
+    ReviewReasonCategory,
+    ReviewStatus,
+    UserContext,
+)
 from .service import AuthSettings, create_app
 from .settings import SecuritySettings, load_integration_settings, load_security_settings
 from .workspace import (
@@ -259,6 +272,37 @@ def create_console_app(*, data_dir: Path | None = None,
     drafter = AgreementDrafter(library=clauses, store=artifact_store,
                                project_clients={project.id: project.client_id
                                                 for project in fixture.projects})
+    structure_advisor = StructureAdvisor(
+        store=artifact_store,
+        review_queue=review_queue,
+        project_clients={project.id: project.client_id for project in fixture.projects},
+    )
+
+    def synthetic_structure_request(project_id: str) -> StructureRequest:
+        project = next((item for item in fixture.projects if item.id == project_id), None)
+        if project is None:
+            raise PilotWorkspaceError("No synthetic structure fixture exists for that project")
+        venture = VentureProfile(
+            venture=f"{project.name} Structure (Synthetic)", home_state="Texas",
+            activity="real_estate_hold", real_property=True,
+            initial_capital=2_000_000, expected_hold_years=5,
+            operators_take_compensation=False,
+        )
+        return StructureRequest(
+            project_id=project_id, venture=venture,
+            counterparty="Synthetic Counterparty",
+            evidence=[Evidence(
+                source_id=f"{project_id}-synthetic-structure-intake",
+                title="Synthetic structure intake fixture",
+                locator=f"fixture://console/{project_id}/structure-intake",
+                excerpt="Fictional facts for offline Structure Manager evaluation.",
+                retrieved_at=datetime.now(UTC).isoformat(),
+            )],
+            open_question_answers={
+                item.question: "Answered in the synthetic console fixture."
+                for item in recommend_structure(venture).open_questions
+            },
+        )
     audit_store = RuntimeAuditStore(runtime_dir / "console-audit.db")
     registry = AgentRegistry()
     live_enabled = os.getenv("TESSERA_PILOT_LIVE_DRAFTING", "false").lower() == "true"
@@ -295,6 +339,12 @@ def create_console_app(*, data_dir: Path | None = None,
         external_action_counter=lambda context, project_id:
             audit_store.count_external_actions(context=context, project_id=project_id),
         live_drafter=live_drafter, live_enabled=live_enabled)
+
+    def workflow_options(project_id: str, context: UserContext) -> list[PilotWorkflowOption]:
+        return [*workspace.workflows(project_id=project_id, context=context),
+                PilotWorkflowOption(project_id=project_id, workflow="entity_structuring",
+                                    title="Entity Structure Recommendation",
+                                    agent_id="structure_manager")]
     auth_settings = AuthSettings(issuer="offline://tessera-console",
         audience="tessera-console", verification_key="synthetic-console-key-not-for-production",
         algorithm="HS256", environment=environment)
@@ -492,6 +542,11 @@ def create_console_app(*, data_dir: Path | None = None,
     def run_workspace(request: PilotTaskRequest,
                       context: UserContext = Depends(context_provider)) -> PilotArtifact:  # noqa: B008
         try:
+            if request.workflow == "entity_structuring":
+                if request.project_id not in context.project_ids:
+                    raise PermissionError("Project is outside authenticated scope")
+                return structure_advisor.recommend(
+                    synthetic_structure_request(request.project_id), context=context)
             return workspace.run(request, context=context)
         except PermissionError as exc:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
@@ -511,12 +566,46 @@ def create_console_app(*, data_dir: Path | None = None,
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                                 detail=str(exc)) from exc
 
+    @app.post("/v1/structure/recommendations", response_model=PilotArtifact)
+    def recommend_structure_api(
+        request: StructureRequest,
+        context: UserContext = Depends(context_provider),  # noqa: B008
+    ) -> PilotArtifact:
+        """Create an evidence-backed, synthetic structure memo draft."""
+        try:
+            return structure_advisor.recommend(request, context=context)
+        except PermissionError as exc:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail=str(exc)) from exc
+        except (PilotWorkspaceError, ValueError) as exc:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                                detail=str(exc)) from exc
+
+    @app.post("/v1/structure/recommendations/{artifact_id}/draft",
+              response_model=PilotArtifact)
+    def draft_approved_structure(
+        artifact_id: str,
+        request: StructureRequest,
+        context: UserContext = Depends(context_provider),  # noqa: B008
+    ) -> PilotArtifact:
+        """Draft only from the exact structure inputs accepted by qualified counsel."""
+        try:
+            draft_request = structure_advisor.to_draft_request(
+                request, context=context, approved_artifact_id=artifact_id)
+            return drafter.draft(draft_request, context=context)
+        except PermissionError as exc:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail=str(exc)) from exc
+        except (PilotWorkspaceError, ValueError) as exc:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                                detail=str(exc)) from exc
+
     @app.get("/v1/projects/{project_id}/workflows",
              response_model=list[PilotWorkflowOption])
     def project_workflows(project_id: str,
             context: UserContext = Depends(context_provider)) -> list[PilotWorkflowOption]:  # noqa: B008
         try:
-            return workspace.workflows(project_id=project_id, context=context)
+            return workflow_options(project_id, context)
         except PermissionError as exc:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
 
@@ -667,8 +756,7 @@ def create_console_app(*, data_dir: Path | None = None,
             integrations=integrations, microsoft=microsoft_broker.status(),
             review_items=review_items, artifacts=artifacts,
             workflows=[option for project_id in sorted(context.project_ids)
-                       for option in workspace.workflows(project_id=project_id,
-                                                         context=context)],
+                       for option in workflow_options(project_id, context)],
             project_controls=[item for item in fixture.project_controls
                               if item.project_id in context.project_ids])
 
@@ -689,6 +777,7 @@ def create_console_app(*, data_dir: Path | None = None,
     app.state.context_provider = context_provider
     app.state.review_queue = review_queue
     app.state.artifact_store = artifact_store
+    app.state.structure_advisor = structure_advisor
     app.state.workspace = workspace
     app.state.audit_store = audit_store
     return app

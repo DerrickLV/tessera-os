@@ -221,8 +221,9 @@ pending. See `MICROSOFT_365_CONNECTION_PLAN.md`.
 
 - Replaced literal quality scores with enumerable per-claim citations, computed
   citation coverage, audit-sourced external-action counts, and measured freshness.
-- Added project-plus-workflow template selection; RiverBend exposes four distinct
-  controlled workflows while free-text Ask remains a routing preview.
+- Added project-plus-workflow selection; RiverBend exposes four fixture workflows plus
+  the separately controlled Structure Manager workflow while free-text Ask remains a
+  routing preview.
 - Added reviewable `insufficient_evidence` outcomes for stale, uncited, or conflicting
   source sets.
 - Added a default-off `TESSERA_PILOT_LIVE_DRAFTING` contract-review path and a
@@ -233,6 +234,22 @@ pending. See `MICROSOFT_365_CONNECTION_PLAN.md`.
 
 No model call is made by default or in the offline test suite. Measured live validation,
 human acceptance, and every Microsoft 365 production gate remain pending.
+
+## Structure Manager — synthetic foundation implemented
+
+- Added deterministic entity topology, governance, control, exit, capital, conflict,
+  open-question, and provenance models.
+- Added current cited intake evidence, prompt-injection rejection, and explicit
+  insufficient-evidence outcomes for stale, conflicting, or unanswered inputs.
+- Added a qualified-counsel approval gate whose accepted artifact fingerprint must
+  exactly match the inputs handed to agreement drafting.
+- Added localhost API endpoints and synthetic Word/Markdown fixtures.
+- Removed real-agreement-derived material; the checked-in playbook and samples are
+  fictional evaluation content only.
+
+Production use remains blocked pending approved authoritative sources, counsel and tax
+validation, real identity and tenant-isolation validation, retention approval, and the
+general production gate checklist.
 
 ## Phase 7C — Single-user private portal foundation (implemented; deployment pending)
 

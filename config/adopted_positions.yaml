@@ -1,0 +1,32 @@
+# Tessera adopted positions — the ledger that turns a starting point into a
+# firm position.
+#
+# This file ships EMPTY. Until an entry is signed here, every structural
+# position the engine produces is labelled a starting point or a synthetic
+# reference, and every memo says so. That is deliberate: the system never
+# claims a Tessera standard that Derrick and Ryan have not actually adopted.
+#
+# Rules, enforced by the loader (src/tessera_os/adoption.py):
+#   - adopted_by needs TWO distinct partners. Firm positions are unanimous.
+#   - source_ref is a citation BY REFERENCE (document name + section). Never
+#     paste agreement text into this repository.
+#   - counsel_reviewed stays false until qualified counsel has reviewed the
+#     position for the jurisdictions Tessera works in.
+#   - The `area` must match a Recommendation area exactly (see
+#     docs/governance/02_DECISION_RULES.md for the list).
+#
+# A ready-to-sign proposal for every area is in
+# docs/governance/09_DECISION_PACKET.md. Signing = copying an entry here,
+# putting both names on it, and dating it.
+#
+# Example (leave commented until actually decided):
+#
+# positions:
+#   - area: "Ordinary-course authority"
+#     adopted_by: ["Derrick Carlisle", "Ryan Strasshofer"]
+#     date: "2026-08-19"
+#     source_ref: "Tesserra Holdings LLC Operating Agreement, Art. IV"
+#     counsel_reviewed: false
+#     note: "Threshold set per the adopted scaling rule."
+
+positions: []

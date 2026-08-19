@@ -1,5 +1,5 @@
 {
-  "notice": "STARTING SCAFFOLD \u2014 entity, governance, and deal paper. Every variant requires review and adoption by qualified counsel before it becomes an approved Tessera position. Operating agreements are jurisdiction- and tax-sensitive; nothing here substitutes for counsel and a tax advisor. Placeholders appear in {braces}; {n} is resolved to the assembled section number.",
+  "notice": "STARTING SCAFFOLD — entity, governance, and deal paper. Every variant requires review and adoption by qualified counsel before it becomes an approved Tessera position. Operating agreements are jurisdiction- and tax-sensitive; nothing here substitutes for counsel and a tax advisor. Placeholders appear in {braces}; {n} is resolved to the assembled section number.",
   "version": "0.1.0",
   "clauses": [
     {
@@ -58,15 +58,15 @@
       ],
       "industries": [],
       "required": true,
-      "absence_risk": "Without a stated consequence for failing to fund, a member who does not contribute keeps full economics while others carry the deal.",
+      "absence_risk": "Without a capital section the contributions are undocumented, the capital accounts do not exist, and no distribution or liquidation provision can be applied to anything.",
       "variants": [
         {
           "id": "gov-capital-dilution",
           "posture": "protective",
           "when": "Default wherever additional capital is foreseeable, which is nearly always in real estate and development.",
           "trade_off": "Dilution mechanics are the most negotiated provision in an operating agreement; expect to defend them.",
-          "counsel_review": "Confirm the dilution formula is arithmetically correct and produces the intended result on a worked example. Confirm the treatment of a member loan is consistent with the tax position and does not create an unintended preferred return.",
-          "text": "**{n}.1 Initial Contributions.** Each Member has contributed the cash or property set out opposite its name on Schedule A, and has received the Units set out there.\n\n**{n}.2 Additional Capital.** No Member is obligated to make any additional Capital Contribution. If the Manager determines in good faith that the Company requires additional capital, the Manager may deliver a written call to all Members stating the amount, the purpose, and a funding date not less than {capital_call_days} days after the notice. Each Member may, but need not, fund its pro rata share.\n\n**{n}.3 Failure to Fund.** If a Member does not fund its full pro rata share by the funding date, the other Members may fund the shortfall, in which case, at the electing Member's option: (a) the amount funded is treated as an additional Capital Contribution and the Units of all Members are adjusted so that each Member holds Units in proportion to total Capital Contributions, with the non-funding Member diluted accordingly; or (b) the amount funded is treated as a loan to the Company bearing interest at {default_loan_rate}, repayable in priority to any distribution under Section {n}.1 of the Distributions Section.\n\n**{n}.4 No Interest; No Withdrawal.** No Member is entitled to interest on its Capital Contribution or to withdraw or demand the return of any part of it except as expressly provided in this Agreement.\n\n**{n}.5 No Third-Party Rights.** The obligations in this Section run only between the Members and confer no rights on any creditor of the Company."
+          "counsel_review": "Confirm the agreed values on Schedule A, particularly for any contribution of property or services -- a services contribution is taxable to the contributor on receipt unless structured as a profits interest. Confirm the capital account provisions against the allocation section so the allocations have substantial economic effect.",
+          "text": "**{n}.1 Initial Contributions.** Each Member has contributed the cash or property set out opposite its name on Schedule A, and has received the Units set out there. The Members acknowledge that the values stated on Schedule A are the agreed values of those contributions.\n\n**{n}.2 Capital Accounts.** The Company shall maintain a capital account for each Member in accordance with Treasury Regulations Section 1.704-1(b)(2)(iv), increased by that Member's Capital Contributions and allocated profits, and decreased by distributions to that Member and allocated losses.\n\n**{n}.3 No Interest; No Withdrawal.** No Member is entitled to interest on any Capital Contribution, or to withdraw or receive a return of any Capital Contribution except as expressly provided in this Agreement.\n\n**{n}.4 No Liability for Return.** No Member is personally liable for the return of any other Member's Capital Contribution.\n\n**{n}.5 Additional Capital.** Additional Capital Contributions, and the consequences of a failure to fund an approved call, are governed by Section {ref:gov-capital-call-default}."
         },
         {
           "id": "gov-capital-simple",
@@ -74,7 +74,7 @@
           "when": "Fully-funded entity where no additional capital is expected and the members prefer simplicity.",
           "trade_off": "If capital is in fact needed later, the members must negotiate the mechanics under pressure.",
           "counsel_review": "Confirm the members genuinely expect no further capital need. If there is any prospect of one, use the dilution variant instead.",
-          "text": "**{n}.1 Initial Contributions.** Each Member has contributed the cash or property set out opposite its name on Schedule A, and has received the Units set out there.\n\n**{n}.2 Additional Capital.** No Member is obligated to make any additional Capital Contribution. Any additional capital, and its effect on the Units, requires the Approval of the Members.\n\n**{n}.3 No Interest; No Withdrawal.** No Member is entitled to interest on its Capital Contribution or to withdraw any part of it except as expressly provided in this Agreement."
+          "text": "**{n}.1 Initial Contributions.** Each Member has contributed the cash or property set out opposite its name on Schedule A, and has received the Units set out there.\n\n**{n}.2 Capital Accounts.** The Company shall maintain a capital account for each Member in accordance with Treasury Regulations Section 1.704-1(b)(2)(iv).\n\n**{n}.3 No Interest; No Withdrawal.** No Member is entitled to interest on its Capital Contribution or to withdraw any part of it except as expressly provided in this Agreement.\n\n**{n}.4 Additional Capital.** Additional Capital Contributions are governed by Section {ref:gov-capital-call-default}."
         }
       ],
       "defines": [
@@ -118,8 +118,8 @@
           "posture": "protective",
           "when": "Default wherever capital is contributed unequally or a promote is intended.",
           "trade_off": "A waterfall requires the return hurdles to be agreed up front, which slows signature.",
-          "counsel_review": "MANDATORY tax review: confirm the waterfall, the promote, and the tax-distribution provision are consistent with the intended tax treatment and the allocation provisions. Run the waterfall on at least one downside case before signature.",
-          "text": "**{n}.1 Distributable Cash.** The Manager shall determine Distributable Cash after providing for Company obligations and reasonable reserves, and shall distribute it to the Members in the following order of priority:\n\n(a) first, to the Members in proportion to their Unreturned Preferred Return, until each has received a cumulative, non-compounding return of {preferred_return} per annum on its Unreturned Capital;\n\n(b) second, to the Members in proportion to their Unreturned Capital, until each has received an amount equal to its Capital Contributions;\n\n(c) thereafter, {residual_split} to the Members in proportion to their Units and the balance to {promote_holder} as a promote.\n\n**{n}.2 Tax Distributions.** Notwithstanding Section {n}.1, the Manager shall use commercially reasonable efforts to distribute to each Member, within {tax_distribution_days} days after each taxable year, an amount at least equal to the estimated tax liability attributable to that Member's allocated share of Company taxable income, calculated at the Assumed Tax Rate. Tax Distributions are advances against, and reduce, amounts otherwise distributable under Section {n}.1.\n\n**{n}.3 Restrictions.** No distribution shall be made if it would render the Company unable to pay its debts as they become due, would violate {entity_statute}, or would breach any financing document to which the Company is a party.\n\n**{n}.4 Withholding.** Any amount withheld or paid over by the Company in respect of a Member is treated as distributed to that Member."
+          "counsel_review": "MANDATORY tax review: confirm the waterfall, the catch-up, the promote, and the tax-distribution provision are consistent with the intended tax treatment and the allocation provisions. Confirm whether the catch-up is intended to be full or partial — this is where most of the negotiation actually sits and the drafting above states a full catch-up. Confirm whether the waterfall runs deal-by-deal or across the whole venture, which decides whether the clawback is ever reachable. Run the waterfall on at least two real distribution scenarios before adoption.",
+          "text": "**{n}.1 Distributable Cash.** The Manager shall determine Distributable Cash after providing for Company obligations and reasonable reserves, and shall distribute it to the Members in the following order of priority:\n\n(a) first, to the Members in proportion to their Unreturned Preferred Return, until each has received a cumulative, non-compounding return of {preferred_return} per annum on its Unreturned Capital;\n\n(b) second, to the Members in proportion to their Unreturned Capital, until each has received an amount equal to its Capital Contributions;\n\n(c) third, to {promote_holder} until it has received an amount equal to the promote percentage of all amounts distributed under paragraph (a) and this paragraph (c) (the “Catch-Up”); and\n\n(d) thereafter, {residual_split} to the Members in proportion to their Units and the balance to {promote_holder} as a promote.\n\n**{n}.2 Tax Distributions.** Notwithstanding Section {n}.1, the Manager shall use commercially reasonable efforts to distribute to each Member, within {tax_distribution_days} days after each taxable year, an amount at least equal to the estimated tax liability attributable to that Member's allocated share of Company taxable income, calculated at the Assumed Tax Rate. Tax Distributions are advances against, and reduce, amounts otherwise distributable under Section {n}.1.\n\n**{n}.3 Restrictions.** No distribution shall be made if it would render the Company unable to pay its debts as they become due, would violate {entity_statute}, or would breach any financing document to which the Company is a party.\n\n**{n}.4 Clawback.** If, upon the final liquidating distribution, {promote_holder} has received cumulative promote distributions exceeding the amount it would have received had all distributions been made at one time under Section {n}.1, {promote_holder} shall return the excess to the Company for distribution to the other Members.\n\n**{n}.5 Withholding.** Any amount withheld or paid over by the Company in respect of a Member is treated as distributed to that Member."
         },
         {
           "id": "gov-dist-pro-rata",
@@ -155,7 +155,7 @@
     {
       "id": "gov-management",
       "category": "governance",
-      "title": "Management and Reserved Matters",
+      "title": "Management",
       "order": 230,
       "applies_to": [
         "operating_agreement",
@@ -163,23 +163,15 @@
       ],
       "industries": [],
       "required": true,
-      "absence_risk": "Without reserved matters, a manager can sell the asset, encumber it, admit a member, or change the business without the other members' consent. This is the single most important clause in the document.",
+      "absence_risk": "Without a stated management model, the statute supplies one -- in most states, member management, in which every member can bind the company. A counterparty then has no way to know who may sign.",
       "variants": [
         {
           "id": "gov-mgmt-reserved",
           "posture": "protective",
           "when": "Default for every manager-managed entity. The reserved-matters list is where governance actually lives.",
           "trade_off": "A manager will argue that a long reserved list makes the entity unmanageable; the answer is to tune the list, not remove it.",
-          "counsel_review": "Confirm every item on the reserved list is one the members genuinely want to control, and that nothing structurally significant is missing \u2014 sale, encumbrance, new debt, admission of members, related-party transactions, change of business, dissolution. Confirm the approval threshold is achievable and does not create an unintended deadlock.",
-          "text": "**{n}.1 Management.** The Company is manager-managed. {manager_name} is the Manager and, subject to Section {n}.2, has full authority to manage the business and affairs of the Company.\n\n**{n}.2 Reserved Matters.** Notwithstanding Section {n}.1, the Company shall not, and the Manager shall not cause the Company to, take any of the following actions without the Approval of the Members:\n\n(a) sell, transfer, or otherwise dispose of all or substantially all of the Company's assets, or any Property;\n\n(b) incur, guarantee, refinance, or materially amend any indebtedness, or grant any lien or encumbrance over any Company asset;\n\n(c) admit any new Member, or issue, redeem, or reclassify any Units;\n\n(d) enter into, amend, or terminate any transaction with the Manager or any Affiliate of the Manager, or approve any compensation payable to them;\n\n(e) change the purpose of the Company, or commence any business outside that purpose;\n\n(f) make any distribution other than in accordance with this Agreement;\n\n(g) commence, settle, or compromise any litigation involving an amount exceeding {litigation_threshold};\n\n(h) approve or materially deviate from the annual budget;\n\n(i) file for bankruptcy, dissolve, or wind up the Company; or\n\n(j) amend this Agreement or the Certificate of Formation.\n\n**{n}.3 Approval of the Members.** \"Approval of the Members\" means the written approval of Members holding at least {member_approval_threshold} of the Units, provided that any action under Section {n}.2(d) requires the approval of a majority of the Units held by Members other than the Manager and its Affiliates.\n\n**{n}.4 Standard of Care.** The Manager shall discharge its duties in good faith, with the care an ordinarily prudent person in a like position would exercise, and in a manner it reasonably believes to be in the best interests of the Company.\n\n**{n}.5 Removal.** The Manager may be removed for Cause by the Approval of the Members, excluding for this purpose any Units held by the Manager and its Affiliates. \"Cause\" means fraud, wilful misconduct, gross negligence, a material breach of this Agreement that remains uncured thirty (30) days after written notice, or a felony conviction relating to the business of the Company."
-        },
-        {
-          "id": "gov-mgmt-member-managed",
-          "posture": "standard",
-          "when": "Small member-managed entity with two or three active principals.",
-          "trade_off": "Requires unanimity or a stated threshold for ordinary decisions, which can slow operations.",
-          "counsel_review": "Confirm member-management is appropriate given the number of members and their involvement, and that the major-decision list and threshold are workable day to day.",
-          "text": "**{n}.1 Management.** The Company is member-managed. Each Member has authority to act for the Company in the ordinary course of its business, consistent with the annual budget.\n\n**{n}.2 Major Decisions.** The following require the Approval of the Members: any sale or encumbrance of Company assets; any indebtedness or guarantee; admission of a new Member or issuance of Units; any related-party transaction; any change in the purpose of the Company; any distribution other than in accordance with this Agreement; dissolution; and any amendment of this Agreement.\n\n**{n}.3 Approval of the Members.** \"Approval of the Members\" means the written approval of Members holding at least {member_approval_threshold} of the Units.\n\n**{n}.4 Standard of Care.** Each Member shall act in good faith and in a manner it reasonably believes to be in the best interests of the Company."
+          "counsel_review": "Confirm the removal standard -- 'with or without cause' is materially different from 'for cause', and the difference is usually the whole negotiation where the Manager is also a sponsor. Confirm the reliance provision does not inadvertently validate an unauthorised act as against the Members.",
+          "text": "**{n}.1 Management.** The Company is manager-managed. {manager_name} is the Manager and, subject to the Major Decisions set out in Section {ref:gov-ordinary-course-authority}, has full authority to manage the business and affairs of the Company.\n\n**{n}.2 Removal and Replacement.** The Manager may be removed, with or without cause, by the Approval of the Members, and a successor Manager appointed in the same manner. Removal does not by itself terminate any separate agreement between the Company and the removed Manager.\n\n**{n}.3 Standard of Care.** The Manager shall act in good faith and in a manner it reasonably believes to be in the best interests of the Company.\n\n**{n}.4 Reliance.** No Person dealing with the Company is required to inquire into the authority of the Manager to take any action, provided that this Section does not relieve the Manager of liability to the Members for acting beyond the authority granted by this Agreement."
         }
       ],
       "defines": [
@@ -197,7 +189,12 @@
         "Units",
         "Company",
         "Affiliate"
-      ]
+      ],
+      "condition": {
+        "management_models": [
+          "manager_managed"
+        ]
+      }
     },
     {
       "id": "gov-transfer",
@@ -210,7 +207,7 @@
       ],
       "industries": [],
       "required": true,
-      "absence_risk": "Without transfer restrictions, a member can sell to anyone \u2014 including a competitor or a party who fails a regulatory suitability test.",
+      "absence_risk": "Without transfer restrictions, a member can sell to anyone — including a competitor or a party who fails a regulatory suitability test.",
       "variants": [
         {
           "id": "gov-transfer-rofr",
@@ -218,7 +215,7 @@
           "when": "Default. A right of first refusal with permitted-transfer carve-outs.",
           "trade_off": "A ROFR can chill a genuine third-party sale process.",
           "counsel_review": "Confirm the permitted-transfer carve-outs match the members' actual estate and entity planning. In a regulated business, confirm any transfer is conditioned on regulatory approval and suitability of the transferee.",
-          "text": "**{n}.1 General Restriction.** No Member may Transfer all or any part of its Units except in accordance with this Section. Any purported Transfer in violation of this Section is void and shall not be recognised by the Company.\n\n**{n}.2 Permitted Transfers.** A Member may Transfer Units to a Permitted Transferee without complying with Section {n}.3, provided the transferee executes a joinder to this Agreement. \"Permitted Transferee\" means, for an individual Member, a revocable trust for estate-planning purposes of which that Member is trustee, and, for an entity Member, an entity wholly owned by it or by its ultimate beneficial owners.\n\n**{n}.3 Right of First Refusal.** A Member proposing to Transfer Units to any other person (the \"Selling Member\") shall first deliver written notice to the Company and the other Members stating the number of Units, the price, the identity of the proposed transferee, and all material terms, together with a copy of any written offer. The other Members may elect, within {rofr_days} days, to purchase all (but not less than all) of the offered Units on those terms, pro rata among those electing. If the right is not exercised in full within that period, the Selling Member may complete the Transfer to the named transferee, on terms no more favourable to the transferee than those stated, within {rofr_completion_days} days, after which the restriction reapplies.\n\n**{n}.4 Conditions to Any Transfer.** No Transfer is effective unless the transferee executes a joinder to this Agreement, the Transfer does not violate applicable securities laws, the Transfer does not cause a termination of the Company for tax purposes or a default under any financing document, and, if the Company holds any licence or permit, the Transfer has received any required regulatory approval.\n\n**{n}.5 Admission.** A transferee becomes a Member only on satisfying Section {n}.4 and, in the case of a Transfer other than to a Permitted Transferee, on the Approval of the Members. A transferee who is not admitted as a Member holds only an economic interest, with no voting, consent, information, or management rights."
+          "text": "**{n}.1 General Restriction.** No Member may Transfer all or any part of its Units except in accordance with this Section. Any purported Transfer in violation of this Section is void and shall not be recognised by the Company.\n\n**{n}.2 Permitted Transfers.** A Member may Transfer Units to a Permitted Transferee without complying with Section {n}.3, provided the transferee executes a joinder to this Agreement. \"Permitted Transferee\" means, for an entity Member, an entity wholly owned by it or by its ultimate beneficial owners; transfers by an individual Member for estate-planning purposes are governed by Section {ref:gov-permitted-estate-transfer}.\n\n**{n}.3 Right of First Refusal.** A Member proposing to Transfer Units to any other person (the \"Selling Member\") shall first deliver written notice to the Company and the other Members stating the number of Units, the price, the identity of the proposed transferee, and all material terms, together with a copy of any written offer. The other Members may elect, within {rofr_days} days, to purchase all (but not less than all) of the offered Units on those terms, pro rata among those electing. If the right is not exercised in full within that period, the Selling Member may complete the Transfer to the named transferee, on terms no more favourable to the transferee than those stated, within {rofr_completion_days} days, after which the restriction reapplies.\n\n**{n}.4 Conditions to Any Transfer.** No Transfer is effective unless the transferee executes a joinder to this Agreement, the Transfer does not violate applicable securities laws, the Transfer does not cause a termination of the Company for tax purposes or a default under any financing document, and, if the Company holds any licence or permit, the Transfer has received any required regulatory approval.\n\n**{n}.5 Admission.** A transferee becomes a Member only on satisfying Section {n}.4 and, in the case of a Transfer other than to a Permitted Transferee, on the Approval of the Members. A transferee who is not admitted as a Member holds only an economic interest, with no voting, consent, information, or management rights."
         },
         {
           "id": "gov-transfer-consent",
@@ -260,7 +257,7 @@
           "posture": "protective",
           "when": "Default wherever there is a majority and a minority. Tag protects the minority; drag protects the exit.",
           "trade_off": "A drag-along is a real transfer of control over a minority member's asset and will be negotiated hard.",
-          "counsel_review": "Confirm the drag threshold and the minority protections around it \u2014 same form of consideration, no disproportionate indemnity or non-compete imposed on the dragged member, and a cap on the dragged member's liability at its share of proceeds.",
+          "counsel_review": "Confirm the drag threshold and the minority protections around it — same form of consideration, no disproportionate indemnity or non-compete imposed on the dragged member, and a cap on the dragged member's liability at its share of proceeds.",
           "text": "**{n}.1 Tag-Along.** If Members holding more than fifty percent (50%) of the Units propose to Transfer Units to a third party, each other Member may elect to participate in that Transfer, on the same terms and for the same consideration per Unit, as to a pro rata portion of its Units. The transferring Members shall give written notice of the proposed Transfer at least {tag_notice_days} days before closing, and shall not complete it unless the transferee acquires the tagging Members' Units on those terms.\n\n**{n}.2 Drag-Along.** If Members holding at least {drag_threshold} of the Units (the \"Dragging Members\") approve a bona fide arm's-length sale of the Company to an unaffiliated third party, whether structured as a sale of Units, assets, or a merger, each other Member shall, on written notice, vote for the transaction, waive any dissenters' or appraisal rights, and Transfer its Units on the same terms and for the same consideration per Unit.\n\n**{n}.3 Limits on the Drag.** Section {n}.2 applies only if: (a) all Members receive the same form and amount of consideration per Unit; (b) no dragged Member is required to give any representation other than as to its own title, authority, and capacity; (c) no dragged Member is required to accept a non-compete, non-solicit, or continuing service obligation; and (d) the liability of any dragged Member is several, not joint, and is capped at the proceeds actually received by that Member.\n\n**{n}.4 Escrow.** Any escrow or holdback shall be borne by the Members pro rata to the consideration received."
         },
         {
@@ -286,49 +283,6 @@
       }
     },
     {
-      "id": "gov-deadlock-buysell",
-      "category": "exit",
-      "title": "Deadlock and Buy-Sell",
-      "order": 260,
-      "applies_to": [
-        "operating_agreement",
-        "jv"
-      ],
-      "industries": [],
-      "required": false,
-      "absence_risk": "In a two-member or 50/50 venture, no deadlock mechanism means a disagreement can only be resolved by litigation or dissolution.",
-      "variants": [
-        {
-          "id": "gov-buysell-shotgun",
-          "posture": "protective",
-          "when": "Two-member or 50/50 ventures. A shotgun clause resolves deadlock without a court.",
-          "trade_off": "A shotgun favours the member with more liquidity, which may not be the member in the right. Consider an appraisal alternative where the members' resources differ materially.",
-          "counsel_review": "Confirm the members' relative access to capital \u2014 a shotgun mechanism systematically favours the better-funded member. Confirm the timeline is workable and that financing contingencies are addressed.",
-          "text": "**{n}.1 Deadlock.** A \"Deadlock\" occurs if the Members fail to reach the Approval of the Members on a Reserved Matter after two duly-called meetings held at least {deadlock_meeting_days} days apart.\n\n**{n}.2 Escalation.** On a Deadlock, the Members shall first refer the matter to their respective principals for good-faith negotiation for thirty (30) days, and then to non-binding mediation for a further thirty (30) days.\n\n**{n}.3 Buy-Sell.** If a Deadlock remains unresolved after Section {n}.2, any Member (the \"Offering Member\") may deliver to the other Members a written notice stating a price per Unit. Each receiving Member shall, within {buysell_election_days} days, elect either to sell all of its Units to the Offering Member at that price, or to purchase all of the Offering Member's Units at that price. A receiving Member that does not respond within that period is deemed to have elected to sell.\n\n**{n}.4 Closing.** The purchase shall close within {buysell_closing_days} days of the election, in cash, against delivery of the Units free of encumbrances. At closing, the selling Member is released from all guarantees of Company obligations, and the purchasing Member shall use commercially reasonable efforts to obtain that release or, failing it, shall indemnify the selling Member against them.\n\n**{n}.5 Failure to Close.** If the purchasing Member fails to close, the other Member may, at its option, purchase that Member's Units at {failed_close_discount} of the stated price, or dissolve the Company."
-        },
-        {
-          "id": "gov-deadlock-appraisal",
-          "posture": "standard",
-          "when": "Where the members' access to capital differs materially and a shotgun would be unfair.",
-          "trade_off": "Slower and more expensive than a shotgun; appraisal outcomes are uncertain.",
-          "counsel_review": "Confirm the appraiser selection mechanism cannot itself deadlock, and that the valuation standard is defined.",
-          "text": "**{n}.1 Deadlock.** A \"Deadlock\" occurs if the Members fail to reach the Approval of the Members on a Reserved Matter after two duly-called meetings held at least {deadlock_meeting_days} days apart.\n\n**{n}.2 Escalation.** On a Deadlock, the Members shall refer the matter to their principals for thirty (30) days and then to non-binding mediation for thirty (30) days.\n\n**{n}.3 Appraisal Buy-Out.** If the Deadlock remains unresolved, any Member may elect to have the Units appraised. Each Member shall appoint an independent appraiser within fifteen (15) days; the two appraisers shall jointly appoint a third; and the Fair Market Value is the average of the two closest of the three determinations. \"Fair Market Value\" means the price a willing buyer would pay a willing seller for the Units, without discount for lack of marketability or minority status.\n\n**{n}.4 Election.** Within {buysell_election_days} days of the determination, the electing Member may purchase the other Members' Units, or offer to sell its own, at Fair Market Value. If no election is made, the Company shall be wound up."
-        }
-      ],
-      "requires_terms": [
-        "Member",
-        "Units",
-        "Company"
-      ],
-      "condition": {
-        "ownership_shapes": [
-          "equal"
-        ],
-        "max_members": 3,
-        "min_members": 2
-      }
-    },
-    {
       "id": "gov-fiduciary-exculpation",
       "category": "duties",
       "title": "Duties, Exculpation, and Indemnification",
@@ -346,7 +300,7 @@
           "posture": "protective",
           "when": "Default. Duties limited but the core loyalty obligation retained, with related-party dealings gated rather than waived.",
           "trade_off": "A manager may push for a full waiver of the duty of loyalty; that is a materially different document.",
-          "counsel_review": "MANDATORY: confirm what may and may not be waived under {entity_statute} \u2014 this varies significantly by state, and a waiver that is effective in Delaware may not be elsewhere. Confirm the indemnification and advancement provisions are consistent with the Company's insurance.",
+          "counsel_review": "MANDATORY: confirm what may and may not be waived under {entity_statute} — this varies significantly by state, and a waiver that is effective in Delaware may not be elsewhere. Confirm the indemnification and advancement provisions are consistent with the Company's insurance.",
           "text": "**{n}.1 Duties.** To the fullest extent permitted by {entity_statute}, the duties of the Manager and each Member are limited to those expressly set out in this Agreement and the implied contractual covenant of good faith and fair dealing. Nothing in this Section waives the duty of loyalty in respect of any transaction between the Company and the Manager or any of its Affiliates, which remains subject to the Reserved Matters.\n\n**{n}.2 Other Activities.** Each Member and the Manager may engage in other business activities, including activities competitive with the Company, and neither the Company nor any other Member has any right in those activities, provided that no Member or Manager may divert to itself an opportunity that the Company has begun to pursue or that was presented to it in its capacity as Member or Manager.\n\n**{n}.3 Exculpation.** No Manager or Member is liable to the Company or any other Member for any act or omission taken in good faith and reasonably believed to be within the scope of authority conferred by this Agreement, except for fraud, wilful misconduct, gross negligence, or a knowing violation of law.\n\n**{n}.4 Indemnification.** The Company shall indemnify each Manager and Member against any loss, claim, or expense (including reasonable attorneys' fees) arising from its service to the Company, except to the extent arising from conduct described in Section {n}.3. Indemnification is payable only from Company assets, and no Member has any personal obligation in respect of it.\n\n**{n}.5 Advancement.** The Company may advance expenses on receipt of a written undertaking to repay them if it is ultimately determined that the person was not entitled to indemnification."
         }
       ],
@@ -355,7 +309,8 @@
         "Member",
         "Company",
         "Affiliate"
-      ]
+      ],
+      "posture_neutral": true
     },
     {
       "id": "gov-information-rights",
@@ -427,7 +382,8 @@
         "Company",
         "Manager",
         "Certificate of Formation"
-      ]
+      ],
+      "posture_neutral": true
     },
     {
       "id": "memo-non-binding",
@@ -446,10 +402,11 @@
           "posture": "protective",
           "when": "Every deal memo and term sheet, without exception.",
           "trade_off": "None. This is the reason the document is safe to exchange.",
-          "counsel_review": "Confirm the list of binding sections is exactly right \u2014 anything omitted from it is unenforceable, and anything wrongly included is binding.",
+          "counsel_review": "Confirm the list of binding sections is exactly right — anything omitted from it is unenforceable, and anything wrongly included is binding.",
           "text": "**{n}.1 Non-Binding.** This document sets out the parties' current understanding for discussion purposes only. Except for Sections {binding_sections}, which are binding, this document creates no legal obligation, is not an offer or acceptance, and is not a contract to negotiate or to enter into any transaction.\n\n**{n}.2 No Obligation to Proceed.** Either party may terminate discussions at any time, for any reason or no reason, without liability. No party may claim reliance on this document or on the course of negotiations.\n\n**{n}.3 Definitive Agreement.** No party is bound unless and until definitive written agreements are executed and delivered by all parties, and any obligation is subject to the conditions in those agreements, including all necessary approvals."
         }
-      ]
+      ],
+      "posture_neutral": true
     },
     {
       "id": "memo-exclusivity",
@@ -468,10 +425,55 @@
           "posture": "protective",
           "when": "Where Tessera or its client will incur real diligence cost before signing.",
           "trade_off": "A seller will resist a long exclusivity period; keep it short and tie it to a diligence milestone.",
-          "counsel_review": "Confirm this Section is listed among the binding sections in the Non-Binding Effect clause \u2014 an exclusivity provision inside a non-binding document is otherwise unenforceable.",
+          "counsel_review": "Confirm this Section is listed among the binding sections in the Non-Binding Effect clause — an exclusivity provision inside a non-binding document is otherwise unenforceable.",
           "text": "**{n}.1 Exclusivity.** For {exclusivity_days} days from the date of this document (the \"Exclusivity Period\"), neither {seller_party} nor any of its affiliates, officers, or representatives shall directly or indirectly solicit, initiate, encourage, or engage in any discussion or negotiation with, or provide any information to, any person other than {buyer_party} concerning any sale, financing, joint venture, or other transaction involving the Company or its assets.\n\n**{n}.2 Notice.** {seller_party} shall notify {buyer_party} promptly of any unsolicited approach received during the Exclusivity Period, including the identity of the party and the terms proposed.\n\n**{n}.3 Binding.** This Section is binding and is enforceable by injunctive relief in addition to any other remedy."
         }
-      ]
+      ],
+      "posture_neutral": true
+    },
+    {
+      "id": "gov-management-members",
+      "category": "governance",
+      "title": "Management",
+      "order": 230,
+      "applies_to": [
+        "operating_agreement",
+        "jv"
+      ],
+      "industries": [],
+      "required": true,
+      "absence_risk": "Without a stated management model, the statute supplies one -- in most states, member management, in which every member can bind the company. A counterparty then has no way to know who may sign.",
+      "variants": [
+        {
+          "id": "gov-mgmt-member-managed",
+          "posture": "protective",
+          "when": "Every owner is active and the group is small enough that shared authority is workable. This is how Tessera governs itself.",
+          "trade_off": "Requires unanimity or a stated threshold for ordinary decisions, which can slow operations.",
+          "counsel_review": "Confirm member-management is appropriate given the number of members and their involvement, and that the major-decision list and threshold are workable day to day.",
+          "text": "**{n}.1 Management.** The Company is member-managed. Each Managing Member has equal authority, rights, and responsibilities with respect to the management and control of the Company's business and affairs, subject to the Major Decisions set out in Section {ref:gov-authority-partners}.\n\n**{n}.2 Standard of Care.** Each Managing Member shall act in good faith and in a manner it reasonably believes to be in the best interests of the Company.\n\n**{n}.3 Outside Activities.** Subject to the restrictive covenants in Section {ref:gov-restrictive-covenants}, each Member may engage in other business activities, provided they do not materially interfere with that Member's duties to the Company.\n\n**{n}.4 Officers.** The Managing Members may, by unanimous consent, appoint officers and delegate authority to them, provided that no delegation diminishes the Major Decision rights reserved to the Members."
+        }
+      ],
+      "defines": [
+        {
+          "term": "Manager",
+          "definition": "means the person designated as manager of the Company under this Agreement, and any successor appointed in accordance with it."
+        },
+        {
+          "term": "Affiliate",
+          "definition": "means, in relation to any person, any other person that directly or indirectly controls, is controlled by, or is under common control with that person."
+        }
+      ],
+      "requires_terms": [
+        "Member",
+        "Units",
+        "Company",
+        "Affiliate"
+      ],
+      "condition": {
+        "management_models": [
+          "member_managed"
+        ]
+      }
     }
   ]
 }

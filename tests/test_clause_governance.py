@@ -76,9 +76,37 @@ def test_tessera_capital_at_risk_drives_protective_governance():
     assert draft.posture == "protective"
     management = next(i for i in draft.selections if i.clause.id == "gov-management")
     assert management.variant.id == "gov-mgmt-reserved"
-    # The reserved-matters list is the point of the protective variant.
-    assert "Reserved Matters" in management.variant.text
-    assert "sell, transfer, or otherwise dispose" in management.variant.text
+    # The management clause states the model and points at the synthetic authority fixture.
+    authority = next(i for i in draft.selections
+                     if i.clause.id == "gov-ordinary-course-authority")
+    assert authority.variant.id == "synthetic-manager-authority"
+    assert "Ordinary Course Threshold" in authority.variant.text
+    assert "Major Decision" in authority.variant.text
+    assert "approved budget" in authority.variant.text
+
+
+def test_the_document_cannot_contradict_itself_about_who_runs_the_company():
+    """A document that says manager-managed in one section and "either Managing
+    Partner, acting alone" in the next is the exact failure this guards against."""
+    lib = library()
+
+    partners = lib.assemble(profile("operating_agreement", ownership_shape="equal",
+                                    member_count=2))
+    ids = {i.clause.id for i in partners.selections}
+    assert "gov-management-members" in ids
+    assert "gov-authority-partners" in ids
+    assert "gov-management" not in ids
+    assert "gov-ordinary-course-authority" not in ids
+    body = partners.to_markdown()
+    assert "member-managed" in body
+    assert "manager-managed" not in body
+
+    managed = lib.assemble(profile("operating_agreement",
+                                   ownership_shape="majority_minority", member_count=5))
+    ids = {i.clause.id for i in managed.selections}
+    assert "gov-management" in ids
+    assert "gov-authority-partners" not in ids
+    assert "Either Managing Partner, acting alone" not in managed.to_markdown()
 
 
 def test_waterfall_variant_includes_a_tax_distribution():
@@ -119,13 +147,13 @@ def test_deadlock_belongs_to_equal_ownership_and_drag_to_majority_minority():
     """A 50/50 needs a way out; a majority/minority needs a way to force a sale."""
     equal = {i.clause.id for i in library().assemble(
         profile("jv", ownership_shape="equal", member_count=2)).selections}
-    assert "gov-deadlock-buysell" in equal
+    assert "gov-deadlock-ladder" in equal
     assert "gov-drag-tag" not in equal
 
     split = {i.clause.id for i in library().assemble(
         profile("jv", ownership_shape="majority_minority", member_count=4)).selections}
     assert "gov-drag-tag" in split
-    assert "gov-deadlock-buysell" not in split
+    assert "gov-deadlock-ladder" not in split
 
 
 def test_a_minority_position_drives_a_protective_posture():
@@ -138,10 +166,30 @@ def test_a_minority_position_drives_a_protective_posture():
 def test_open_variables_are_reported_for_entity_documents():
     draft = library().assemble(profile("operating_agreement", tessera_capital_at_risk=True))
     variables = draft.open_variables()
-    assert "member_approval_threshold" in variables
+    assert "ordinary_course_threshold" in variables
     assert "entity_statute" in variables
+    # The threshold appears in a defined term and must still be prompted for.
+    assert "ordinary_course_threshold" in variables
 
 
 def test_unknown_agreement_type_is_rejected():
     with pytest.raises(ValueError):
         profile("franchise_agreement")
+
+
+def test_a_one_form_clause_does_not_cry_wolf_about_posture():
+    """A warning that fires on clauses with no risk ladder teaches readers to skip it."""
+    draft = library().assemble(profile("operating_agreement", ownership_shape="equal",
+                                       member_count=2))
+    for item in draft.selections:
+        if item.clause.posture_neutral:
+            assert not item.substituted, item.clause.id
+    body = draft.to_markdown()
+    assert "No protective variant exists for this clause" not in body
+
+
+def test_the_member_managed_pair_uses_one_term_for_one_person():
+    body = library().assemble(profile("operating_agreement", ownership_shape="equal",
+                                      member_count=2)).to_markdown()
+    assert "Managing Member" in body
+    assert "Managing Partner" not in body

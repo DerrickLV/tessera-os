@@ -3,7 +3,7 @@ from tessera_os.registry import AgentRegistry
 
 def test_all_core_agents_are_registered():
     registry = AgentRegistry()
-    assert len(registry.all()) == 12
+    assert len(registry.all()) == 13
     assert registry.get("executive_assistant").prompt_path.exists()
 
 
