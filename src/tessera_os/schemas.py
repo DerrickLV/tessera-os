@@ -73,6 +73,16 @@ class ReviewStatus(StrEnum):
     PENDING = "pending"
     ACCEPTED = "accepted"
     REJECTED = "rejected"
+    AMENDED_AND_ACCEPTED = "amended_and_accepted"
+
+
+class ReviewReasonCategory(StrEnum):
+    EVIDENCE_INSUFFICIENT = "evidence_insufficient"
+    WRONG_SCOPE = "wrong_scope"
+    FIGURES_INCORRECT = "figures_incorrect"
+    TONE_OR_FRAMING = "tone_or_framing"
+    MISSING_RISK = "missing_risk"
+    OTHER = "other"
 
 
 class ReviewItem(BaseModel):
@@ -89,6 +99,8 @@ class ReviewItem(BaseModel):
     reviewed_by: str | None = None
     reviewed_at: datetime | None = None
     review_reason: str | None = None
+    review_reason_category: ReviewReasonCategory | None = None
+    amended_body: str | None = None
     required_reviewer_group: str | None = None
 
 

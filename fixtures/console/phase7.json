@@ -12,6 +12,156 @@
     {"id": "harbor-logistics-refi", "client_id": "client-harbor", "name": "Harbor Logistics Refinance", "phase": "underwriting", "status": "active", "manager_agent_id": "capital_manager", "summary": "Synthetic diligence and refinancing exercise."},
     {"id": "internal-ops", "client_id": "client-internal", "name": "Internal Operations", "phase": "operations", "status": "active", "manager_agent_id": "executive_assistant", "summary": "Synthetic internal briefing and intelligence exercise."}
   ],
+  "project_controls": [
+    {"project_id": "riverbend-multifamily", "schedule_variance_days": 14, "budget_variance_amount": 10000,
+     "schedule_source_ids": ["rb-schedule-v3"], "budget_source_ids": ["rb-budget-v2"],
+     "registers": [
+       {"id": "rb-risk-1", "kind": "risk", "title": "Agency hearing delay", "owner": "Development lead", "status": "open"},
+       {"id": "rb-issue-1", "kind": "issue", "title": "Utility capacity confirmation", "owner": "Civil consultant", "status": "blocked"},
+       {"id": "rb-decision-1", "kind": "decision", "title": "Facade option selected", "owner": "Client owner", "status": "complete"},
+       {"id": "rb-dependency-1", "kind": "dependency", "title": "Permit follows entitlement", "owner": "Permit consultant", "status": "open"}
+     ]},
+    {"project_id": "meridian-capital-intro", "registers": [{"id": "mc-risk-1", "kind": "risk", "title": "Non-solicit exceeds playbook", "owner": "Qualified counsel", "status": "open"}]},
+    {"project_id": "harbor-logistics-refi", "budget_variance_amount": 14200, "budget_source_ids": ["model-lender-v2", "model-internal-v5"], "registers": [{"id": "hl-issue-1", "kind": "issue", "title": "Insurance assumptions differ", "owner": "Capital lead", "status": "open"}]},
+    {"project_id": "internal-ops", "registers": []}
+  ],
+  "pilot_templates": [
+    {
+      "project_id": "riverbend-multifamily",
+      "title": "RiverBend Entitlement Readiness Draft",
+      "workflow": "development_gate_review",
+      "agent_id": "development_manager",
+      "required_reviewer_group": "development_approver",
+      "summary": "The synthetic entitlement gate is not ready: the planning package is current, but utility capacity confirmation remains open and the forecast hearing date is 14 days later than the approved baseline.",
+      "recommendations": [
+        "Keep the entitlement gate in not-ready status until utility capacity evidence is current.",
+        "Present the 14-day schedule variance as a deterministic exception, not an approved baseline change.",
+        "Route the readiness draft to a Development Approver for human review."
+      ],
+      "risks": [
+        "Utility capacity confirmation is an unresolved dependency.",
+        "The planning hearing forecast is 14 days later than the approved baseline."
+      ],
+      "assumptions": [
+        "The approved synthetic schedule baseline remains immutable.",
+        "No consultant has been directed and no application has been submitted."
+      ],
+      "evidence": [
+        {"source_id": "rb-schedule-v3", "title": "Synthetic RiverBend schedule v3", "locator": "offline://workspace/riverbend/schedule-v3", "excerpt": "Planning hearing forecast: October 16; approved baseline: October 2.", "retrieved_at": "2026-08-18T15:00:00Z"},
+        {"source_id": "rb-utility-0818", "title": "Synthetic utility coordination register", "locator": "offline://workspace/riverbend/utility-register", "excerpt": "Capacity confirmation remains open; owner follow-up due August 25.", "retrieved_at": "2026-08-18T15:05:00Z"},
+        {"source_id": "rb-gate-2", "title": "Synthetic entitlement gate criteria", "locator": "offline://workspace/riverbend/gate-2", "excerpt": "Current utility capacity evidence is required before a ready recommendation.", "retrieved_at": "2026-08-18T15:10:00Z"}
+      ],
+      "claims": [
+        {"text": "Utility capacity confirmation remains open.", "source_ids": ["rb-utility-0818", "rb-gate-2"]},
+        {"text": "The hearing forecast is 14 days later than baseline.", "source_ids": ["rb-schedule-v3"]}
+      ]
+    },
+    {
+      "project_id": "riverbend-multifamily",
+      "title": "RiverBend Proposal Review Draft",
+      "workflow": "proposal_review",
+      "agent_id": "proposal_manager",
+      "required_reviewer_group": "proposal_approver",
+      "summary": "The synthetic fee proposal depends on an unresolved utility coordination scope.",
+      "recommendations": ["Clarify the utility coordination scope before approving the proposal draft."],
+      "risks": ["An open dependency could cause a fee or scope gap."],
+      "assumptions": ["No proposal has been sent or accepted."],
+      "evidence": [{"source_id": "rb-proposal-v2", "title": "Synthetic RiverBend proposal v2", "locator": "offline://workspace/riverbend/proposal-v2", "excerpt": "Utility coordination scope remains an allowance.", "retrieved_at": "2026-08-18T15:11:00Z"}],
+      "claims": [{"text": "Utility coordination remains an allowance in proposal v2.", "source_ids": ["rb-proposal-v2"]}]
+    },
+    {
+      "project_id": "riverbend-multifamily",
+      "title": "RiverBend Contract Review Draft",
+      "workflow": "contract_review",
+      "agent_id": "contract_manager",
+      "required_reviewer_group": "qualified_counsel",
+      "summary": "The synthetic consultant agreement omits an approved liability-cap fallback.",
+      "recommendations": ["Route the missing liability cap to qualified counsel; do not send a redline."],
+      "risks": ["Uncapped liability exceeds the synthetic playbook threshold."],
+      "assumptions": ["The agreement is an internal synthetic draft."],
+      "evidence": [{"source_id": "rb-consultant-agreement", "title": "Synthetic consultant agreement", "locator": "offline://workspace/riverbend/consultant-agreement", "excerpt": "No aggregate liability cap is stated.", "retrieved_at": "2026-08-18T15:12:00Z"}],
+      "claims": [{"text": "The agreement states no aggregate liability cap.", "source_ids": ["rb-consultant-agreement"]}]
+    },
+    {
+      "project_id": "riverbend-multifamily",
+      "title": "RiverBend Due Diligence Draft",
+      "workflow": "due_diligence_review",
+      "agent_id": "due_diligence_manager",
+      "required_reviewer_group": "diligence_reviewer",
+      "summary": "The synthetic diligence register identifies utility capacity as the principal open dependency.",
+      "recommendations": ["Keep the dependency open until current capacity evidence is reviewed."],
+      "risks": ["Capacity uncertainty may affect entitlement readiness."],
+      "assumptions": ["The synthetic register is the complete reviewed source set."],
+      "evidence": [{"source_id": "rb-diligence-register", "title": "Synthetic diligence register", "locator": "offline://workspace/riverbend/diligence-register", "excerpt": "Open: utility capacity confirmation.", "retrieved_at": "2026-08-18T15:13:00Z"}],
+      "claims": [{"text": "Utility capacity is an open diligence dependency.", "source_ids": ["rb-diligence-register"]}]
+    },
+    {
+      "project_id": "meridian-capital-intro",
+      "title": "Meridian NDA Clause Review Draft",
+      "workflow": "contract_review",
+      "agent_id": "contract_manager",
+      "required_reviewer_group": "qualified_counsel",
+      "summary": "The synthetic NDA non-solicit term is 36 months, exceeding the approved 12–18 month playbook range and requiring qualified counsel review before any redline or external use.",
+      "recommendations": [
+        "Use the approved 18-month fallback only as a draft for qualified counsel.",
+        "Do not deliver a redline, accept terms, or request a signature."
+      ],
+      "risks": ["The proposed non-solicit duration exceeds the approved escalation threshold."],
+      "assumptions": ["The synthetic NDA and playbook versions are the current approved inputs."],
+      "evidence": [
+        {"source_id": "doc-meridian-nda", "title": "Synthetic Meridian NDA v1", "locator": "offline://workspace/meridian/nda-v1#section-4b", "excerpt": "Section 4(b): thirty-six (36) months.", "retrieved_at": "2026-08-18T15:15:00Z"},
+        {"source_id": "playbook-nda-v3", "title": "Synthetic NDA playbook v3", "locator": "offline://workspace/meridian/playbook-v3", "excerpt": "Approved range: 12–18 months; escalate beyond 24 months.", "retrieved_at": "2026-08-18T15:16:00Z"}
+      ],
+      "claims": [
+        {"text": "The NDA contains a 36-month non-solicit term.", "source_ids": ["doc-meridian-nda"]},
+        {"text": "The term exceeds the approved playbook range.", "source_ids": ["playbook-nda-v3"]}
+      ]
+    },
+    {
+      "project_id": "harbor-logistics-refi",
+      "title": "Harbor Underwriting Reconciliation Draft",
+      "workflow": "capital_underwriting_review",
+      "agent_id": "capital_manager",
+      "required_reviewer_group": "investment_reviewer",
+      "summary": "The synthetic lender and internal models differ by 0.03x DSCR because the lender model omits a documented insurance escalation; the downside case remains above the synthetic covenant threshold.",
+      "recommendations": [
+        "Reconcile the insurance assumption before treating the model as decision-ready.",
+        "Keep terms, forecast publication, and funds movement disabled."
+      ],
+      "risks": ["An inconsistent insurance assumption changes the reported DSCR."],
+      "assumptions": ["Both model versions use the same synthetic net operating income inputs."],
+      "evidence": [
+        {"source_id": "model-lender-v2", "title": "Synthetic lender model v2", "locator": "offline://workspace/harbor/lender-v2", "excerpt": "Annual insurance assumption: $61,200.", "retrieved_at": "2026-08-18T15:20:00Z"},
+        {"source_id": "model-internal-v5", "title": "Synthetic internal model v5", "locator": "offline://workspace/harbor/internal-v5", "excerpt": "Annual insurance assumption: $75,400; downside DSCR: 1.28x.", "retrieved_at": "2026-08-18T15:21:00Z"},
+        {"source_id": "harbor-covenant", "title": "Synthetic covenant summary", "locator": "offline://workspace/harbor/covenant", "excerpt": "Minimum synthetic DSCR threshold: 1.20x.", "retrieved_at": "2026-08-18T15:22:00Z"}
+      ],
+      "claims": [
+        {"text": "The models use different insurance assumptions.", "source_ids": ["model-lender-v2", "model-internal-v5"]},
+        {"text": "Downside DSCR remains above the synthetic threshold.", "source_ids": ["model-internal-v5", "harbor-covenant"]}
+      ]
+    },
+    {
+      "project_id": "internal-ops",
+      "title": "Internal Weekly Priorities Draft",
+      "workflow": "morning_briefing",
+      "agent_id": "executive_assistant",
+      "summary": "Three synthetic reviews are active this week: RiverBend entitlement readiness, Meridian NDA counsel review, and Harbor underwriting reconciliation.",
+      "recommendations": [
+        "Review the oldest qualified item first.",
+        "Keep every follow-up as an internal draft; no email or calendar change is authorized."
+      ],
+      "risks": ["The Meridian NDA review has the longest synthetic wait time."],
+      "assumptions": ["The fixture calendar and review queue are the complete synthetic sources."],
+      "evidence": [
+        {"source_id": "ops-queue-0818", "title": "Synthetic review queue snapshot", "locator": "offline://workspace/internal/review-queue", "excerpt": "Four items pending; Meridian is the oldest qualified review.", "retrieved_at": "2026-08-18T15:25:00Z"},
+        {"source_id": "ops-calendar-0818", "title": "Synthetic weekly calendar", "locator": "offline://workspace/internal/calendar", "excerpt": "Harbor client review exercise: Thursday at 2:00 PM.", "retrieved_at": "2026-08-18T15:26:00Z"}
+      ],
+      "claims": [
+        {"text": "The queue contains active work across three projects.", "source_ids": ["ops-queue-0818"]},
+        {"text": "A Harbor review exercise is scheduled Thursday.", "source_ids": ["ops-calendar-0818"]}
+      ]
+    }
+  ],
   "review_items": [
     {
       "id": "rq-1041", "tenant_id": "tenant-synthetic", "workflow": "morning_briefing", "title": "Weekly Priorities Briefing — Aug 18", "created_by": "executive_assistant", "project_id": "internal-ops", "status": "pending", "created_at": "2026-08-18T12:05:00Z",

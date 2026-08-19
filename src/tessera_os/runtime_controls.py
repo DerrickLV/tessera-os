@@ -94,6 +94,10 @@ class TraceRecord(BaseModel):
 
 
 class RuntimeAuditStore:
+    EXTERNAL_ACTION_WORKFLOWS = frozenset({
+        "send_email", "publish", "submit_application", "move_funds",
+        "direct_consultant", "deploy_production",
+    })
     def __init__(self, path: Path | str) -> None:
         self.path = str(path)
         with self._connect() as connection:
@@ -195,6 +199,30 @@ class RuntimeAuditStore:
             values["source_ids"] = json.loads(values.pop("source_ids_json"))
             results.append(TraceRecord(**values))
         return results
+
+    def count_external_actions(self, *, context: UserContext, project_id: str) -> int:
+        if project_id not in context.project_ids:
+            raise PermissionError("Trace project is outside authenticated scope")
+        placeholders = ",".join("?" for _ in self.EXTERNAL_ACTION_WORKFLOWS)
+        with self._connect() as connection:
+            row = connection.execute(
+                f"SELECT COUNT(*) AS count FROM traces WHERE tenant_id=? AND project_id=? "
+                f"AND workflow IN ({placeholders})",
+                (context.tenant_id, project_id, *sorted(self.EXTERNAL_ACTION_WORKFLOWS)),
+            ).fetchone()
+        return int(row["count"])
+
+    def reset_synthetic(self, *, context: UserContext) -> tuple[int, int]:
+        if context.tenant_id != "tenant-synthetic":
+            raise PermissionError("Audit reset is limited to the synthetic tenant")
+        with self._connect() as connection:
+            traces = connection.execute(
+                "DELETE FROM traces WHERE tenant_id=?", (context.tenant_id,)
+            ).rowcount
+            budgets = connection.execute(
+                "DELETE FROM usage_budgets WHERE tenant_id=?", (context.tenant_id,)
+            ).rowcount
+        return traces, budgets
 
 
 class SecureArtifact(BaseModel):

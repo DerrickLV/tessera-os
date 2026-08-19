@@ -23,6 +23,10 @@ Every response returns a status, source record IDs, timestamps, classification,
 and a redacted error. Write tools also return a durable audit ID and before/after
 references. Never pass raw access tokens through an agent prompt.
 
+The reviewed pilot design for Microsoft Entra, Graph, and SharePoint is documented in
+[`MICROSOFT_365_CONNECTION_PLAN.md`](MICROSOFT_365_CONNECTION_PLAN.md). The synthetic
+console does not activate that connection or accept Microsoft credentials.
+
 ## Planned adapters
 
 | System | Phase 1 capability | Later gated capability |

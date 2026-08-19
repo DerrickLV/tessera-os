@@ -2,7 +2,7 @@ integrations:
   microsoft_graph:
     status: pilot
     auth: delegated
-    scopes: [Mail.Read, Calendars.Read, Sites.Selected]
+    scopes: [User.Read, Sites.Selected]
     write_scopes_enabled: false
   hubspot:
     status: planned

@@ -2,25 +2,49 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
+from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from .clauses import Clause, ClauseLibrary
+from .drafting import AgreementDrafter, AgreementDraftRequest
+from .microsoft import (
+    MicrosoftConfigurationError,
+    MicrosoftConnectionBroker,
+    MicrosoftConnectionStatus,
+    MicrosoftPilotSettings,
+)
+from .orchestrator import TesseraOrchestrator
 from .paths import project_root
 from .policy import Environment
 from .registry import AgentDefinition, AgentRegistry
 from .review import InvalidReviewTransition, ReviewAccessDenied, ReviewQueue
 from .runtime_controls import RateLimiter, RuntimeAuditStore
-from .schemas import ReviewItem, ReviewStatus, UserContext
+from .schemas import AgentRequest, ReviewItem, ReviewReasonCategory, ReviewStatus, UserContext
 from .service import AuthSettings, create_app
 from .settings import SecuritySettings, load_integration_settings, load_security_settings
+from .workspace import (
+    ArtifactEvent,
+    LiveDraftContent,
+    PilotArtifact,
+    PilotArtifactStore,
+    PilotComparison,
+    PilotTaskRequest,
+    PilotTemplate,
+    PilotWorkflowOption,
+    PilotWorkspace,
+    PilotWorkspaceError,
+)
 
 ROOT = project_root()
 DEFAULT_FIXTURE = ROOT / "fixtures" / "console" / "phase7.json"
@@ -42,10 +66,29 @@ class ConsoleProject(BaseModel):
     summary: str
 
 
+class ProjectRegisterItem(BaseModel):
+    id: str
+    kind: str
+    title: str
+    owner: str
+    status: str
+
+
+class ProjectControlSnapshot(BaseModel):
+    project_id: str
+    registers: list[ProjectRegisterItem] = Field(default_factory=list)
+    schedule_variance_days: int = 0
+    budget_variance_amount: float = 0
+    schedule_source_ids: list[str] = Field(default_factory=list)
+    budget_source_ids: list[str] = Field(default_factory=list)
+
+
 class ConsoleFixture(BaseModel):
     notice: str
     clients: list[ConsoleClient]
     projects: list[ConsoleProject]
+    pilot_templates: list[PilotTemplate] = Field(default_factory=list)
+    project_controls: list[ProjectControlSnapshot] = Field(default_factory=list)
     review_items: list[ReviewItem]
 
 
@@ -91,11 +134,31 @@ class ConsoleBootstrap(BaseModel):
     agents: list[ConsoleAgent]
     security: dict[str, Any]
     integrations: list[ConsoleIntegration]
+    microsoft: MicrosoftConnectionStatus
     review_items: list[ReviewItem]
+    artifacts: list[PilotArtifact]
+    workflows: list[PilotWorkflowOption]
+    project_controls: list[ProjectControlSnapshot]
 
 
 class ReviewDecision(BaseModel):
     reason: str = Field(min_length=3, max_length=1000)
+    category: ReviewReasonCategory = ReviewReasonCategory.OTHER
+
+
+class ReviewAmendment(ReviewDecision):
+    amended_body: str = Field(min_length=3, max_length=20000)
+
+
+class WorkspaceResetRequest(BaseModel):
+    confirmation: str = Field(pattern=r"^RESET SYNTHETIC$")
+
+
+class WorkspaceResetResult(BaseModel):
+    artifacts_removed: int
+    reviews_restored: int
+    audit_traces_removed: int
+    budgets_removed: int
 
 
 class SyntheticContextProvider:
@@ -167,7 +230,10 @@ def _session(context: UserContext) -> ConsoleSession:
 
 def create_console_app(*, data_dir: Path | None = None,
                        fixture_path: Path = DEFAULT_FIXTURE,
-                       ui_path: Path = DEFAULT_UI) -> FastAPI:
+                       ui_path: Path = DEFAULT_UI,
+                       live_drafter: Callable[[PilotTaskRequest, PilotTemplate],
+                                              LiveDraftContent] | None = None,
+                       microsoft_broker: MicrosoftConnectionBroker | None = None) -> FastAPI:
     """Create a localhost sandbox app; production construction fails closed."""
     environment = Environment(os.getenv("TESSERA_ENV", "sandbox"))
     if environment == Environment.PRODUCTION:
@@ -180,10 +246,55 @@ def create_console_app(*, data_dir: Path | None = None,
     runtime_dir = data_dir or Path(os.getenv("TESSERA_CONSOLE_DATA_DIR",
                                              ROOT / "data" / "runtime"))
     runtime_dir.mkdir(parents=True, exist_ok=True)
+    if microsoft_broker is None:
+        microsoft_settings = MicrosoftPilotSettings.from_environment()
+        microsoft_broker = MicrosoftConnectionBroker(
+            settings=microsoft_settings,
+            cache_path=runtime_dir / "microsoft-token-cache.bin",
+        )
     review_queue = ReviewQueue(runtime_dir / "console-review.db")
     review_queue.seed(fixture.review_items)
+    artifact_store = PilotArtifactStore(runtime_dir / "console-artifacts.db")
+    clauses = ClauseLibrary.load(ROOT / "fixtures" / "clause_library")
+    drafter = AgreementDrafter(library=clauses, store=artifact_store,
+                               project_clients={project.id: project.client_id
+                                                for project in fixture.projects})
     audit_store = RuntimeAuditStore(runtime_dir / "console-audit.db")
     registry = AgentRegistry()
+    live_enabled = os.getenv("TESSERA_PILOT_LIVE_DRAFTING", "false").lower() == "true"
+    if live_enabled and live_drafter is None:
+        orchestrator = TesseraOrchestrator(registry=registry)
+
+        def live_drafter(request: PilotTaskRequest,
+                         template: PilotTemplate) -> LiveDraftContent:
+            source_ids = [item.source_id for item in template.evidence]
+            # The envelope must not contradict the specialist prompt. It asks for
+            # the same structure the prompt produces -- ranked findings, what was
+            # not established, and what must go to a qualified professional -- so
+            # the analysis survives the JSON boundary instead of being flattened
+            # into free text.
+            task = (
+                f"Contract review: {request.task or template.title}. Return JSON only, with keys "
+                "summary, recommendations, risks, assumptions, unknowns, escalations, claims. "
+                "unknowns lists what you could not establish and what would resolve it. "
+                "escalations lists anything requiring qualified counsel and why. "
+                "claims is a list of objects with text, source_ids, "
+                "severity (critical|material|notable), and finding_type "
+                "(stated|absent|inconsistent; use absent when the finding is that the document "
+                "omits something). Rank claims by severity, apply the materiality threshold in "
+                f"your instructions, and use only these source_ids: {source_ids}."
+            )
+            output = asyncio.run(orchestrator.run(AgentRequest(task=task,
+                project_id=request.project_id, user_id=context_provider.context.user_id,
+                allowed_actions=["read", "draft"]), context=context_provider.context))
+            cleaned = output.strip().removeprefix("```json").removesuffix("```").strip()
+            return LiveDraftContent.model_validate_json(cleaned)
+
+    workspace = PilotWorkspace(templates=fixture.pilot_templates, store=artifact_store,
+        project_clients={project.id: project.client_id for project in fixture.projects},
+        external_action_counter=lambda context, project_id:
+            audit_store.count_external_actions(context=context, project_id=project_id),
+        live_drafter=live_drafter, live_enabled=live_enabled)
     auth_settings = AuthSettings(issuer="offline://tessera-console",
         audience="tessera-console", verification_key="synthetic-console-key-not-for-production",
         algorithm="HS256", environment=environment)
@@ -208,7 +319,11 @@ def create_console_app(*, data_dir: Path | None = None,
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; style-src 'self' 'unsafe-inline'; "
-            "script-src 'self' 'unsafe-inline'; connect-src 'self'"
+            "script-src 'self' 'unsafe-inline'; connect-src 'self'; "
+            # The console UI embeds its brand webfonts as data: URIs so it renders
+            # correctly with no external requests. font-src must allow data:
+            # explicitly, because it otherwise falls back to default-src 'self'.
+            "font-src 'self' data:; img-src 'self' data:"
         )
         return response
 
@@ -244,6 +359,47 @@ def create_console_app(*, data_dir: Path | None = None,
         del context
         return _integration_cards()
 
+    @app.get(
+        "/v1/integrations/microsoft/status",
+        response_model=MicrosoftConnectionStatus,
+    )
+    def microsoft_status(
+        context: UserContext = Depends(context_provider),  # noqa: B008
+    ) -> MicrosoftConnectionStatus:
+        del context
+        return microsoft_broker.status()
+
+    @app.post("/v1/integrations/microsoft/connect")
+    def microsoft_connect(
+        context: UserContext = Depends(context_provider),  # noqa: B008
+    ) -> dict[str, str]:
+        del context
+        try:
+            return {"authorization_url": microsoft_broker.begin()}
+        except MicrosoftConfigurationError as exc:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                                detail=str(exc)) from exc
+
+    @app.get("/v1/integrations/microsoft/callback")
+    def microsoft_callback(request: Request) -> RedirectResponse:
+        try:
+            microsoft_broker.complete(dict(request.query_params))
+        except MicrosoftConfigurationError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                detail=str(exc)) from exc
+        return RedirectResponse("/?microsoft=connected", status_code=status.HTTP_303_SEE_OTHER)
+
+    @app.post(
+        "/v1/integrations/microsoft/disconnect",
+        response_model=MicrosoftConnectionStatus,
+    )
+    def microsoft_disconnect(
+        context: UserContext = Depends(context_provider),  # noqa: B008
+    ) -> MicrosoftConnectionStatus:
+        del context
+        microsoft_broker.disconnect()
+        return microsoft_broker.status()
+
     @app.get("/v1/clients", response_model=list[ConsoleClient])
     def clients(context: UserContext = Depends(context_provider)) -> list[ConsoleClient]:  # noqa: B008
         return _visible_clients(fixture, context)
@@ -266,6 +422,15 @@ def create_console_app(*, data_dir: Path | None = None,
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail="Project was not found")
 
+    @app.get("/v1/projects/{project_id}/controls", response_model=ProjectControlSnapshot)
+    def project_controls(project_id: str,
+            context: UserContext = Depends(context_provider)) -> ProjectControlSnapshot:  # noqa: B008
+        if project_id not in context.project_ids:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail="Project is outside authenticated scope")
+        return next((item for item in fixture.project_controls
+                     if item.project_id == project_id), ProjectControlSnapshot(project_id=project_id))
+
     @app.get("/v1/reviews", response_model=list[ReviewItem])
     def reviews(review_status: Annotated[ReviewStatus | None, Query(alias="status")] = None,
                 context: UserContext = Depends(context_provider)) -> list[ReviewItem]:  # noqa: B008
@@ -282,15 +447,14 @@ def create_console_app(*, data_dir: Path | None = None,
         except ReviewAccessDenied as exc:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                                 detail=str(exc)) from exc
-
     def decide(item_id: str, decision: ReviewStatus, request: ReviewDecision,
                context: UserContext) -> ReviewItem:
         try:
             if decision == ReviewStatus.ACCEPTED:
                 return review_queue.accept(item_id=item_id, context=context,
-                                           reason=request.reason)
+                                           reason=request.reason, category=request.category)
             return review_queue.reject(item_id=item_id, context=context,
-                                       reason=request.reason)
+                                       reason=request.reason, category=request.category)
         except KeyError as exc:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                                 detail="Review item was not found") from exc
@@ -300,6 +464,146 @@ def create_console_app(*, data_dir: Path | None = None,
         except InvalidReviewTransition as exc:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                                 detail=str(exc)) from exc
+
+    def refreshed_artifact(artifact: PilotArtifact, context: UserContext) -> PilotArtifact:
+        if artifact.review_item_id is None:
+            return artifact
+        try:
+            item = review_queue.get(artifact.review_item_id, context=context)
+        except KeyError:
+            return artifact
+        if item.status.value == artifact.status:
+            return artifact
+        if item.status in {ReviewStatus.ACCEPTED, ReviewStatus.REJECTED,
+                           ReviewStatus.AMENDED_AND_ACCEPTED}:
+            artifact.status = item.status.value
+            artifact.amended_body = item.amended_body
+            artifact.amended_by = item.reviewed_by if item.amended_body else None
+            artifact.events.append(ArtifactEvent(
+                event=f"review_{item.status.value}",
+                actor=item.reviewed_by or "synthetic-reviewer",
+                occurred_at=item.reviewed_at or datetime.now(UTC),
+                detail=item.review_reason or "Review decision recorded",
+            ))
+            return artifact_store.update(artifact)
+        return artifact
+
+    @app.post("/v1/workspace/run", response_model=PilotArtifact)
+    def run_workspace(request: PilotTaskRequest,
+                      context: UserContext = Depends(context_provider)) -> PilotArtifact:  # noqa: B008
+        try:
+            return workspace.run(request, context=context)
+        except PermissionError as exc:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail=str(exc)) from exc
+        except (PilotWorkspaceError, ValueError) as exc:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                                detail=str(exc)) from exc
+
+    @app.post("/v1/workspace/compare", response_model=PilotComparison)
+    def compare_workspace(request: PilotTaskRequest,
+                          context: UserContext = Depends(context_provider)) -> PilotComparison:  # noqa: B008
+        try:
+            return workspace.compare(request, context=context)
+        except PermissionError as exc:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+        except (PilotWorkspaceError, ValueError) as exc:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                                detail=str(exc)) from exc
+
+    @app.get("/v1/projects/{project_id}/workflows",
+             response_model=list[PilotWorkflowOption])
+    def project_workflows(project_id: str,
+            context: UserContext = Depends(context_provider)) -> list[PilotWorkflowOption]:  # noqa: B008
+        try:
+            return workspace.workflows(project_id=project_id, context=context)
+        except PermissionError as exc:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+
+    @app.get("/v1/artifacts", response_model=list[PilotArtifact])
+    def artifacts(project_id: str | None = None,
+                  context: UserContext = Depends(context_provider)) -> list[PilotArtifact]:  # noqa: B008
+        if project_id is not None and project_id not in context.project_ids:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail="Project is outside authenticated scope")
+        return [refreshed_artifact(item, context)
+                for item in artifact_store.list(context=context, project_id=project_id)]
+
+    @app.get("/v1/artifacts/{artifact_id}", response_model=PilotArtifact)
+    def artifact(artifact_id: str,
+                 context: UserContext = Depends(context_provider)) -> PilotArtifact:  # noqa: B008
+        try:
+            return refreshed_artifact(artifact_store.get(artifact_id, context=context), context)
+        except KeyError as exc:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail="Artifact was not found") from exc
+        except PermissionError as exc:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail=str(exc)) from exc
+
+    @app.post("/v1/artifacts/{artifact_id}/submit", response_model=PilotArtifact)
+    def submit_artifact(artifact_id: str,
+                        context: UserContext = Depends(context_provider)) -> PilotArtifact:  # noqa: B008
+        try:
+            artifact = artifact_store.get(artifact_id, context=context)
+        except KeyError as exc:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail="Artifact was not found") from exc
+        except PermissionError as exc:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail=str(exc)) from exc
+        if artifact.review_item_id is not None:
+            return refreshed_artifact(artifact, context)
+        item = review_queue.submit(
+            tenant_id=artifact.tenant_id, project_id=artifact.project_id,
+            created_by=artifact.agent_id, workflow=artifact.workflow,
+            title=artifact.title, body=artifact.review_body(), evidence=artifact.evidence,
+            required_reviewer_group=artifact.required_reviewer_group,
+        )
+        artifact.status = "submitted"
+        artifact.review_item_id = item.id
+        artifact.events.append(ArtifactEvent(
+            event="submitted_for_review", actor=context.user_id,
+            occurred_at=datetime.now(UTC), detail=f"Queued as review {item.id}",
+        ))
+        return artifact_store.update(artifact)
+
+    @app.get("/v1/clause-library", response_model=list[Clause])
+    def clause_library(context: UserContext = Depends(context_provider)) -> list[Clause]:  # noqa: B008
+        """The approved clause variants, so a reviewer can see the whole band.
+
+        Exposed read-only. Adopting or changing a variant is a counsel decision
+        made in the repository, not through this API.
+        """
+        del context
+        return clauses.clauses
+
+    @app.post("/v1/workspace/draft-agreement", response_model=PilotArtifact)
+    def draft_agreement(request: AgreementDraftRequest,
+                        context: UserContext = Depends(context_provider)) -> PilotArtifact:  # noqa: B008
+        try:
+            return drafter.draft(request, context=context)
+        except PermissionError as exc:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail=str(exc)) from exc
+        except (PilotWorkspaceError, ValueError) as exc:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                                detail=str(exc)) from exc
+
+    @app.post("/v1/workspace/reset", response_model=WorkspaceResetResult)
+    def reset_workspace(request: WorkspaceResetRequest,
+                        context: UserContext = Depends(context_provider)) -> WorkspaceResetResult:  # noqa: B008
+        del request
+        try:
+            removed = artifact_store.reset_synthetic(context=context)
+            restored = review_queue.reset_synthetic(
+                tenant_id=context.tenant_id, items=fixture.review_items)
+            traces_removed, budgets_removed = audit_store.reset_synthetic(context=context)
+        except (PermissionError, ReviewAccessDenied) as exc:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail=str(exc)) from exc
+        return WorkspaceResetResult(artifacts_removed=removed, reviews_restored=restored,
+            audit_traces_removed=traces_removed, budgets_removed=budgets_removed)
 
     @app.post("/v1/reviews/{item_id}/accept", response_model=ReviewItem)
     def accept_review(item_id: str, request: ReviewDecision,
@@ -311,11 +615,43 @@ def create_console_app(*, data_dir: Path | None = None,
                       context: UserContext = Depends(context_provider)) -> ReviewItem:  # noqa: B008
         return decide(item_id, ReviewStatus.REJECTED, request, context)
 
+    @app.post("/v1/reviews/{item_id}/amend-and-accept", response_model=ReviewItem)
+    def amend_review(item_id: str, request: ReviewAmendment,
+                     context: UserContext = Depends(context_provider)) -> ReviewItem:  # noqa: B008
+        try:
+            return review_queue.amend_and_accept(item_id=item_id, context=context,
+                reason=request.reason, category=request.category,
+                amended_body=request.amended_body)
+        except KeyError as exc:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail="Review item was not found") from exc
+        except ReviewAccessDenied as exc:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+        except InvalidReviewTransition as exc:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+    @app.get("/v1/pilot/export")
+    def export_pilot_labels(
+        context: UserContext = Depends(context_provider),  # noqa: B008
+    ) -> list[dict[str, Any]]:
+        return [{
+            "review_id": item.id, "project_id": item.project_id,
+            "workflow": item.workflow, "decision": item.status.value,
+            "reason_category": item.review_reason_category.value
+                if item.review_reason_category else None,
+            "reason": item.review_reason, "original_body": item.body,
+            "amended_body": item.amended_body, "reviewed_by": item.reviewed_by,
+            "source_ids": [evidence.source_id for evidence in item.evidence],
+        } for item in review_queue.list_items(context=context)
+            if item.status != ReviewStatus.PENDING]
+
     @app.get("/v1/console/bootstrap", response_model=ConsoleBootstrap)
     def bootstrap(
         context: UserContext = Depends(context_provider),  # noqa: B008
     ) -> ConsoleBootstrap:
         review_items = review_queue.list_items(context=context)
+        artifacts = [refreshed_artifact(item, context)
+                     for item in artifact_store.list(context=context)]
         agents = [_agent_card(agent) for agent in registry.all()]
         integrations = _integration_cards()
         return ConsoleBootstrap(notice=fixture.notice, session=_session(context),
@@ -328,7 +664,13 @@ def create_console_app(*, data_dir: Path | None = None,
             clients=_visible_clients(fixture, context),
             projects=_visible_projects(fixture, context), agents=agents,
             security=security_settings.model_dump(mode="json"),
-            integrations=integrations, review_items=review_items)
+            integrations=integrations, microsoft=microsoft_broker.status(),
+            review_items=review_items, artifacts=artifacts,
+            workflows=[option for project_id in sorted(context.project_ids)
+                       for option in workspace.workflows(project_id=project_id,
+                                                         context=context)],
+            project_controls=[item for item in fixture.project_controls
+                              if item.project_id in context.project_ids])
 
     @app.get("/api/openapi.json", include_in_schema=False)
     def openapi_contract() -> JSONResponse:
@@ -346,4 +688,7 @@ def create_console_app(*, data_dir: Path | None = None,
     app.state.console_fixture = fixture
     app.state.context_provider = context_provider
     app.state.review_queue = review_queue
+    app.state.artifact_store = artifact_store
+    app.state.workspace = workspace
+    app.state.audit_store = audit_store
     return app

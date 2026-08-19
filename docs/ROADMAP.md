@@ -198,6 +198,59 @@ Production UI exit criteria remain real OIDC integration, accessibility and huma
 acceptance testing, deployed storage and observability, session/CSRF design, security
 review, and completion of `PRODUCTION_GATE_CHECKLIST.md`.
 
+## Phase 7A — Interactive pilot workspace (implemented; validation pending)
+
+**Exit criteria:** a reviewer completes the full project-task, cited-draft, review-
+submission, evidence inspection, qualified decision, and audit-history loop using only
+synthetic data; citation coverage, unsupported claims, elapsed time, and reviewer
+acceptance are recorded.
+
+- Added persistent tenant/project-scoped synthetic pilot artifacts.
+- Added deterministic fixture-backed execution for development, contract, capital, and
+  internal-operations projects without a model or external integration.
+- Added decision-ready summaries, risks, assumptions, citations, evidence freshness,
+  quality metrics, review submission, and synchronized audit history.
+- Added Projects and Drafts workspaces and an exact-confirmation synthetic reset.
+- Kept Microsoft credentials, live tenant data, external delivery, filings, consultant
+  direction, baseline changes, terms, deployments, and funds movement disabled.
+
+Pilot validation and the separately reviewed Microsoft 365 connection gates remain
+pending. See `MICROSOFT_365_CONNECTION_PLAN.md`.
+
+## Phase 7B — Measurable pilot workspace (implemented; live validation pending)
+
+- Replaced literal quality scores with enumerable per-claim citations, computed
+  citation coverage, audit-sourced external-action counts, and measured freshness.
+- Added project-plus-workflow template selection; RiverBend exposes four distinct
+  controlled workflows while free-text Ask remains a routing preview.
+- Added reviewable `insufficient_evidence` outcomes for stale, uncited, or conflicting
+  source sets.
+- Added a default-off `TESSERA_PILOT_LIVE_DRAFTING` contract-review path and a
+  deterministic/live comparison endpoint with the same artifact schema.
+- Added recorded amendment-and-acceptance, categorized decisions, labeled-set export,
+  project RAID/variance snapshots, and complete synthetic reset counts.
+- Corrected prompt trace versioning to hash composed shared and specialist instructions.
+
+No model call is made by default or in the offline test suite. Measured live validation,
+human acceptance, and every Microsoft 365 production gate remain pending.
+
+## Phase 7C — Single-user private portal foundation (implemented; deployment pending)
+
+- Added an invite-only Microsoft Entra sign-in boundary that validates tenant and user
+  object identifiers and keeps Graph tokens server-side.
+- Added an API-host-only, secure, HTTP-only eight-hour session and exact one-user pilot
+  allowlist.
+- Added a read-only project portal whose project catalog must exactly match the
+  administrator-approved SharePoint resource mapping.
+- Added Docker/Render and standalone Netlify deployment definitions for
+  `api.tesseraag.com` and `app.tesseraag.com`, without replacing the public website.
+- Added production configuration failure checks and authentication-bypass tests.
+
+Deployment, Entra consent, selected-site permission assignment, sanitized live-data
+validation, accessibility review, observability, backup/restore testing, and human
+acceptance remain external gates. Multi-user access is explicitly out of scope until
+token storage is isolated per user and security-reviewed.
+
 ## Initial backlog
 
 1. Completed: define `tenant_id` and project ACL contracts across shared schemas.

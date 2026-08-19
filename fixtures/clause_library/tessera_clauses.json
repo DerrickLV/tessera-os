@@ -1,0 +1,411 @@
+{
+  "notice": "STARTING SCAFFOLD \u2014 every variant below requires review and adoption by qualified counsel before it becomes an approved Tessera position. Placeholders appear in {braces}.",
+  "version": "0.1.0",
+  "clauses": [
+    {
+      "id": "scope-services",
+      "category": "scope",
+      "title": "Services",
+      "order": 10,
+      "applies_to": [
+        "consulting",
+        "advisory"
+      ],
+      "industries": [],
+      "required": true,
+      "absence_risk": "Without a deliverable-based scope, disputes default to the client's expectation of what was promised.",
+      "variants": [
+        {
+          "id": "scope-deliverable",
+          "posture": "protective",
+          "when": "Default for any engagement with a fixed or capped fee.",
+          "trade_off": "Requires the scope to be worked out in detail before signature.",
+          "counsel_review": "Confirm Exhibit A lists deliverables rather than activities, and that the exclusions list is complete for this engagement.",
+          "text": "**{n}.1 Services.** Consultant shall provide the deliverables described in Exhibit A (the \"Deliverables\"), and no others. Consultant's obligation is to prepare and deliver the Deliverables in a professional and workmanlike manner consistent with the standards of its profession; Consultant does not guarantee any particular outcome, approval, financing, or result.\n\n**{n}.2 Exclusions.** The Services exclude any matter listed in Exhibit B, and exclude the practice of law, accounting, engineering, architecture, or any other licensed profession. Where a licensed professional is required, Client shall engage one directly and at its own cost.\n\n**{n}.3 Changes.** Any change to the Deliverables, including any additional deliverable, revision round beyond those stated in Exhibit A, or change arising from a material change in Client's project, requires a written change order signed by both parties stating the revised scope, fee, and schedule before the work is performed."
+        },
+        {
+          "id": "scope-advisory",
+          "posture": "standard",
+          "when": "Ongoing advisory where deliverables cannot be fully enumerated in advance.",
+          "trade_off": "Broader scope language increases the risk of scope creep; pair with a monthly hour or meeting cap.",
+          "counsel_review": "Confirm the advisory scope is bounded by a stated cadence or hour cap, and that the no-outcome-guarantee language survives.",
+          "text": "**{n}.1 Services.** Consultant shall provide strategic advisory services in the areas described in Exhibit A, at a cadence of not more than {advisory_cadence}. Consultant advises; Client decides. Consultant does not guarantee any outcome, approval, financing, or result, and Client remains solely responsible for its own business decisions.\n\n**{n}.2 Exclusions.** The Services exclude the practice of law, accounting, engineering, architecture, or any other licensed profession, and exclude any matter listed in Exhibit B."
+        }
+      ]
+    },
+    {
+      "id": "term-termination",
+      "category": "term",
+      "title": "Term and Termination",
+      "order": 20,
+      "applies_to": [
+        "consulting",
+        "advisory",
+        "finders_fee"
+      ],
+      "industries": [],
+      "required": true,
+      "absence_risk": "Without stated termination rights, an engagement can be ended abruptly with no compensation for work in progress.",
+      "variants": [
+        {
+          "id": "term-symmetric",
+          "posture": "protective",
+          "when": "Default. Either party may exit on equal notice, and work performed is paid for.",
+          "trade_off": "Client may resist symmetric termination on a short engagement.",
+          "counsel_review": "Confirm the notice period matches the engagement length, and that the survival list captures every clause intended to outlive the agreement.",
+          "text": "**{n}.1 Term.** This Agreement begins on the Effective Date and continues for {term_length}, unless extended by written agreement. This Agreement does not renew automatically.\n\n**{n}.2 Termination.** Either party may terminate this Agreement for convenience on thirty (30) days' written notice, or immediately on the other party's material breach that remains uncured ten (10) business days after written notice describing the breach.\n\n**{n}.3 Effect of Termination.** On termination for any reason, Client shall pay Consultant all amounts earned and all non-cancellable commitments incurred through the effective date of termination, within thirty (30) days. Any work product in progress is delivered in its then-current form and accepted as-is.\n\n**{n}.4 Survival.** Sections {survival_sections} survive termination or expiration of this Agreement."
+        },
+        {
+          "id": "term-notice-only",
+          "posture": "accommodating",
+          "when": "Long-standing client, small fee, where symmetric termination is not worth negotiating.",
+          "trade_off": "Client may terminate on shorter notice than Consultant.",
+          "counsel_review": "Confirm that payment for work performed through termination is preserved even though the notice periods are asymmetric.",
+          "text": "**{n}.1 Term.** This Agreement begins on the Effective Date and continues for {term_length}. This Agreement does not renew automatically.\n\n**{n}.2 Termination.** Either party may terminate on written notice. Client shall pay Consultant all amounts earned and non-cancellable commitments incurred through the effective date of termination, within thirty (30) days.\n\n**{n}.3 Survival.** Sections {survival_sections} survive termination or expiration."
+        }
+      ]
+    },
+    {
+      "id": "compensation",
+      "category": "payment",
+      "title": "Compensation",
+      "order": 30,
+      "applies_to": [
+        "consulting",
+        "advisory"
+      ],
+      "industries": [],
+      "required": true,
+      "absence_risk": "Silence on timing and disputed amounts lets a client withhold indefinitely without breaching.",
+      "variants": [
+        {
+          "id": "pay-net30-retainer",
+          "posture": "protective",
+          "when": "Default, and required for any first engagement or unrepresented counterparty.",
+          "trade_off": "An upfront retainer can slow signature with a cash-constrained client.",
+          "counsel_review": "Confirm the interest rate is within the usury limit for {jurisdiction}, and that suspension of services on non-payment does not conflict with any professional obligation.",
+          "text": "**{n}.1 Fees.** Client shall pay the fees set forth in Exhibit A. A retainer of {retainer_amount} is due on execution and is applied against the final invoice.\n\n**{n}.2 Payment.** Invoices are due within thirty (30) days of receipt. Amounts not paid when due accrue interest at the lesser of one and one-half percent (1.5%) per month or the maximum rate permitted by law.\n\n**{n}.3 Disputed Amounts.** Client may withhold payment of a specific invoiced amount only if, within fifteen (15) days of the invoice date, it delivers written notice identifying the amount and the basis for the dispute in reasonable detail. All undisputed amounts remain payable when due. Any amount not disputed within that period is deemed accepted.\n\n**{n}.4 Expenses.** Client shall reimburse reasonable out-of-pocket expenses incurred in performing the Services, with any single expense over {expense_threshold} subject to Client's prior written approval.\n\n**{n}.5 Suspension.** If any undisputed amount remains unpaid thirty (30) days after its due date, Consultant may suspend the Services on written notice until payment is received, and any schedule in this Agreement extends day-for-day."
+        },
+        {
+          "id": "pay-net30",
+          "posture": "standard",
+          "when": "Established relationship with a clean payment history.",
+          "trade_off": "No retainer means Consultant funds the early work.",
+          "counsel_review": "Confirm the dispute-notice window and that undisputed amounts remain payable.",
+          "text": "**{n}.1 Fees.** Client shall pay the fees set forth in Exhibit A.\n\n**{n}.2 Payment.** Invoices are due within thirty (30) days of receipt. Amounts not paid when due accrue interest at the lesser of one and one-half percent (1.5%) per month or the maximum rate permitted by law.\n\n**{n}.3 Disputed Amounts.** Client may withhold a specific invoiced amount only on written notice, delivered within fifteen (15) days of the invoice date, identifying the amount and the basis for the dispute. All undisputed amounts remain payable when due.\n\n**{n}.4 Expenses.** Client shall reimburse reasonable out-of-pocket expenses, with any single expense over {expense_threshold} subject to prior written approval."
+        }
+      ]
+    },
+    {
+      "id": "finders-fee",
+      "category": "success_fee",
+      "title": "Fee and Fee Protection",
+      "order": 35,
+      "applies_to": [
+        "finders_fee"
+      ],
+      "industries": [],
+      "required": true,
+      "absence_risk": "Without a tail and a defined Introduced Party, a counterparty can close after termination and owe nothing.",
+      "variants": [
+        {
+          "id": "finders-tail-24",
+          "posture": "protective",
+          "when": "Default for any introduction where the counterparty could plausibly close directly afterwards.",
+          "trade_off": "A 24-month tail and affiliate coverage are the most commonly negotiated points; expect pushback.",
+          "counsel_review": "Confirm no securities-broker registration issue arises from the fee structure in {jurisdiction} \u2014 this is the central legal risk in a finder arrangement and must be cleared before signature. Confirm the Introduced Party definition and the tail period are enforceable as drafted.",
+          "text": "**{n}.1 Introduction.** Consultant shall introduce Client to one or more prospective counterparties. An \"Introduced Party\" means any person or entity that Consultant first identifies to Client in writing, together with its affiliates, successors, and any entity under common control with it.\n\n**{n}.2 Fee.** Client shall pay Consultant a fee equal to {fee_percentage} of the Transaction Value of any Transaction between Client and an Introduced Party. \"Transaction\" means any purchase, sale, joint venture, financing, licence, or other business combination, in each case whether structured as an asset transfer, equity transfer, merger, or otherwise.\n\n**{n}.3 Tail.** The fee is payable if a Transaction closes at any time during the Term or within twenty-four (24) months after termination or expiration of this Agreement.\n\n**{n}.4 Payment.** The fee is earned on closing and payable in immediately available funds at closing, from closing proceeds where applicable.\n\n**{n}.5 Written Confirmation.** Consultant shall confirm each introduction to Client in writing within five (5) business days. Client shall notify Consultant in writing within ten (10) business days if Client asserts a prior relationship with that party, failing which the party is conclusively an Introduced Party.\n\n**{n}.6 No Authority.** Consultant makes introductions only. Consultant has no authority to negotiate, bind, or represent Client, does not provide investment advice, does not handle funds or securities, and does not participate in structuring or negotiating the terms of any Transaction."
+        },
+        {
+          "id": "finders-tail-12",
+          "posture": "standard",
+          "when": "Established counterparty, or where a 24-month tail has been rejected and the relationship matters more than the tail.",
+          "trade_off": "A 12-month tail leaves real exposure on a deal with a long close cycle.",
+          "counsel_review": "Confirm the broker-registration analysis in {jurisdiction}. Confirm 12 months is long enough given the expected close timeline for this deal type.",
+          "text": "**{n}.1 Introduction.** An \"Introduced Party\" means any person or entity that Consultant first identifies to Client in writing, together with its affiliates.\n\n**{n}.2 Fee.** Client shall pay Consultant a fee equal to {fee_percentage} of the Transaction Value of any Transaction between Client and an Introduced Party.\n\n**{n}.3 Tail.** The fee is payable if a Transaction closes during the Term or within twelve (12) months after termination or expiration.\n\n**{n}.4 Payment.** The fee is earned on closing and payable at closing.\n\n**{n}.5 No Authority.** Consultant makes introductions only, has no authority to bind Client, does not provide investment advice, and does not handle funds or securities."
+        }
+      ]
+    },
+    {
+      "id": "confidentiality",
+      "category": "confidentiality",
+      "title": "Confidentiality",
+      "order": 40,
+      "applies_to": [
+        "nda",
+        "consulting",
+        "advisory",
+        "finders_fee",
+        "deal_memo",
+        "operating_agreement",
+        "jv",
+        "investor_subscription"
+      ],
+      "industries": [],
+      "required": true,
+      "absence_risk": "Without carve-outs, an ordinary compelled disclosure becomes a breach.",
+      "variants": [
+        {
+          "id": "confid-mutual",
+          "posture": "protective",
+          "when": "Default. Mutual obligations, standard carve-outs, and a defined return-or-destroy right.",
+          "trade_off": "Perpetual protection for trade secrets may be resisted; the fallback is a long fixed term.",
+          "counsel_review": "Confirm the trade-secret carve-out from the term limit is consistent with {jurisdiction} law, and that the compelled-disclosure procedure is workable.",
+          "text": "**{n}.1 Definition.** \"Confidential Information\" means non-public information disclosed by either party, in any form, that is designated confidential or that a reasonable person would understand to be confidential given its nature and the circumstances of disclosure.\n\n**{n}.2 Obligations.** Each party shall use the other's Confidential Information solely to perform this Agreement or evaluate the transaction contemplated by it, shall protect it with at least the care it uses for its own confidential information and no less than reasonable care, and shall disclose it only to those of its personnel and advisors who need it for that purpose and who are bound by confidentiality obligations no less protective than these.\n\n**{n}.3 Exclusions.** These obligations do not apply to information that is or becomes public through no breach of this Agreement, was rightfully known without restriction before disclosure, is rightfully received from a third party without restriction, or is independently developed without use of the disclosing party's Confidential Information.\n\n**{n}.4 Compelled Disclosure.** A party required by law, regulation, or valid legal process to disclose Confidential Information may do so, provided it gives prompt written notice to the extent legally permitted, discloses only what is legally required, and reasonably cooperates in any effort to obtain protective treatment.\n\n**{n}.5 Term.** These obligations continue for {confidentiality_years} years after disclosure, and, for anything constituting a trade secret, for as long as it remains a trade secret under applicable law.\n\n**{n}.6 Return.** On written request following termination, each party shall return or destroy the other's Confidential Information, except for copies retained in routine backups or as required by law or professional obligation, which remain subject to this Section."
+        },
+        {
+          "id": "confid-standard",
+          "posture": "standard",
+          "when": "Where a shorter, simpler mutual NDA is sufficient and speed matters.",
+          "trade_off": "A fixed term with no trade-secret carve-out ends protection for genuinely proprietary methodology.",
+          "counsel_review": "Confirm the fixed term is long enough for the sensitivity of what is actually being disclosed.",
+          "text": "**{n}.1 Definition.** \"Confidential Information\" means non-public information disclosed by either party that is designated confidential or that a reasonable person would understand to be confidential.\n\n**{n}.2 Obligations.** Each party shall use the other's Confidential Information solely for the purpose of this Agreement, protect it with at least reasonable care, and disclose it only to personnel and advisors who need it and are bound by comparable obligations.\n\n**{n}.3 Exclusions.** These obligations do not apply to information that is public through no breach, was rightfully known before disclosure, is rightfully received from a third party, or is independently developed.\n\n**{n}.4 Compelled Disclosure.** A party may disclose as legally required, on prompt written notice to the extent permitted.\n\n**{n}.5 Term.** These obligations continue for {confidentiality_years} years after disclosure."
+        }
+      ],
+      "order_overrides": {
+        "operating_agreement": 285,
+        "jv": 285,
+        "investor_subscription": 285
+      }
+    },
+    {
+      "id": "intellectual-property",
+      "category": "ip",
+      "title": "Intellectual Property",
+      "order": 50,
+      "applies_to": [
+        "consulting",
+        "advisory"
+      ],
+      "industries": [],
+      "required": true,
+      "absence_risk": "Silence risks an implied assignment of the methodology and templates Tessera reuses across every engagement.",
+      "variants": [
+        {
+          "id": "ip-deliverables-only",
+          "posture": "protective",
+          "when": "Default. Client owns what it paid for; Tessera keeps what it brought.",
+          "trade_off": "Clients occasionally demand ownership of methodology; that demand should be priced, not conceded.",
+          "counsel_review": "Confirm the Background IP definition covers Tessera's actual reusable assets, and that the licence to Client is broad enough for Client's intended use of the Deliverables.",
+          "text": "**{n}.1 Deliverables.** On payment in full, Consultant assigns to Client all right, title, and interest in the Deliverables as delivered.\n\n**{n}.2 Background IP.** \"Background IP\" means all methodologies, frameworks, models, templates, tools, checklists, know-how, and other materials owned or developed by Consultant before or outside this Agreement, together with any improvement to them, whether or not developed during the Services. Background IP remains the exclusive property of Consultant. Nothing in this Agreement assigns Background IP to Client.\n\n**{n}.3 Licence.** To the extent any Background IP is embedded in a Deliverable, Consultant grants Client a perpetual, non-exclusive, royalty-free, worldwide licence to use that Background IP solely as part of the Deliverable and solely for Client's internal business purposes.\n\n**{n}.4 Residuals.** Consultant may use the general knowledge, skills, and experience acquired in performing the Services, provided it discloses no Confidential Information of Client."
+        },
+        {
+          "id": "ip-work-for-hire-limited",
+          "posture": "accommodating",
+          "when": "Client insists on work-for-hire framing and the engagement is worth accepting it.",
+          "trade_off": "Broader assignment; the Background IP reservation becomes the only protection and must be explicit.",
+          "counsel_review": "This variant concedes more than the standard position. Confirm the Background IP reservation survives the work-for-hire language and that no reusable Tessera asset falls inside the assignment.",
+          "text": "**{n}.1 Deliverables.** The Deliverables are works made for hire to the extent permitted by law, and to any extent they are not, Consultant assigns them to Client on payment in full.\n\n**{n}.2 Background IP.** Notwithstanding Section {n}.1, all methodologies, frameworks, models, templates, tools, and know-how owned or developed by Consultant before or outside this Agreement, and all improvements to them, remain the exclusive property of Consultant and are expressly excluded from any assignment or work-for-hire treatment. Client receives a perpetual, non-exclusive, royalty-free licence to use such materials solely as embedded in the Deliverables.\n\n**{n}.3 Residuals.** Consultant may use the general knowledge, skills, and experience acquired in performing the Services."
+        }
+      ]
+    },
+    {
+      "id": "limitation-liability",
+      "category": "liability",
+      "title": "Limitation of Liability",
+      "order": 60,
+      "applies_to": [
+        "nda",
+        "consulting",
+        "advisory",
+        "finders_fee",
+        "deal_memo"
+      ],
+      "industries": [],
+      "required": true,
+      "absence_risk": "With no cap, exposure on a small engagement is unbounded \u2014 the single most consequential omission in any Tessera agreement.",
+      "variants": [
+        {
+          "id": "liability-cap-fees",
+          "posture": "protective",
+          "when": "Default. Cap at fees paid is the standard professional-services position.",
+          "trade_off": "Sophisticated clients often push for a multiple of fees; concede to 2x before conceding the cap itself.",
+          "counsel_review": "Confirm the carve-outs are the minimum required and are mutual. Confirm the cap is enforceable in {jurisdiction} and that no statutory or professional obligation overrides it.",
+          "text": "**{n}.1 Exclusion of Indirect Damages.** Neither party is liable to the other for any indirect, incidental, consequential, special, exemplary, or punitive damages, or for lost profits, lost revenue, lost data, or loss of business opportunity, however caused and regardless of the theory of liability, even if advised of the possibility.\n\n**{n}.2 Cap.** Each party's total aggregate liability arising out of or relating to this Agreement, whether in contract, tort, or otherwise, shall not exceed the total fees paid by Client to Consultant under this Agreement.\n\n**{n}.3 Carve-Outs.** Sections {n}.1 and {n}.2 do not apply to a party's fraud, wilful misconduct, or gross negligence, to a party's breach of its confidentiality obligations, or to any liability that cannot be limited or excluded as a matter of law.\n\n**{n}.4 Allocation.** The parties agree that these limitations reflect an agreed allocation of risk, that the fees would be materially higher without them, and that they survive any failure of essential purpose of any limited remedy."
+        },
+        {
+          "id": "liability-cap-2x",
+          "posture": "standard",
+          "when": "Where a fees-paid cap has been rejected and the engagement is worth a 2x position.",
+          "trade_off": "Doubles maximum exposure; acceptable where fee is small relative to Tessera's insurance.",
+          "counsel_review": "Confirm 2x fees remains within Tessera's professional liability coverage for this engagement size.",
+          "text": "**{n}.1 Exclusion of Indirect Damages.** Neither party is liable for indirect, incidental, consequential, special, exemplary, or punitive damages, or for lost profits, lost revenue, or loss of business opportunity, however caused.\n\n**{n}.2 Cap.** Each party's total aggregate liability arising out of or relating to this Agreement shall not exceed two (2) times the total fees paid by Client to Consultant under this Agreement.\n\n**{n}.3 Carve-Outs.** These limitations do not apply to fraud, wilful misconduct, gross negligence, breach of confidentiality obligations, or any liability that cannot be limited by law.\n\n**{n}.4 Allocation.** These limitations reflect an agreed allocation of risk and survive any failure of essential purpose."
+        }
+      ]
+    },
+    {
+      "id": "indemnification",
+      "category": "indemnity",
+      "title": "Indemnification",
+      "order": 70,
+      "applies_to": [
+        "consulting",
+        "advisory",
+        "finders_fee"
+      ],
+      "industries": [],
+      "required": true,
+      "absence_risk": "A one-way indemnity running from Tessera is the second most common source of unbounded exposure after a missing liability cap.",
+      "variants": [
+        {
+          "id": "indemnity-mutual",
+          "posture": "protective",
+          "when": "Default. Mutual, limited to third-party claims, with a negligence carve-back.",
+          "trade_off": "Some clients treat mutual indemnity as non-standard; it is not, and should be held.",
+          "counsel_review": "Confirm the indemnity is expressly subject to the liability cap, or it will swallow it. Confirm the control-of-defence provisions are acceptable to Tessera's insurer.",
+          "text": "**{n}.1 Mutual Indemnity.** Each party (the \"Indemnifying Party\") shall indemnify, defend, and hold harmless the other party and its officers, members, and employees from and against third-party claims, and any resulting damages, losses, and reasonable costs (including reasonable attorneys' fees), to the extent arising from the Indemnifying Party's gross negligence, wilful misconduct, or breach of this Agreement.\n\n**{n}.2 Comparative Fault.** Neither party's indemnity obligation extends to any portion of a claim attributable to the negligence or wilful misconduct of the party seeking indemnity.\n\n**{n}.3 Procedure.** The party seeking indemnity shall give prompt written notice of the claim, shall not settle it without the Indemnifying Party's written consent, and shall reasonably cooperate in the defence. The Indemnifying Party controls the defence and settlement, provided it may not settle in a way that imposes a non-monetary obligation on, or admits fault by, the indemnified party without that party's written consent.\n\n**{n}.4 Relationship to Cap.** All indemnity obligations under this Section are subject to the limitation of liability in Section {ref:limitation-liability}."
+        },
+        {
+          "id": "indemnity-mutual-uncapped-third-party",
+          "posture": "standard",
+          "when": "Where the client requires that third-party IP or confidentiality indemnities sit outside the cap.",
+          "trade_off": "Carving indemnities out of the cap reintroduces unbounded exposure on those specific heads; keep the carve-out narrow.",
+          "counsel_review": "This variant places specific indemnities outside the liability cap. Confirm the carve-out is limited to the named heads and that Tessera's insurance responds to them.",
+          "text": "**{n}.1 Mutual Indemnity.** Each party shall indemnify, defend, and hold harmless the other and its officers, members, and employees from third-party claims, and resulting damages, losses, and reasonable costs (including reasonable attorneys' fees), to the extent arising from the Indemnifying Party's gross negligence, wilful misconduct, or breach of this Agreement.\n\n**{n}.2 Comparative Fault.** Neither party's obligation extends to any portion of a claim attributable to the negligence or wilful misconduct of the party seeking indemnity.\n\n**{n}.3 Procedure.** Prompt written notice; no settlement without the Indemnifying Party's consent; reasonable cooperation; the Indemnifying Party controls the defence but may not settle so as to impose a non-monetary obligation on or admit fault by the indemnified party without consent.\n\n**{n}.4 Relationship to Cap.** Indemnity obligations under this Section are subject to Section {ref:limitation-liability}, except for claims arising from breach of confidentiality or third-party intellectual property infringement, which are not subject to the cap in Section {n}.2."
+        }
+      ]
+    },
+    {
+      "id": "non-solicitation",
+      "category": "restrictive_covenant",
+      "title": "Non-Solicitation",
+      "order": 80,
+      "applies_to": [
+        "consulting",
+        "advisory"
+      ],
+      "industries": [],
+      "required": false,
+      "absence_risk": "Omission is usually acceptable; over-broad inclusion is the greater risk.",
+      "variants": [
+        {
+          "id": "nonsolicit-mutual-12",
+          "posture": "protective",
+          "when": "Default where a non-solicit is required at all. Mutual, narrow, and short.",
+          "trade_off": "Narrow scope may not satisfy a client seeking broad protection.",
+          "counsel_review": "Confirm enforceability and duration limits in {jurisdiction}; several states restrict or void these. Confirm the general-advertising carve-out is present.",
+          "text": "**{n}.1 Non-Solicitation.** During the Term and for twelve (12) months after its expiration or termination, neither party shall knowingly solicit for employment any employee or contractor of the other party who was directly involved in the Services.\n\n**{n}.2 Exclusions.** This Section does not restrict general advertising, job postings, recruiting-agency searches not directed at the other party, or the hiring of any person who responds to such general solicitation, approaches a party on their own initiative, or whose engagement with the other party ended at least six (6) months earlier.",
+          "jurisdiction_notes": {
+            "Texas": "Texas requires a non-solicit to be ancillary to an otherwise enforceable agreement and reasonable in time, area, and scope. Confirm the ancillary requirement is satisfied.",
+            "Oklahoma": "Oklahoma narrowly limits restraints on trade. Confirm this survives 15 O.S. 217 and the employee-solicitation exception."
+          },
+          "unavailable_in": [
+            "California"
+          ]
+        },
+        {
+          "id": "nonsolicit-mutual-18",
+          "posture": "standard",
+          "when": "Where the counterparty requires a longer period and 18 months is acceptable.",
+          "trade_off": "Longer duration increases enforceability risk in restrictive jurisdictions.",
+          "counsel_review": "Confirm eighteen months is enforceable in {jurisdiction}; if the jurisdiction restricts duration, revert to the twelve-month variant.",
+          "text": "**{n}.1 Non-Solicitation.** During the Term and for eighteen (18) months after its expiration or termination, neither party shall knowingly solicit for employment any employee or contractor of the other party who was directly involved in the Services.\n\n**{n}.2 Exclusions.** This Section does not restrict general advertising, job postings, or recruiting searches not directed at the other party, or the hiring of any person who responds to such general solicitation or approaches a party on their own initiative.",
+          "jurisdiction_notes": {
+            "Texas": "Confirm eighteen months is reasonable in duration for this role and industry under Texas law."
+          },
+          "unavailable_in": [
+            "California",
+            "Oklahoma"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "regulatory-compliance",
+      "category": "regulatory",
+      "title": "Regulatory Compliance and Licensure",
+      "order": 85,
+      "applies_to": [
+        "consulting",
+        "advisory",
+        "finders_fee",
+        "deal_memo"
+      ],
+      "industries": [
+        "regulated"
+      ],
+      "required": true,
+      "absence_risk": "In a regulated industry, a counterparty's licensure failure can implicate Tessera; without representations and a suspension right there is no clean exit.",
+      "variants": [
+        {
+          "id": "regulatory-full",
+          "posture": "protective",
+          "when": "Required for every engagement in a regulated industry \u2014 cannabis, hemp, film finance, food and hospitality, or any licensed activity.",
+          "trade_off": "None worth trading. This clause is the exit route if the counterparty's licence position changes.",
+          "counsel_review": "MANDATORY: confirm with counsel licensed in {jurisdiction} and in the specific regulatory regime. Confirm that Consultant's own activities under this Agreement require no licence Consultant does not hold, and that the suspension right does not itself create a regulatory issue.",
+          "text": "**{n}.1 Client Representations.** Client represents and warrants that it holds every licence, permit, and registration required to conduct its business and to perform this Agreement; that it is in material compliance with all applicable laws and regulations governing its business; and that no proceeding is pending or, to its knowledge, threatened that could suspend, revoke, condition, or deny any such licence, permit, or registration.\n\n**{n}.2 Continuing Obligation.** Client shall maintain all such licences, permits, and registrations for the Term, and shall notify Consultant in writing within three (3) business days of any actual or threatened suspension, revocation, conditioning, denial, or investigation relating to them.\n\n**{n}.3 Consultant Limits.** Consultant provides business and strategic advisory services only. Consultant does not hold, and does not represent that it holds, any licence in Client's regulated activity, and provides no advice regarding compliance with any licensing regime, which remains Client's sole responsibility and the responsibility of Client's own qualified counsel.\n\n**{n}.4 Suspension and Termination.** Consultant may suspend the Services immediately, and may terminate this Agreement on written notice, if Client breaches this Section, if any representation in Section {n}.1 becomes untrue, or if Consultant reasonably determines that continued performance would place Consultant in violation of applicable law or at risk of regulatory action. Client shall pay for Services performed through the date of suspension or termination.\n\n**{n}.5 No Federal Illegality Waiver.** Nothing in this Agreement requires either party to take any action that violates applicable law. The parties acknowledge that Client's activities may be lawful under {jurisdiction} law while remaining subject to differing treatment under federal law, and each party has obtained its own legal advice on that position."
+        }
+      ]
+    },
+    {
+      "id": "independent-contractor",
+      "category": "relationship",
+      "title": "Independent Contractor",
+      "order": 90,
+      "applies_to": [
+        "consulting",
+        "advisory",
+        "finders_fee"
+      ],
+      "industries": [],
+      "required": true,
+      "absence_risk": "Without it, an advisory relationship can be recharacterized as employment, partnership, or agency, each carrying liability Tessera did not price.",
+      "variants": [
+        {
+          "id": "contractor-standard",
+          "posture": "standard",
+          "when": "All engagements. Rarely negotiated.",
+          "trade_off": "None.",
+          "counsel_review": "Confirm the classification language matches the actual working arrangement; the clause does not control if the facts contradict it.",
+          "text": "**{n}.1 Relationship.** Consultant is an independent contractor. Nothing in this Agreement creates a partnership, joint venture, agency, fiduciary, or employment relationship between the parties.\n\n**{n}.2 No Authority.** Neither party has authority to bind the other or to incur any obligation on the other's behalf, and neither shall represent that it has such authority.\n\n**{n}.3 Consultant's Responsibilities.** Consultant is solely responsible for the manner and means of performing the Services, for its own personnel, and for all taxes, withholdings, insurance, and benefits relating to itself and its personnel."
+        }
+      ]
+    },
+    {
+      "id": "governing-law",
+      "category": "dispute",
+      "title": "Governing Law and Dispute Resolution",
+      "order": 100,
+      "applies_to": [
+        "nda",
+        "consulting",
+        "advisory",
+        "finders_fee",
+        "deal_memo",
+        "operating_agreement",
+        "jv",
+        "investor_subscription"
+      ],
+      "industries": [],
+      "required": true,
+      "absence_risk": "Without a forum, a dispute is litigated wherever the counterparty files.",
+      "variants": [
+        {
+          "id": "dispute-escalation-arbitration",
+          "posture": "protective",
+          "when": "Default. Negotiation, then mediation, then binding arbitration keeps disputes private and bounded.",
+          "trade_off": "Arbitration limits appeal rights and can cost more than expected on small claims; the small-claims carve-out addresses this.",
+          "counsel_review": "Confirm the arbitration provider, seat, and rules are appropriate for {jurisdiction} and the likely dispute size. Confirm the fee-shifting provision is enforceable there.",
+          "text": "**{n}.1 Governing Law.** This Agreement is governed by the laws of {jurisdiction}, without regard to its conflict of laws principles.\n\n**{n}.2 Escalation.** Before commencing any proceeding, the parties shall attempt in good faith to resolve the dispute through direct negotiation between senior representatives for thirty (30) days, and, if unresolved, through non-binding mediation for a further thirty (30) days.\n\n**{n}.3 Arbitration.** Any dispute not resolved under Section {n}.2 shall be finally resolved by binding arbitration before a single arbitrator under the rules of {arbitration_provider}, seated in {jurisdiction}. Judgment on the award may be entered in any court of competent jurisdiction.\n\n**{n}.4 Exceptions.** Either party may seek injunctive or other equitable relief in a court of competent jurisdiction to protect its Confidential Information or intellectual property, and either party may bring a claim in small-claims court where the claim qualifies.\n\n**{n}.5 Fees.** The prevailing party in any proceeding is entitled to recover its reasonable attorneys' fees and costs.\n\n**{n}.6 Confidentiality of Proceedings.** The existence and content of any proceeding under this Section are Confidential Information.",
+          "jurisdiction_notes": {
+            "California": "California restricts fee-shifting in some consumer and employment contexts. Confirm the prevailing-party clause is enforceable here."
+          }
+        },
+        {
+          "id": "dispute-courts",
+          "posture": "standard",
+          "when": "Where the counterparty refuses arbitration, or where preserving appeal rights matters more than privacy.",
+          "trade_off": "Public record; potentially slower and more expensive.",
+          "counsel_review": "Confirm exclusive jurisdiction in {jurisdiction} is enforceable against this counterparty and that Tessera is willing to litigate there.",
+          "text": "**{n}.1 Governing Law.** This Agreement is governed by the laws of {jurisdiction}, without regard to its conflict of laws principles.\n\n**{n}.2 Escalation.** Before commencing proceedings, the parties shall attempt in good faith to resolve the dispute through direct negotiation between senior representatives for thirty (30) days.\n\n**{n}.3 Forum.** The state and federal courts located in {jurisdiction} have exclusive jurisdiction over any dispute arising out of or relating to this Agreement, and each party irrevocably submits to that jurisdiction and waives any objection based on venue or forum non conveniens.\n\n**{n}.4 Fees.** The prevailing party is entitled to recover its reasonable attorneys' fees and costs."
+        }
+      ],
+      "order_overrides": {
+        "operating_agreement": 900,
+        "jv": 900,
+        "investor_subscription": 900,
+        "deal_memo": 900
+      }
+    }
+  ]
+}
