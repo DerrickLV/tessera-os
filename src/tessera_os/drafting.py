@@ -99,7 +99,7 @@ def _claims_for(assembled: AssembledDraft) -> list[PilotClaim]:
                     f"less protective than this deal's {item.posture_requested} posture.")
         else:
             severity, finding = "notable", "stated"
-            text = (f"{item.clause.title} uses the approved {item.variant.posture} variant "
+            text = (f"{item.clause.title} uses the synthetic {item.variant.posture} variant "
                     f"({item.variant.id}).")
         claims.append(PilotClaim(text=text, source_ids=[item.variant.id],
                                  severity=severity, finding_type=finding))
@@ -123,8 +123,8 @@ class AgreementDrafter:
         self.store = store
         self.project_clients = project_clients
 
-    def draft(self, request: AgreementDraftRequest, *,
-              context: UserContext) -> PilotArtifact:
+    def draft(self, request: AgreementDraftRequest, *, context: UserContext,
+              structural_handoff: bool = False) -> PilotArtifact:
         if request.project_id not in context.project_ids:
             raise PermissionError("Project is outside authenticated scope")
         try:
@@ -133,6 +133,9 @@ class AgreementDrafter:
             raise PilotWorkspaceError("Unknown project for agreement drafting") from exc
 
         profile = request.profile
+        if profile.agreement_type in {"operating_agreement", "jv"} and not structural_handoff:
+            raise PilotWorkspaceError(
+                "Operating agreements and JVs require an accepted Structure Manager memo")
         try:
             assembled = self.library.assemble(profile)
         except ClauseCoverageError as exc:
@@ -145,7 +148,7 @@ class AgreementDrafter:
         unknowns = [f"{{{name}}} is not yet decided." for name in assembled.open_variables()]
         # A required clause with no applicable variant is a gap in the library,
         # not something the reader should have to notice in the text.
-        unknowns.extend(f"{clause.title} has no applicable approved variant."
+        unknowns.extend(f"{clause.title} has no applicable synthetic variant."
                         for clause in assembled.omitted_required)
 
         now = datetime.now(UTC)
@@ -162,7 +165,7 @@ class AgreementDrafter:
             summary=(f"Assembled a {profile.agreement_type.replace('_', ' ')} for "
                      f"{profile.counterparty} at a {assembled.posture} posture, selected for "
                      f"{profile.posture_rationale()}. "
-                     f"{len(assembled.selections)} clauses drawn from approved variants. "
+                     f"{len(assembled.selections)} clauses drawn from synthetic variants. "
                      f"Governing law: {profile.jurisdiction}. "
                      "Not sent, not executed, and not legal advice."),
             recommendations=[
@@ -171,7 +174,8 @@ class AgreementDrafter:
             ],
             risks=_risks_for(assembled),
             assumptions=[
-                "Clause variants are the approved library text and have not been edited here.",
+                ("Clause variants are synthetic evaluation text, not adopted Tessera positions "
+                 "or counsel-approved production language."),
                 f"Governing law is {profile.jurisdiction}; variants are not jurisdiction-tested.",
             ],
             unknowns=unknowns,
@@ -184,7 +188,7 @@ class AgreementDrafter:
             events=[ArtifactEvent(event="draft_created", actor=context.user_id,
                                   occurred_at=now,
                                   detail=f"Assembled from {len(assembled.selections)} "
-                                         "approved clause variants")],
+                                         "synthetic clause variants")],
         )
         artifact.citations = _validate_citations(assembled, artifact)
         artifact.body_markdown = assembled.to_markdown()
@@ -267,9 +271,11 @@ class StructureAdvisor:
 
     def __init__(self, *, store: PilotArtifactStore,
                  project_clients: dict[str, str],
+                 library: ClauseLibrary,
                  review_queue: ReviewQueue | None = None) -> None:
         self.store = store
         self.project_clients = project_clients
+        self.library = library
         self.review_queue = review_queue
 
     def recommend(self, request: StructureRequest, *,
@@ -402,12 +408,20 @@ class StructureAdvisor:
         rec = recommend_structure(request.venture)
         if rec.conflicts or _unanswered(rec, request):
             raise PilotWorkspaceError("Resolve all conflicts and blocking questions before drafting")
-        return AgreementDraftRequest(
+        draft_request = AgreementDraftRequest(
             project_id=request.project_id,
             source_artifact_id=artifact.id,
             profile=rec.to_deal_profile(
                 counterparty=request.counterparty or request.venture.venture,
                 parties=request.parties, effective_date=request.effective_date))
+        delivered = {item.clause.category
+                     for item in self.library.assemble(
+                         draft_request.profile, require_coverage=False).selections}
+        unmet = sorted(rec.expected_clause_categories() - delivered)
+        if unmet:
+            raise PilotWorkspaceError(
+                f"Structure memo promises clause categories the document lacks: {unmet}")
+        return draft_request
 
     @staticmethod
     def derived_values(request: StructureRequest) -> dict[str, str]:

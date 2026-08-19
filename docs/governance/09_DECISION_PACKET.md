@@ -8,7 +8,8 @@ document.
 
 **Ryan is a co-decider, not a bottleneck, and that is structural.** Tessera's
 own governance makes firm-level decisions unanimous between the partners. The
-adoption ledger enforces it: an entry with one name is invalid by construction.
+ledger records both decisions and the protected pull request where they were
+independently approved; typed names alone are not signatures.
 What I *can* do — and have done below — is pre-draft every decision so his part
 is reading a proposal and saying yes, no, or "not that number." That turns an
 afternoon into twenty minutes.
@@ -32,8 +33,9 @@ item below is drafted to be adoptable today.
 
 Each item states the proposal, the reasoning drawn from your own materials, what
 it costs if the proposal is wrong, and the exact ledger entry to paste into
-`config/adopted_positions.yaml`. Signing is copying the entry, putting both
-names on it, and dating it.
+`config/adopted_positions.yaml`. Adoption is complete only after both partners
+approve the protected pull request; replace `NNN` with that pull request number
+before merge.
 
 | Track | Items | Who decides |
 |---|---|---|
@@ -79,6 +81,7 @@ spend exists.
 ```yaml
   - area: "Ordinary-course authority"
     adopted_by: ["Derrick Carlisle", "Ryan Strasshofer"]
+    approval_ref: "https://github.com/DerrickLV/tessera-os/pull/NNN"
     date: "YYYY-MM-DD"
     source_ref: "Tesserra Holdings LLC Operating Agreement, Art. IV; scaling rule adopted by the partners"
     counsel_reviewed: false
@@ -113,6 +116,7 @@ carries a long unanimous list. Under-listing is worse and slower to discover.
 ```yaml
   - area: "Reserved matters"
     adopted_by: ["Derrick Carlisle", "Ryan Strasshofer"]
+    approval_ref: "https://github.com/DerrickLV/tessera-os/pull/NNN"
     date: "YYYY-MM-DD"
     source_ref: "Tesserra Holdings LLC Operating Agreement, Art. IV (base ten); conditional additions adopted by the partners"
     counsel_reviewed: false
@@ -137,6 +141,7 @@ things they would otherwise just do.
 ```yaml
   - area: "Management"
     adopted_by: ["Derrick Carlisle", "Ryan Strasshofer"]
+    approval_ref: "https://github.com/DerrickLV/tessera-os/pull/NNN"
     date: "YYYY-MM-DD"
     source_ref: "Tesserra Holdings LLC Operating Agreement, Art. IV"
     counsel_reviewed: false
@@ -160,6 +165,7 @@ vote.
 ```yaml
   - area: "Deadlock"
     adopted_by: ["Derrick Carlisle", "Ryan Strasshofer"]
+    approval_ref: "https://github.com/DerrickLV/tessera-os/pull/NNN"
     date: "YYYY-MM-DD"
     source_ref: "Tesserra Holdings LLC Operating Agreement, Art. IV–V"
     counsel_reviewed: false
@@ -178,6 +184,7 @@ it is an option held by whoever has cash.
 ```yaml
   - area: "Buy-sell"
     adopted_by: ["Derrick Carlisle", "Ryan Strasshofer"]
+    approval_ref: "https://github.com/DerrickLV/tessera-os/pull/NNN"
     date: "YYYY-MM-DD"
     source_ref: "Tesserra Holdings LLC Operating Agreement, Art. X"
     counsel_reviewed: false
@@ -208,21 +215,25 @@ to litigate.
 ```yaml
   - area: "Capital calls"
     adopted_by: ["Derrick Carlisle", "Ryan Strasshofer"]
+    approval_ref: "https://github.com/DerrickLV/tessera-os/pull/NNN"
     date: "YYYY-MM-DD"
     source_ref: "Tesserra Holdings LLC Operating Agreement, Art. VI"
     counsel_reviewed: false
   - area: "Transfer restrictions"
     adopted_by: ["Derrick Carlisle", "Ryan Strasshofer"]
+    approval_ref: "https://github.com/DerrickLV/tessera-os/pull/NNN"
     date: "YYYY-MM-DD"
     source_ref: "Tesserra Holdings LLC Operating Agreement, Art. X"
     counsel_reviewed: false
   - area: "Triggering events"
     adopted_by: ["Derrick Carlisle", "Ryan Strasshofer"]
+    approval_ref: "https://github.com/DerrickLV/tessera-os/pull/NNN"
     date: "YYYY-MM-DD"
     source_ref: "Tesserra Holdings LLC Operating Agreement, Art. X"
     counsel_reviewed: false
   - area: "Valuation"
     adopted_by: ["Derrick Carlisle", "Ryan Strasshofer"]
+    approval_ref: "https://github.com/DerrickLV/tessera-os/pull/NNN"
     date: "YYYY-MM-DD"
     source_ref: "Tesserra Holdings LLC Operating Agreement, Art. X"
     counsel_reviewed: false
@@ -241,6 +252,7 @@ right exercisable by a working business rather than only by whoever holds cash.
 ```yaml
   - area: "Payment terms"
     adopted_by: ["Derrick Carlisle", "Ryan Strasshofer"]
+    approval_ref: "https://github.com/DerrickLV/tessera-os/pull/NNN"
     date: "YYYY-MM-DD"
     source_ref: "Tesserra Holdings LLC Operating Agreement, Art. X"
     counsel_reviewed: false
@@ -261,6 +273,7 @@ too small to bother.
 ```yaml
   - area: "Dual-role disclosure"
     adopted_by: ["Derrick Carlisle", "Ryan Strasshofer"]
+    approval_ref: "https://github.com/DerrickLV/tessera-os/pull/NNN"
     date: "YYYY-MM-DD"
     source_ref: "Tessera Group Holdings page; firm governance model"
     counsel_reviewed: false

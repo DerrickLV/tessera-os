@@ -37,6 +37,7 @@ def advisor(tmp_path) -> StructureAdvisor:
     return StructureAdvisor(
         store=PilotArtifactStore(tmp_path / "artifacts.db"),
         review_queue=ReviewQueue(tmp_path / "reviews.db"),
+        library=ClauseLibrary.load("fixtures/clause_library"),
         project_clients={PROJECT: "client-riverbend"},
     )
 
@@ -173,7 +174,8 @@ def test_the_recommendation_produces_the_document_it_calls_for(tmp_path):
     drafter = AgreementDrafter(library=ClauseLibrary.load("fixtures/clause_library"),
                                store=PilotArtifactStore(tmp_path / "artifacts.db"),
                                project_clients={PROJECT: "client-riverbend"})
-    agreement = drafter.draft(draft_request, context=context())
+    agreement = drafter.draft(
+        draft_request, context=context(), structural_handoff=True)
 
     assert agreement.workflow == "contract_drafting"
     assert "Operating Agreement" in agreement.title
@@ -296,6 +298,27 @@ def test_setting_the_artifact_status_does_not_bypass_the_review_queue(tmp_path):
     with pytest.raises(PilotWorkspaceError, match="submitted for review"):
         advice.to_draft_request(
             ask, context=context(), approved_artifact_id=memo.id)
+
+
+def test_runtime_handoff_refuses_when_memo_promises_a_missing_clause_category(tmp_path):
+    advice = advisor(tmp_path)
+    ask = request()
+    memo = advice.recommend(ask, context=context())
+    item = advice.review_queue.submit(
+        tenant_id=memo.tenant_id, project_id=memo.project_id,
+        created_by=memo.agent_id, workflow=memo.workflow, title=memo.title,
+        body=memo.review_body(), evidence=memo.evidence,
+        required_reviewer_group=memo.required_reviewer_group)
+    memo.review_item_id = item.id
+    advice.store.update(memo)
+    advice.review_queue.accept(
+        item_id=item.id, context=context(user_id="synthetic-counsel-b"),
+        reason="Synthetic approval before parity failure test.")
+    advice.library = ClauseLibrary(
+        [item for item in advice.library.clauses if item.category != "buysell"],
+        variables=advice.library.variables)
+    with pytest.raises(PilotWorkspaceError, match="memo promises"):
+        advice.to_draft_request(ask, context=context(), approved_artifact_id=memo.id)
 
 
 def test_changed_inputs_invalidate_an_approved_memo(tmp_path):

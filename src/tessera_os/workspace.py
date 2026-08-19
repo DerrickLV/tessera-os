@@ -12,6 +12,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
+from .identity import ZoneAccessError, ZonePolicy
 from .router import Router
 from .schemas import Evidence, RouteDecision, UserContext
 
@@ -280,7 +281,8 @@ class PilotWorkspace:
                  project_clients: dict[str, str], router: Router | None = None,
                  external_action_counter: Callable[[UserContext, str], int] | None = None,
                  live_drafter: Callable[[PilotTaskRequest, PilotTemplate], LiveDraftContent] | None = None,
-                 live_enabled: bool = False) -> None:
+                 live_enabled: bool = False,
+                 zone_policy: ZonePolicy | None = None) -> None:
         self.templates = {(item.project_id, item.workflow): item for item in templates}
         if len(self.templates) != len(templates):
             raise ValueError("Pilot workflow templates must be unique per project and workflow")
@@ -290,6 +292,7 @@ class PilotWorkspace:
         self.external_action_counter = external_action_counter or (lambda _context, _project: 0)
         self.live_drafter = live_drafter
         self.live_enabled = live_enabled
+        self.zone_policy = zone_policy
 
     def workflows(self, *, project_id: str, context: UserContext) -> list[PilotWorkflowOption]:
         if project_id not in context.project_ids:
@@ -324,11 +327,27 @@ class PilotWorkspace:
         route = self.router.route(request.task or template.title)
         now = datetime.now(UTC)
         known_sources = {item.source_id for item in template.evidence}
-        valid_citations = [ArtifactCitation(claim=claim.text, source_ids=claim.source_ids,
-                                            severity=claim.severity,
-                                            finding_type=claim.finding_type)
-                           for claim in content.claims
-                           if claim.source_ids and set(claim.source_ids) <= known_sources]
+        evidence_by_id = {item.source_id: item for item in template.evidence}
+        valid_citations = []
+        zone_refusals: list[str] = []
+        for claim in content.claims:
+            if not claim.source_ids or not set(claim.source_ids) <= known_sources:
+                continue
+            try:
+                if self.zone_policy:
+                    for source_id in claim.source_ids:
+                        evidence = evidence_by_id[source_id]
+                        if evidence.source_project_id:
+                            self.zone_policy.check_citation(
+                                source_project_id=evidence.source_project_id,
+                                artifact_project_id=request.project_id,
+                                artifact_client_id=client_id)
+            except ZoneAccessError as exc:
+                zone_refusals.append(f"Citation {source_id!r} crossed a trust boundary: {exc}")
+                continue
+            valid_citations.append(ArtifactCitation(
+                claim=claim.text, source_ids=claim.source_ids,
+                severity=claim.severity, finding_type=claim.finding_type))
         coverage = 100 * len(valid_citations) / len(content.claims)
         retrieved = [datetime.fromisoformat(item.retrieved_at) for item in template.evidence
                      if item.retrieved_at]
@@ -337,6 +356,7 @@ class PilotWorkspace:
         evidence_current = evidence_age_days <= template.freshness_days
         external_actions = self.external_action_counter(context, request.project_id)
         refusal_reasons = []
+        refusal_reasons.extend(zone_refusals)
         if coverage < 100:
             refusal_reasons.append("One or more material claims lack valid source citations.")
         if not evidence_current:

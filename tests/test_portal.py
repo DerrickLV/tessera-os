@@ -16,7 +16,8 @@ class PortalAuthClient:
         return {"state": "state-1", "auth_uri": "https://login.microsoft.test/authorize"}
 
     def acquire_token_by_auth_code_flow(self, auth_code_flow, auth_response):
-        self.accounts = [{"username": "pilot@example.test"}]
+        self.accounts = [{"username": "pilot@example.test",
+                          "local_account_id": self.user_id}]
         return {"access_token": "server-only", "id_token_claims": {
             "tid": "tenant-id", "oid": self.user_id,
             "preferred_username": "pilot@example.test", "name": "Pilot User",
@@ -33,19 +34,23 @@ class PortalAuthClient:
 
 
 def portal_settings(tmp_path, *, allowed=("user-1",), projects=None):
+    projects = projects or {"project-1": {
+        "id": "project-1", "name": "Pilot Project", "summary": "Synthetic pilot",
+    }}
     return PortalSettings(app_url="https://app.tesseraag.com",
         api_url="https://api.tesseraag.com",
         session_secret="s" * 48, allowed_user_ids=set(allowed),
-        projects=projects or {"project-1": {
-            "id": "project-1", "name": "Pilot Project", "summary": "Synthetic pilot",
-        }}, data_dir=tmp_path)
+        projects=projects, user_projects={user: set(projects) for user in allowed},
+        data_dir=tmp_path)
 
 
 def microsoft_settings():
     return MicrosoftPilotSettings(enabled=True, tenant_id="tenant-id", client_id="client-id",
         client_secret="secret", cache_key="unused-for-injected-client",
         redirect_uri="https://api.tesseraag.com/v1/integrations/microsoft/callback",
-        project_resources={"project-1": {"site_id": "site", "drive_id": "drive"}})
+        project_resources={"project-1": {
+            "site_id": "site", "drive_id": "drive", "zone": "engagement",
+            "client_id": "client-pilot"}})
 
 
 def app_client(tmp_path, *, user_id="user-1", allowed=("user-1",)):
@@ -91,7 +96,7 @@ def test_portal_rejects_uninvited_microsoft_identity(tmp_path):
     assert "set-cookie" not in response.headers
 
 
-def test_portal_rejects_tampered_session_and_multiple_user_configuration(tmp_path):
+def test_portal_rejects_tampered_session_and_supports_explicit_multiple_users(tmp_path):
     api = app_client(tmp_path)
     response = api.get(
         "/v1/session",
@@ -99,8 +104,8 @@ def test_portal_rejects_tampered_session_and_multiple_user_configuration(tmp_pat
     )
     assert response.status_code == 401
     assert "invalid or expired" in response.json()["detail"]
-    with pytest.raises(ValueError, match="at most 1 item"):
-        portal_settings(tmp_path, allowed=("user-1", "user-2"))
+    configured = portal_settings(tmp_path, allowed=("user-1", "user-2"))
+    assert configured.user_projects["user-2"] == frozenset({"project-1"})
 
 
 def test_portal_requires_exact_project_mapping_and_https(tmp_path):
@@ -108,7 +113,8 @@ def test_portal_requires_exact_project_mapping_and_https(tmp_path):
         PortalSettings(app_url="http://app.tesseraag.com", api_url="https://api.tesseraag.com",
             session_secret="s" * 48,
             allowed_user_ids={"user-1"}, projects={"project-1": {
-                "id": "project-1", "name": "Pilot"}}, data_dir=tmp_path)
+                "id": "project-1", "name": "Pilot"}},
+            user_projects={"user-1": {"project-1"}}, data_dir=tmp_path)
     microsoft = microsoft_settings()
     broker = MicrosoftConnectionBroker(settings=microsoft, cache_path=Path("unused"),
         auth_client=PortalAuthClient())
@@ -139,3 +145,46 @@ def test_portal_static_site_avoids_inline_script_handlers():
     assert "https://api.tesseraag.com" in javascript
     assert "script-src 'self'" in netlify
     assert "script-src 'self' 'unsafe-inline'" not in netlify
+
+
+def test_two_portal_users_have_independent_sessions_and_logout(tmp_path):
+    class TwoUserAuthClient(PortalAuthClient):
+        def __init__(self):
+            super().__init__()
+            self.sequence = 0
+
+        def initiate_auth_code_flow(self, scopes, redirect_uri):
+            self.sequence += 1
+            state = f"state-{self.sequence}"
+            return {"state": state, "auth_uri": f"https://login.microsoft.test/{state}"}
+
+        def acquire_token_by_auth_code_flow(self, auth_code_flow, auth_response):
+            user_id = auth_response["code"]
+            self.accounts.append({"username": f"{user_id}@example.test",
+                                  "local_account_id": user_id})
+            return {"access_token": f"token-{user_id}", "id_token_claims": {
+                "tid": "tenant-id", "oid": user_id,
+                "preferred_username": f"{user_id}@example.test", "name": user_id}}
+
+    microsoft = microsoft_settings()
+    broker = MicrosoftConnectionBroker(
+        settings=microsoft, cache_path=Path("unused"), auth_client=TwoUserAuthClient())
+    app = create_portal_app(
+        portal_settings=portal_settings(tmp_path, allowed=("derrick", "ryan")),
+        microsoft_settings=microsoft, broker=broker)
+    derrick = TestClient(app, base_url="https://api.tesseraag.com")
+    ryan = TestClient(app, base_url="https://api.tesseraag.com")
+
+    derrick.get("/v1/auth/microsoft/start", follow_redirects=False)
+    ryan.get("/v1/auth/microsoft/start", follow_redirects=False)
+    assert derrick.get(
+        "/v1/integrations/microsoft/callback?state=state-1&code=derrick",
+        follow_redirects=False).status_code == 303
+    assert ryan.get(
+        "/v1/integrations/microsoft/callback?state=state-2&code=ryan",
+        follow_redirects=False).status_code == 303
+    assert derrick.get("/v1/session").json()["user_id"] == "derrick"
+    assert ryan.get("/v1/session").json()["user_id"] == "ryan"
+
+    assert ryan.post("/v1/auth/logout", follow_redirects=False).status_code == 303
+    assert derrick.get("/v1/session").json()["microsoft_connected"] is True

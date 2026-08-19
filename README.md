@@ -10,7 +10,7 @@ workflows, shared schemas, and offline document drafting.
 
 **Stage:** Phase 6 complete; production-readiness hardening implemented
 
-**Current milestone:** Phase 7C single-user private portal deployment and validation
+**Current milestone:** Phase 7C two-user private portal hardening and validation
 
 **Safety posture:** Offline by default; production pilot is read-only and external delivery is disabled
 
@@ -127,12 +127,14 @@ only delegated `User.Read` and `Sites.Selected`, stores its MSAL cache encrypted
 resolves SharePoint locations only through approved project mappings. Complete the
 [Microsoft 365 connection plan](docs/MICROSOFT_365_CONNECTION_PLAN.md) before enabling it.
 
-A deployment package for a single-user, invite-only production pilot is also included:
+A deployment package for a two-user, invite-only production pilot is also included:
 the static private portal in `web/tessera-portal.html`, its locked-down FastAPI layer in
 `src/tessera_os/portal.py`, a Render Blueprint and Docker image, and a separate Netlify
 site definition. It is intentionally not connected or deployed from the repository.
 Follow the [portal deployment guide](docs/PORTAL_DEPLOYMENT.md) for the required
 administrator-controlled setup in Entra, SharePoint, Render, Netlify, and Porkbun.
+The shorter [Microsoft 365 launch path](docs/MICROSOFT_365_LAUNCH_PATH.md) covers
+the Derrick/Ryan pilot and the offline `tessera m365-check` verifier.
 
 Run Tessera commands from the repository checkout. A normal local install is used
 because some Homebrew Python builds ignore hidden editable-install path files. Set
@@ -202,6 +204,7 @@ web/                 Local operator console served by FastAPI
 - [Console API](docs/CONSOLE_API.md)
 - [Microsoft 365 and SharePoint connection plan](docs/MICROSOFT_365_CONNECTION_PLAN.md)
 - [Private portal deployment](docs/PORTAL_DEPLOYMENT.md)
+- [Microsoft 365 launch path](docs/MICROSOFT_365_LAUNCH_PATH.md)
 - [Private portal readiness report](docs/PORTAL_READINESS_REPORT.md)
 - [Contributing](CONTRIBUTING.md)
 

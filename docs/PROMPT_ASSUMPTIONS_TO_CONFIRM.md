@@ -44,7 +44,7 @@ the remaining judgment calls.
 | B4 | "Write the cost line for the principal, not the lawyer" — plain-language consequence over legal characterization. | D |
 | B5 | Every legal document carries a note that qualified counsel must review before execution. | D, C |
 
-**Not yet supplied:** the approved clause playbook itself. Until a real playbook
+**Not yet supplied:** a counsel-approved production clause playbook. Until that private playbook
 record exists in evidence, every contract review will correctly report that it is
 comparing against general commercial norms rather than a Tessera standard. That
 is the safe behaviour, but it caps the value of the workflow. **Loading a real

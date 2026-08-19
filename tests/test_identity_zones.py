@@ -9,6 +9,8 @@ trust boundary, and the golden rule is that Internal originals never leave
 zone 01 — now the read path and the citation path both enforce it.
 """
 
+from datetime import UTC, datetime
+
 import pytest
 from pydantic import ValidationError
 
@@ -25,7 +27,14 @@ from tessera_os.microsoft import (
     MicrosoftPilotSettings,
     SharePointProjectResource,
 )
-from tessera_os.schemas import UserContext
+from tessera_os.schemas import Evidence, UserContext
+from tessera_os.workspace import (
+    PilotArtifactStore,
+    PilotClaim,
+    PilotTaskRequest,
+    PilotTemplate,
+    PilotWorkspace,
+)
 
 COUNSEL_ENTRA = "9f3c0000-0000-0000-0000-00000000c0de"
 PARTNER_ENTRA = "1ab20000-0000-0000-0000-0000000050a5"
@@ -128,7 +137,7 @@ def test_an_internal_library_is_readable_only_by_the_partners_group():
     reader = AllowlistedSharePointReader(
         settings=internal_settings(),
         graph_factory=lambda provider: MicrosoftGraphReader(provider, transport=transport),
-        token_provider=lambda: "token")
+        token_provider=lambda _user_id: "token")
 
     assert reader.project_documents(context=partner_context(),
                                     project_id="internal-pilot") == []
@@ -150,7 +159,7 @@ def test_documents_carry_their_zone_so_downstream_checks_can_run():
     reader = AllowlistedSharePointReader(
         settings=internal_settings(),
         graph_factory=lambda provider: MicrosoftGraphReader(provider, transport=transport),
-        token_provider=lambda: "token")
+        token_provider=lambda _user_id: "token")
     documents = reader.project_documents(context=partner_context(),
                                          project_id="internal-pilot")
     assert documents[0].metadata["trust_zone"] == "internal"
@@ -165,7 +174,8 @@ def policy() -> ZonePolicy:
                         "bravo-workspace": "engagement",
                         "counsel-shared": "collaborator"},
         resource_clients={"acme-workspace": "client-acme",
-                          "bravo-workspace": "client-bravo"})
+                          "bravo-workspace": "client-bravo",
+                          "counsel-shared": "client-acme"})
 
 
 def test_a_document_cited_within_its_own_project_passes():
@@ -184,7 +194,7 @@ def test_an_internal_original_never_reaches_a_client_artifact():
 
 
 def test_one_clients_documents_cannot_surface_in_anothers_artifact():
-    with pytest.raises(ZoneAccessError, match="another"):
+    with pytest.raises(ZoneAccessError, match="outside"):
         policy().check_citation(source_project_id="acme-workspace",
                                 artifact_project_id="bravo-workspace",
                                 artifact_client_id="client-bravo")
@@ -193,3 +203,28 @@ def test_one_clients_documents_cannot_surface_in_anothers_artifact():
 def test_an_engagement_zone_without_a_client_wall_is_invalid():
     with pytest.raises(ValidationError, match="client"):
         ZonePolicy(resource_zones={"x": "engagement"})
+
+
+def test_workspace_artifact_path_refuses_a_cross_zone_citation(tmp_path):
+    """The policy must run in artifact creation, not only in a helper unit test."""
+    evidence = Evidence(
+        source_id="internal-source", title="Internal source",
+        locator="fixture://internal/source", excerpt="Internal-only material",
+        retrieved_at=datetime.now(UTC).isoformat(),
+        source_project_id="internal-master", source_client_id="tessera",
+        trust_zone="internal")
+    template = PilotTemplate(
+        project_id="acme-workspace", title="Acme draft", workflow="contract_review",
+        agent_id="contract_manager", summary="Synthetic draft", evidence=[evidence],
+        claims=[PilotClaim(text="Internal claim", source_ids=[evidence.source_id])])
+    workspace = PilotWorkspace(
+        templates=[template], store=PilotArtifactStore(tmp_path / "artifacts.db"),
+        project_clients={"acme-workspace": "client-acme"},
+        zone_policy=policy())
+    artifact = workspace.run(
+        PilotTaskRequest(project_id="acme-workspace", workflow="contract_review"),
+        context=UserContext(tenant_id="t", user_id="u",
+                            project_ids={"acme-workspace"}))
+    assert artifact.status == "insufficient_evidence"
+    assert artifact.citations == []
+    assert any("trust boundary" in item for item in artifact.refusal_reasons)

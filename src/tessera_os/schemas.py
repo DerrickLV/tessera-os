@@ -27,6 +27,9 @@ class Evidence(BaseModel):
     locator: str | None = None
     excerpt: str | None = None
     retrieved_at: str | None = None
+    source_project_id: str | None = None
+    source_client_id: str | None = None
+    trust_zone: str | None = None
 
 
 class AgentRequest(BaseModel):

@@ -577,7 +577,8 @@ class AssembledDraft(BaseModel):
             f"# {profile.agreement_type.replace('_', ' ').title()} — {profile.opportunity}",
             "",
             ("**DRAFT — FOR QUALIFIED COUNSEL REVIEW BEFORE EXECUTION.** "
-             "Assembled from approved clause variants; not legal advice."),
+             "Assembled from synthetic evaluation variants; not adopted by Tessera, "
+             "not counsel-approved, and not legal advice."),
             "",
             f"- **Counterparty:** {profile.counterparty}",
             f"- **Governing law:** {profile.jurisdiction}",
@@ -759,7 +760,7 @@ class ClauseLibrary:
         """
         if require_coverage and (missing := self.missing_essentials(profile)):
             raise ClauseCoverageError(
-                f"The clause library cannot draft a {profile.agreement_type}: no approved "
+                f"The clause library cannot draft a {profile.agreement_type}: no synthetic "
                 f"clauses for {', '.join(missing)}. Add them, with counsel, before drafting "
                 "this document type.")
         requested = posture or profile.posture()

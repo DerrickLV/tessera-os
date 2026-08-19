@@ -1,6 +1,6 @@
 # Jv — Harbor 50/50 JV
 
-**DRAFT — FOR QUALIFIED COUNSEL REVIEW BEFORE EXECUTION.** Assembled from approved clause variants; not legal advice.
+**DRAFT — FOR QUALIFIED COUNSEL REVIEW BEFORE EXECUTION.** Assembled from synthetic evaluation variants; not adopted by Tessera, not counsel-approved, and not legal advice.
 
 - **Counterparty:** Harbor Partners LLC
 - **Governing law:** the State of Delaware

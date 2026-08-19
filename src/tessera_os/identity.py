@@ -147,10 +147,10 @@ class ZonePolicy(BaseModel):
     @model_validator(mode="after")
     def engagement_zones_name_their_client(self) -> ZonePolicy:
         for project_id, zone in self.resource_zones.items():
-            if zone == "engagement" and not self.resource_clients.get(project_id):
+            if zone in {"engagement", "collaborator"} and not self.resource_clients.get(project_id):
                 raise IdentityConfigurationError(
-                    f"Engagement-zone resource {project_id!r} must name its client — "
-                    "the wall between clients is the zone's entire purpose")
+                    f"{zone.title()}-zone resource {project_id!r} must name its client or "
+                    "engagement — the outward trust boundary must be explicit")
         return self
 
     def zone_of(self, project_id: str) -> TrustZone:
@@ -183,9 +183,8 @@ class ZonePolicy(BaseModel):
             raise ZoneAccessError(
                 "Internal originals never leave zone 01. Place a copy in the "
                 "engagement workspace and cite the copy.")
-        if zone == "engagement":
+        if zone in {"engagement", "collaborator"}:
             source_client = self.resource_clients.get(source_project_id)
             if artifact_client_id is None or source_client != artifact_client_id:
                 raise ZoneAccessError(
-                    "A client's engagement documents cannot be cited in another "
-                    "client's artifact")
+                    f"A {zone}-zone document cannot be cited outside its named client")

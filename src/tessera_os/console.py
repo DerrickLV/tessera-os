@@ -275,6 +275,7 @@ def create_console_app(*, data_dir: Path | None = None,
     structure_advisor = StructureAdvisor(
         store=artifact_store,
         review_queue=review_queue,
+        library=clauses,
         project_clients={project.id: project.client_id for project in fixture.projects},
     )
 
@@ -592,7 +593,8 @@ def create_console_app(*, data_dir: Path | None = None,
         try:
             draft_request = structure_advisor.to_draft_request(
                 request, context=context, approved_artifact_id=artifact_id)
-            return drafter.draft(draft_request, context=context)
+            return drafter.draft(
+                draft_request, context=context, structural_handoff=True)
         except PermissionError as exc:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                                 detail=str(exc)) from exc
@@ -659,9 +661,9 @@ def create_console_app(*, data_dir: Path | None = None,
 
     @app.get("/v1/clause-library", response_model=list[Clause])
     def clause_library(context: UserContext = Depends(context_provider)) -> list[Clause]:  # noqa: B008
-        """The approved clause variants, so a reviewer can see the whole band.
+        """The synthetic clause variants, so a reviewer can see the whole band.
 
-        Exposed read-only. Adopting or changing a variant is a counsel decision
+        Exposed read-only. Approving or changing a production variant is a counsel decision
         made in the repository, not through this API.
         """
         del context

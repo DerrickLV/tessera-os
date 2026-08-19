@@ -17,7 +17,8 @@ def entry(**overrides) -> dict:
     base = {"area": "Ordinary-course authority",
             "adopted_by": ["Derrick Carlisle", "Ryan Strasshofer"],
             "date": "2026-08-19",
-            "source_ref": "Tesserra Holdings LLC Operating Agreement, Art. IV"}
+            "source_ref": "Tesserra Holdings LLC Operating Agreement, Art. IV",
+            "approval_ref": "https://github.com/DerrickLV/tessera-os/pull/42"}
     base.update(overrides)
     return base
 
@@ -65,12 +66,26 @@ def test_a_source_reference_is_required():
         AdoptedPosition(**entry(source_ref=""))
 
 
+def test_an_external_approval_reference_is_required():
+    data = entry()
+    del data["approval_ref"]
+    with pytest.raises(ValueError, match="approval_ref"):
+        AdoptedPosition(**data)
+
+
+def test_counsel_review_cannot_be_asserted_without_a_review_record():
+    with pytest.raises(ValueError, match="counsel_review_ref"):
+        AdoptedPosition(**entry(counsel_reviewed=True))
+
+
 def test_a_duplicate_area_is_refused_not_last_writer_wins(tmp_path):
     path = tmp_path / "ledger.yaml"
     path.write_text(
         "positions:\n"
-        "  - {area: Titles, adopted_by: [A B, C D], date: '2026-01-01', source_ref: X}\n"
-        "  - {area: titles, adopted_by: [A B, C D], date: '2026-02-01', source_ref: Y}\n")
+        "  - {area: Titles, adopted_by: [A B, C D], date: '2026-01-01', source_ref: X, "
+        "approval_ref: 'https://github.com/example/repo/pull/1'}\n"
+        "  - {area: titles, adopted_by: [A B, C D], date: '2026-02-01', source_ref: Y, "
+        "approval_ref: 'https://github.com/example/repo/pull/2'}\n")
     with pytest.raises(AdoptionError, match="twice"):
         AdoptionLedger.load(path)
 
@@ -136,7 +151,8 @@ def test_the_memo_omits_the_section_when_nothing_is_adopted():
 
 def test_counsel_review_retires_the_confirm_line_and_unreviewed_does_not():
     reviewed = AdoptionLedger(positions=[
-        AdoptedPosition(**entry(counsel_reviewed=True))])
+        AdoptedPosition(**entry(counsel_reviewed=True,
+                                counsel_review_ref="counsel-review-2026-001"))])
     unreviewed = signed()
     area = "Ordinary-course authority"
 
@@ -145,7 +161,7 @@ def test_counsel_review_retires_the_confirm_line_and_unreviewed_does_not():
     without = next(i for i in recommend_structure(
         venture(), ledger=unreviewed).recommendations if i.area == area)
 
-    assert "Counsel reviewed." in with_review.to_line()
+    assert "Counsel reviewed: counsel-review-2026-001." in with_review.to_line()
     assert "Confirm:" not in with_review.to_line()
     # Adopted but not counsel-reviewed keeps the confirmation — adoption by the
     # partners is not a substitute for counsel.

@@ -43,7 +43,7 @@ def profile(**overrides) -> DealProfile:
 def draft(tmp_path, **overrides):
     return drafter(tmp_path).draft(
         AgreementDraftRequest(project_id=PROJECT, profile=profile(**overrides)),
-        context=context())
+        context=context(), structural_handoff=True)
 
 
 def test_draft_requires_qualified_counsel_review(tmp_path):
@@ -97,13 +97,16 @@ def test_the_operative_document_is_carried_on_the_artifact(tmp_path):
 def test_scope_is_enforced(tmp_path):
     request = AgreementDraftRequest(project_id=PROJECT, profile=profile())
     with pytest.raises(PermissionError):
-        drafter(tmp_path).draft(request, context=context(project_ids={"other-project"}))
+        drafter(tmp_path).draft(
+            request, context=context(project_ids={"other-project"}),
+            structural_handoff=True)
 
 
 def test_unknown_project_is_rejected(tmp_path):
     request = AgreementDraftRequest(project_id="ghost", profile=profile())
     with pytest.raises((PilotWorkspaceError, PermissionError)):
-        drafter(tmp_path).draft(request, context=context(project_ids={"ghost"}))
+        drafter(tmp_path).draft(
+            request, context=context(project_ids={"ghost"}), structural_handoff=True)
 
 
 def test_a_partially_covered_document_type_refuses(tmp_path):
@@ -145,7 +148,7 @@ def test_console_exposes_the_library_and_drafting(tmp_path):
 
     response = client.post("/v1/workspace/draft-agreement", json={
         "project_id": PROJECT,
-        "profile": profile().model_dump(),
+        "profile": profile(agreement_type="nda").model_dump(),
     })
     assert response.status_code == 200, response.text
     artifact = response.json()
@@ -157,6 +160,14 @@ def test_console_exposes_the_library_and_drafting(tmp_path):
     # The drafted agreement joins the normal artifact list and review path.
     listed = client.get("/v1/artifacts").json()
     assert any(item["id"] == artifact["id"] for item in listed)
+
+
+def test_console_direct_route_cannot_bypass_structure_review_for_entity_paper(tmp_path):
+    client = TestClient(create_console_app(data_dir=tmp_path))
+    response = client.post("/v1/workspace/draft-agreement", json={
+        "project_id": PROJECT, "profile": profile().model_dump()})
+    assert response.status_code == 422
+    assert "accepted Structure Manager memo" in response.json()["detail"]
 
 
 def test_console_rejects_a_project_outside_scope(tmp_path):

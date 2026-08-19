@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import os
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Protocol
+from uuid import uuid4
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from pydantic import BaseModel, Field, SecretStr, model_validator
@@ -36,10 +38,9 @@ class SharePointProjectResource(BaseModel):
 
     @model_validator(mode="after")
     def engagement_names_its_client(self) -> SharePointProjectResource:
-        if self.zone == "engagement" and not self.client_id:
+        if self.zone in {"engagement", "collaborator"} and not self.client_id:
             raise MicrosoftConfigurationError(
-                "An engagement-zone SharePoint resource must name its client — "
-                "the wall between clients is the zone's entire purpose")
+                f"A {self.zone}-zone SharePoint resource must name its client or engagement")
         return self
 
 
@@ -195,19 +196,45 @@ class MicrosoftConnectionBroker:
                 token_cache=self._cache.cache,
             )
 
-    def status(self) -> MicrosoftConnectionStatus:
+    @staticmethod
+    def _account_matches(account: dict[str, Any], user_id: str) -> bool:
+        """Match the signed-in Entra object ID to one MSAL account.
+
+        MSAL exposes the tenant-local object ID as ``local_account_id``.  Some
+        test and legacy cache shapes retain it only in ``id_token_claims``.
+        Never fall back to the first account when a user was requested: that is
+        how one portal user's token can be used for another user's Graph call.
+        """
+        claims = account.get("id_token_claims") or {}
+        home_id = str(account.get("home_account_id") or "").split(".", 1)[0]
+        return (account.get("local_account_id") == user_id
+                or claims.get("oid") == user_id or home_id == user_id)
+
+    def _account(self, user_id: str | None = None) -> dict[str, Any] | None:
         accounts = self._auth_client.get_accounts() if self._auth_client else []
-        account = accounts[0] if accounts else {}
+        if user_id is not None:
+            return next((item for item in accounts if self._account_matches(item, user_id)), None)
+        if len(accounts) > 1:
+            raise MicrosoftConfigurationError(
+                "A user ID is required when more than one Microsoft account is connected")
+        return accounts[0] if accounts else None
+
+    def status(self, user_id: str | None = None) -> MicrosoftConnectionStatus:
+        account = self._account(user_id) or {}
         return MicrosoftConnectionStatus(
             enabled=self.settings.enabled,
             configured=bool(self.settings.enabled and self._auth_client),
-            connected=bool(accounts),
+            connected=bool(account),
             scopes=list(self.settings.scopes),
             mapped_projects=sorted(self.settings.project_resources),
             account_label=account.get("username") or account.get("name"),
         )
 
     def begin(self) -> str:
+        _, auth_uri = self.begin_with_state()
+        return auth_uri
+
+    def begin_with_state(self) -> tuple[str, str]:
         if not self.settings.enabled or self._auth_client is None:
             raise MicrosoftConfigurationError("Microsoft integration is not enabled")
         flow = self._auth_client.initiate_auth_code_flow(
@@ -216,7 +243,7 @@ class MicrosoftConnectionBroker:
         if not state or not auth_uri:
             raise MicrosoftConfigurationError("Microsoft did not return a valid authorization flow")
         self._flows[state] = flow
-        return str(auth_uri)
+        return str(state), str(auth_uri)
 
     def complete(self, response: dict[str, str]) -> MicrosoftIdentity:
         state = response.get("state", "")
@@ -240,26 +267,101 @@ class MicrosoftConnectionBroker:
             username=claims.get("preferred_username"), display_name=claims.get("name"),
             entra_group_ids=list(groups) if isinstance(groups, list) else [])
 
-    def token(self) -> str:
+    def token(self, user_id: str | None = None) -> str:
         if self._auth_client is None:
             raise MicrosoftConfigurationError("Microsoft integration is not configured")
-        accounts = self._auth_client.get_accounts()
-        if not accounts:
-            raise MicrosoftConfigurationError("Microsoft connection requires sign-in")
-        result = self._auth_client.acquire_token_silent(list(self.settings.scopes), accounts[0])
+        account = self._account(user_id)
+        if account is None:
+            raise MicrosoftConfigurationError("Microsoft connection requires this user to sign in")
+        result = self._auth_client.acquire_token_silent(list(self.settings.scopes), account)
         if not result or "access_token" not in result:
             raise MicrosoftConfigurationError("Microsoft token refresh requires sign-in")
         if self._cache:
             self._cache.persist()
         return str(result["access_token"])
 
-    def disconnect(self) -> None:
+    def disconnect(self, user_id: str | None = None) -> None:
         if self._auth_client:
-            for account in self._auth_client.get_accounts():
+            accounts = self._auth_client.get_accounts()
+            if user_id is not None:
+                accounts = [item for item in accounts if self._account_matches(item, user_id)]
+            for account in accounts:
                 self._auth_client.remove_account(account)
-        self._flows.clear()
-        if self._cache:
+        if user_id is None:
+            self._flows.clear()
+        if self._cache and user_id is None:
             self._cache.clear()
+        elif self._cache:
+            self._cache.persist()
+
+
+class MicrosoftUserConnectionBroker:
+    """One encrypted MSAL cache per Entra user, with isolated login flows.
+
+    A login starts before the user's object ID is known, so each authorization
+    flow gets a temporary encrypted cache. After Entra returns and the identity
+    is validated, that cache moves to a deterministic, hashed per-user path.
+    Graph token lookup and logout always require the authenticated user ID.
+    """
+
+    def __init__(self, *, settings: MicrosoftPilotSettings, cache_dir: Path,
+                 broker_factory: Callable[[Path], MicrosoftConnectionBroker] | None = None) -> None:
+        self.settings = settings
+        self.cache_dir = cache_dir
+        self._broker_factory = broker_factory or (
+            lambda path: MicrosoftConnectionBroker(settings=settings, cache_path=path))
+        self._flows: dict[str, tuple[MicrosoftConnectionBroker, Path]] = {}
+        self._users: dict[str, MicrosoftConnectionBroker] = {}
+
+    def _user_path(self, user_id: str) -> Path:
+        digest = hashlib.sha256(user_id.encode()).hexdigest()[:24]
+        return self.cache_dir / "users" / f"microsoft-{digest}.bin"
+
+    def _user_broker(self, user_id: str) -> MicrosoftConnectionBroker:
+        broker = self._users.get(user_id)
+        if broker is None:
+            broker = self._broker_factory(self._user_path(user_id))
+            self._users[user_id] = broker
+        return broker
+
+    def begin(self) -> str:
+        path = self.cache_dir / "flows" / f"flow-{uuid4().hex}.bin"
+        broker = self._broker_factory(path)
+        state, auth_uri = broker.begin_with_state()
+        self._flows[state] = (broker, path)
+        return auth_uri
+
+    def complete(self, response: dict[str, str]) -> MicrosoftIdentity:
+        state = response.get("state", "")
+        pending = self._flows.pop(state, None)
+        if pending is None:
+            raise MicrosoftConfigurationError("Microsoft authorization state is invalid or expired")
+        broker, temporary_path = pending
+        try:
+            identity = broker.complete(response)
+            target = self._user_path(identity.user_id)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if not temporary_path.exists():
+                raise MicrosoftConfigurationError("Microsoft did not persist the user token cache")
+            temporary_path.replace(target)
+            self._users[identity.user_id] = self._broker_factory(target)
+            return identity
+        finally:
+            if temporary_path.exists():
+                temporary_path.unlink()
+
+    def token(self, user_id: str) -> str:
+        return self._user_broker(user_id).token(user_id)
+
+    def status(self, user_id: str) -> MicrosoftConnectionStatus:
+        return self._user_broker(user_id).status(user_id)
+
+    def disconnect(self, user_id: str) -> None:
+        broker = self._users.pop(user_id, None)
+        if broker is None and self._user_path(user_id).exists():
+            broker = self._broker_factory(self._user_path(user_id))
+        if broker is not None:
+            broker.disconnect()
 
 
 class AllowlistedSharePointReader:
@@ -267,7 +369,7 @@ class AllowlistedSharePointReader:
 
     def __init__(self, *, settings: MicrosoftPilotSettings,
                  graph_factory: Callable[[Callable[[], str]], MicrosoftGraphReader],
-                 token_provider: Callable[[], str]) -> None:
+                 token_provider: Callable[[str], str]) -> None:
         self.settings = settings
         self.graph_factory = graph_factory
         self.token_provider = token_provider
@@ -285,7 +387,8 @@ class AllowlistedSharePointReader:
         # Trust boundary before transport: an Internal-zone library is readable
         # only by the partners' group, whatever SharePoint's own ACLs say today.
         zone = self.zones.check_read(context=context, project_id=project_id)
-        documents = self.graph_factory(self.token_provider).sharepoint_documents(
+        documents = self.graph_factory(
+            lambda: self.token_provider(context.user_id)).sharepoint_documents(
             site_id=resource.site_id, drive_id=resource.drive_id,
             folder_item_id=resource.folder_item_id, context=context, project_id=project_id)
         for document in documents:

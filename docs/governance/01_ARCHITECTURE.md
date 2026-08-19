@@ -50,7 +50,7 @@ justified it — and `expected_clause_categories()` is the test that it cannot.
 | `digest.py` | What the system did, and what is waiting on a person |
 | `identity.py` | Entra group mapping and trust-zone policy |
 | `microsoft.py` | Connection broker and allowlisted SharePoint reads *(Codex)* |
-| `portal.py` | The private single-user portal *(Codex)* |
+| `portal.py` | The private named-user portal with explicit per-user project scope *(Codex)* |
 | `drafting.py` | Both governed artifact paths and the hand-off between them |
 | `agreement_docx.py` | Branded Word, pure Python |
 
@@ -78,8 +78,9 @@ Entra token
   → ZonePolicy.check_citation()        # the golden rule
 ```
 
-Every privileged group enters through the map. Nothing downstream may add one,
-which is what makes the review queue a control rather than a convention.
+Every privileged group in the production SharePoint portal enters through the
+map. The production review API remains a later gate; the localhost review queue
+uses only its synthetic test identity and must not be described as Entra-backed.
 
 ---
 
@@ -90,8 +91,8 @@ which is what makes the review queue a control rather than a convention.
 | A threshold or rule | The one `_` function in `governance.py` | Update its named test and [02](02_DECISION_RULES.md) |
 | What an industry needs | `sectors.py` — data only | Add a test; two generic tests already sweep every pattern |
 | Clause language | `fixtures/clause_library/*.json` | Re-run the suite; refs, definitions, and parity check themselves |
-| Adopt a position | `config/adopted_positions.yaml` | Nothing else. It is data |
-| Who may review | The Entra group, then `TESSERA_M365_GROUP_MAP` | Never in code |
+| Adopt a position | `config/adopted_positions.yaml` | Protected PR approved by both partners |
+| Who may review in production | A future production review API plus the Entra group map | Localhost roles are synthetic only |
 | A SharePoint mapping | `TESSERA_M365_PROJECT_RESOURCES`, with its zone | An engagement zone must name its client |
 
 ---

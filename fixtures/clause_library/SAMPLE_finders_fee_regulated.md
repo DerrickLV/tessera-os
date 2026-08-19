@@ -1,6 +1,6 @@
 # Finders Fee — Green Valley — licensed cultivation introduction
 
-**DRAFT — FOR QUALIFIED COUNSEL REVIEW BEFORE EXECUTION.** Assembled from approved clause variants; not legal advice.
+**DRAFT — FOR QUALIFIED COUNSEL REVIEW BEFORE EXECUTION.** Assembled from synthetic evaluation variants; not adopted by Tessera, not counsel-approved, and not legal advice.
 
 - **Counterparty:** Green Valley Holdings LLC
 - **Governing law:** the State of Oklahoma

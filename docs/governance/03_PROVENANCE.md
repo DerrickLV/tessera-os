@@ -74,8 +74,10 @@ stops being true is the day the system starts inventing standards.
    pre-drafted there with its reasoning, what it costs if wrong, and the exact
    YAML to paste.
 2. Copy the entry into `config/adopted_positions.yaml`, put both names on it,
-   and date it.
-3. Run the suite. `test_adoption.py` confirms the entry is valid and that the
+   date it, and include the protected pull-request URL as `approval_ref`.
+3. Both partners independently approve that pull request. Typed names alone do
+   not constitute approval.
+4. Run the suite. `test_adoption.py` confirms the entry is valid and that the
    position upgraded.
 
 The `area` must match a `Recommendation` area exactly — the list is in

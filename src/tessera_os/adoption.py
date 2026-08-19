@@ -19,9 +19,11 @@ language. The file ships empty. Until the partners sign an entry, nothing in
 the system claims to be a Tessera position, which preserves the rule this
 codebase already enforces everywhere else: never invent a standard.
 
-Adoption is deliberately a two-key action. Tessera's own governance makes
-firm-level decisions unanimous between the partners, so a ledger entry with
-one adopter is invalid by construction.
+The ledger is an attestation, not a signature system. It requires both partner
+names and a protected pull-request reference. Repository branch protection and
+two independent GitHub approvals provide the actual two-person control; the
+loader makes that external record traceable and refuses an unsupported
+counsel-review claim.
 """
 
 from __future__ import annotations
@@ -30,7 +32,7 @@ import re
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
 
 from .paths import project_root
 
@@ -56,10 +58,15 @@ class AdoptedPosition(BaseModel):
         min_length=1,
         description="Citation by reference only -- a document name and section, "
                     "never reproduced text.")
+    approval_ref: HttpUrl = Field(
+        description="Protected pull request recording independent partner approval.")
     counsel_reviewed: bool = Field(
         default=False,
         description="True only once qualified counsel has reviewed the position "
                     "for the jurisdictions Tessera works in.")
+    counsel_review_ref: str | None = Field(
+        default=None,
+        description="Required when counsel_reviewed is true; identifies the review record.")
     note: str = ""
 
     @field_validator("date")
@@ -77,11 +84,18 @@ class AdoptedPosition(BaseModel):
             raise ValueError("adoption requires two distinct partners")
         return cleaned
 
+    @model_validator(mode="after")
+    def counsel_claim_has_evidence(self) -> AdoptedPosition:
+        if self.counsel_reviewed and not self.counsel_review_ref:
+            raise ValueError("counsel_reviewed requires a counsel_review_ref")
+        return self
+
     def to_note(self) -> str:
         names = " and ".join(self.adopted_by)
-        line = f"Adopted by {names}, {self.date} — {self.source_ref}."
+        line = (f"Adopted by {names}, {self.date} — {self.source_ref}. "
+                f"Approval: {self.approval_ref}.")
         if self.counsel_reviewed:
-            line += " Counsel reviewed."
+            line += f" Counsel reviewed: {self.counsel_review_ref}."
         return line
 
 
