@@ -15,3 +15,8 @@ data/private/
 data/runtime/
 artifacts/
 work/
+
+# Local sync conflict copies (e.g. "schemas 2.py") and staged deletions
+*\ 2
+*\ 2.*
+_to_delete/

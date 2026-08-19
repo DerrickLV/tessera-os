@@ -1,0 +1,16 @@
+[build]
+  publish = "web"
+
+[[redirects]]
+  from = "/"
+  to = "/tessera-portal.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cache-Control = "no-store"
+    Content-Security-Policy = "default-src 'self'; connect-src https://api.tesseraag.com; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self' https://login.microsoftonline.com"
+    Referrer-Policy = "no-referrer"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"

@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
-from .schemas import Evidence, ReviewItem, ReviewStatus, UserContext
+from .schemas import Evidence, ReviewItem, ReviewReasonCategory, ReviewStatus, UserContext
 
 
 class ReviewAccessDenied(PermissionError):
@@ -26,10 +26,11 @@ class ReviewQueue:
                 created_by TEXT NOT NULL, workflow TEXT NOT NULL, title TEXT NOT NULL,
                 body TEXT NOT NULL, evidence_json TEXT NOT NULL, status TEXT NOT NULL,
                 created_at TEXT NOT NULL, reviewed_by TEXT, reviewed_at TEXT,
-                review_reason TEXT, required_reviewer_group TEXT)""")
+                review_reason TEXT, required_reviewer_group TEXT,
+                review_reason_category TEXT, amended_body TEXT)""")
             existing = {row[1] for row in connection.execute("PRAGMA table_info(review_items)")}
             for name in ("reviewed_by", "reviewed_at", "review_reason",
-                         "required_reviewer_group"):
+                         "required_reviewer_group", "review_reason_category", "amended_body"):
                 if name not in existing:
                     connection.execute(f"ALTER TABLE review_items ADD COLUMN {name} TEXT")
 
@@ -97,27 +98,50 @@ class ReviewQueue:
                 cursor = connection.execute("""INSERT OR IGNORE INTO review_items
                     (id, tenant_id, project_id, created_by, workflow, title, body,
                      evidence_json, status, created_at, reviewed_by, reviewed_at,
-                     review_reason, required_reviewer_group)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                     review_reason, required_reviewer_group, review_reason_category, amended_body)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (item.id, item.tenant_id, item.project_id, item.created_by,
                      item.workflow, item.title, item.body,
                      json.dumps([e.model_dump(mode="json") for e in item.evidence]),
                      item.status.value, item.created_at.isoformat(), item.reviewed_by,
                      item.reviewed_at.isoformat() if item.reviewed_at else None,
-                     item.review_reason, item.required_reviewer_group))
+                     item.review_reason, item.required_reviewer_group,
+                     item.review_reason_category.value if item.review_reason_category else None,
+                     item.amended_body))
                 inserted += cursor.rowcount
         return inserted
 
-    def accept(self, *, item_id: str, context: UserContext, reason: str) -> ReviewItem:
-        return self._transition(item_id=item_id, context=context,
-                                status=ReviewStatus.ACCEPTED, reason=reason)
+    def reset_synthetic(self, *, tenant_id: str, items: list[ReviewItem]) -> int:
+        """Replace one synthetic tenant's queue with its versioned fixture state."""
+        if tenant_id != "tenant-synthetic":
+            raise ReviewAccessDenied("Queue reset is limited to the synthetic tenant")
+        if any(item.tenant_id != tenant_id for item in items):
+            raise ReviewAccessDenied("Synthetic reset items must share the target tenant")
+        with self._connect() as connection:
+            connection.execute("DELETE FROM review_items WHERE tenant_id = ?", (tenant_id,))
+        return self.seed(items)
 
-    def reject(self, *, item_id: str, context: UserContext, reason: str) -> ReviewItem:
+    def accept(self, *, item_id: str, context: UserContext, reason: str,
+               category: ReviewReasonCategory = ReviewReasonCategory.OTHER) -> ReviewItem:
         return self._transition(item_id=item_id, context=context,
-                                status=ReviewStatus.REJECTED, reason=reason)
+                                status=ReviewStatus.ACCEPTED, reason=reason, category=category)
+
+    def reject(self, *, item_id: str, context: UserContext, reason: str,
+               category: ReviewReasonCategory = ReviewReasonCategory.OTHER) -> ReviewItem:
+        return self._transition(item_id=item_id, context=context,
+                                status=ReviewStatus.REJECTED, reason=reason, category=category)
+
+    def amend_and_accept(self, *, item_id: str, context: UserContext, reason: str,
+                         category: ReviewReasonCategory, amended_body: str) -> ReviewItem:
+        if not amended_body.strip():
+            raise InvalidReviewTransition("An amended draft is required")
+        return self._transition(item_id=item_id, context=context,
+            status=ReviewStatus.AMENDED_AND_ACCEPTED, reason=reason,
+            category=category, amended_body=amended_body.strip())
 
     def _transition(self, *, item_id: str, context: UserContext, status: ReviewStatus,
-                    reason: str) -> ReviewItem:
+                    reason: str, category: ReviewReasonCategory,
+                    amended_body: str | None = None) -> ReviewItem:
         reason = reason.strip()
         if not reason:
             raise InvalidReviewTransition("A review reason is required")
@@ -145,10 +169,11 @@ class ReviewQueue:
                 raise InvalidReviewTransition("Only pending review items can be dispositioned")
             connection.execute(
                 """UPDATE review_items
-                   SET status = ?, reviewed_by = ?, reviewed_at = ?, review_reason = ?
+                   SET status = ?, reviewed_by = ?, reviewed_at = ?, review_reason = ?,
+                       review_reason_category = ?, amended_body = ?
                    WHERE id = ? AND status = ?""",
                 (status.value, context.user_id, reviewed_at.isoformat(), reason,
-                 item_id, ReviewStatus.PENDING.value))
+                 category.value, amended_body, item_id, ReviewStatus.PENDING.value))
             updated = connection.execute(
                 "SELECT * FROM review_items WHERE id = ?", (item_id,)).fetchone()
         return self._decode(updated)

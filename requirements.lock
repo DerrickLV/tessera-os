@@ -39,6 +39,7 @@ click==8.4.2
     # via uvicorn
 cryptography==50.0.0
     # via
+    #   msal
     #   pyjwt
     #   tessera-os (pyproject.toml)
 cyclonedx-python-lib==11.12.0
@@ -96,6 +97,8 @@ mcp-types==2.0.0
     # via mcp
 mdurl==0.1.2
     # via markdown-it-py
+msal==1.37.0
+    # via tessera-os (pyproject.toml)
 msgpack==1.2.1
     # via cachecontrol
 openai==3.2.0
@@ -147,6 +150,7 @@ pygments==2.21.0
 pyjwt==2.13.0
     # via
     #   mcp
+    #   msal
     #   tessera-os (pyproject.toml)
 pyparsing==3.3.2
     # via pip-requirements-parser
@@ -163,6 +167,7 @@ referencing==0.37.0
 requests==2.34.2
     # via
     #   cachecontrol
+    #   msal
     #   openai-agents
     #   pip-audit
 rich==15.0.0

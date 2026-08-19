@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import os
 from collections.abc import Callable
 from typing import Annotated
@@ -12,7 +11,7 @@ import jwt
 from fastapi import Depends, FastAPI, Header, HTTPException, status
 from pydantic import BaseModel, Field, SecretStr, model_validator
 
-from .orchestrator import TesseraOrchestrator
+from .orchestrator import TesseraOrchestrator, instructions_digest
 from .policy import Environment, PolicyGateway, PolicyOutcome, RuntimeAction
 from .registry import AgentRegistry
 from .runtime_controls import RateLimiter, RateLimitExceeded, RuntimeAuditStore
@@ -107,7 +106,7 @@ def create_app(*, auth_settings: AuthSettings | None = None,
     gateway = PolicyGateway()
     audit_store = audit_store or RuntimeAuditStore("tessera-runtime.db")
     rate_limiter = rate_limiter or RateLimiter()
-    app = FastAPI(title="Tessera OS", version="0.8.0",
+    app = FastAPI(title="Tessera OS", version="0.9.0",
                   docs_url="/api/docs" if enable_docs else None,
                   redoc_url=None,
                   openapi_url="/api/openapi.json" if enable_docs else None)
@@ -143,7 +142,7 @@ def create_app(*, auth_settings: AuthSettings | None = None,
         except ValueError as exc:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                                 detail="Correlation ID must be a UUID") from exc
-        prompt_version = hashlib.sha256(agent.prompt_path.read_bytes()).hexdigest()[:16]
+        prompt_version = instructions_digest(agent)
         audit_store.record_trace(context=context, project_id=request.project_id,
             workflow="route", agent_id=agent.id, model_version=agent.model_profile,
             prompt_version=prompt_version, policy_outcome=policy.outcome.value,

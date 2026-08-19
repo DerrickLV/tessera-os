@@ -1,12 +1,41 @@
 """Manager-style orchestration with an optional OpenAI Agents SDK runtime."""
 
+import hashlib
 import os
 
+from .paths import project_root
 from .policy import Environment, PolicyGateway, PolicyOutcome, RuntimeAction
-from .registry import AgentRegistry
+from .registry import AgentDefinition, AgentRegistry
 from .router import Router
 from .schemas import AgentRequest, RouteDecision, UserContext
 from .settings import ModelSettings, load_model_settings
+
+SHARED_PROMPT_PATH = project_root() / "prompts" / "_shared.md"
+
+
+def compose_instructions(definition: AgentDefinition) -> str:
+    """Return the full instruction text a specialist actually runs with.
+
+    Every specialist prompt is written to sit on top of ``prompts/_shared.md``
+    (citation discipline, evidence labelling, untrusted-content handling, and
+    the hard action limits) and refers to it by name. Nothing was loading that
+    file, so the shared rules never reached the model and each prompt pointed
+    at a document the model could not see. Composing here keeps the two files
+    separately reviewable while guaranteeing they are delivered together.
+    """
+    specialist = definition.prompt_path.read_text()
+    if not SHARED_PROMPT_PATH.is_file():
+        return specialist
+    return f"{SHARED_PROMPT_PATH.read_text().rstrip()}\n\n---\n\n{specialist}"
+
+
+def instructions_digest(definition: AgentDefinition) -> str:
+    """Stable version marker for the composed instructions, for audit traces.
+
+    Hashing the specialist file alone would not change when the shared rules
+    change, so a shared-rule edit would be invisible in the audit trail.
+    """
+    return hashlib.sha256(compose_instructions(definition).encode()).hexdigest()[:16]
 
 
 class TesseraOrchestrator:
@@ -53,7 +82,7 @@ class TesseraOrchestrator:
 
         from agents import Agent, Runner
 
-        instructions = definition.prompt_path.read_text()
+        instructions = compose_instructions(definition)
         model = self.resolve_model(definition.model_profile)
         policies = self.model_settings.policies
 

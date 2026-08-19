@@ -10,9 +10,9 @@ workflows, shared schemas, and offline document drafting.
 
 **Stage:** Phase 6 complete; production-readiness hardening implemented
 
-**Current milestone:** Synthetic operator console and measured pilot validation
+**Current milestone:** Phase 7C single-user private portal deployment and validation
 
-**Safety posture:** Offline and draft-only; external delivery is disabled
+**Safety posture:** Offline by default; production pilot is read-only and external delivery is disabled
 
 ## What is included
 
@@ -72,6 +72,9 @@ workflows, shared schemas, and offline document drafting.
   scope, a fail-closed runtime policy gateway, rate limiting, and trace correlation
 - A localhost-only synthetic operator console API and browser UI for scoped projects,
   agent discovery, policy visibility, deterministic routing, and durable human review
+- A persistent interactive pilot workspace that runs deterministic project workflows,
+  creates cited draft artifacts with quality metrics and audit history, and submits them
+  to qualified human review without model calls or external actions
 - Qualified reviewer roles, DLP redaction, deterministic usage budgets, encrypted
   artifact retention/legal hold, and tenant-scoped backup primitives
 - Locked dependencies, SHA-pinned CI actions, dependency auditing, secret-pattern
@@ -109,9 +112,24 @@ tessera serve
 
 Open `http://127.0.0.1:8000`. The console serves its own API, uses only the
 versioned synthetic fixture, persists review decisions under ignored
-`data/runtime/`, refuses bearer credentials, and fails closed in production.
+`data/runtime/`, refuses bearer credentials, and fails closed in production. Use
+**Projects** to run a defined synthetic workflow, use **Ask** only to preview routing,
+inspect cited or insufficient-evidence results under **Drafts**, and submit them to
+**Review Queue** for acceptance, rejection, or recorded amendment and acceptance.
 Offline API guidance is available at `http://127.0.0.1:8000/api/docs`; the OpenAPI
 contract is at `http://127.0.0.1:8000/api/openapi.json`.
+
+The Microsoft 365 pilot connection is implemented but disabled by default. It requests
+only delegated `User.Read` and `Sites.Selected`, stores its MSAL cache encrypted, and
+resolves SharePoint locations only through approved project mappings. Complete the
+[Microsoft 365 connection plan](docs/MICROSOFT_365_CONNECTION_PLAN.md) before enabling it.
+
+A deployment package for a single-user, invite-only production pilot is also included:
+the static private portal in `web/tessera-portal.html`, its locked-down FastAPI layer in
+`src/tessera_os/portal.py`, a Render Blueprint and Docker image, and a separate Netlify
+site definition. It is intentionally not connected or deployed from the repository.
+Follow the [portal deployment guide](docs/PORTAL_DEPLOYMENT.md) for the required
+administrator-controlled setup in Entra, SharePoint, Render, Netlify, and Porkbun.
 
 Run Tessera commands from the repository checkout. A normal local install is used
 because some Homebrew Python builds ignore hidden editable-install path files. Set
@@ -172,10 +190,15 @@ web/                 Local operator console served by FastAPI
 - [Phase 0–4 foundation audit](docs/PHASE_0_4_FOUNDATION_AUDIT.md)
 - [Phase 5 readiness report](docs/PHASE_5_READINESS_REPORT.md)
 - [Phase 6 readiness report](docs/PHASE_6_READINESS_REPORT.md)
+- [Phase 7A readiness report](docs/PHASE_7A_READINESS_REPORT.md)
+- [Phase 7B readiness report](docs/PHASE_7B_READINESS_REPORT.md)
 - [Production readiness report](docs/PRODUCTION_READINESS_REPORT.md)
 - [Production gate checklist](docs/PRODUCTION_GATE_CHECKLIST.md)
 - [Incident exercise runbook](docs/INCIDENT_EXERCISE_RUNBOOK.md)
 - [Console API](docs/CONSOLE_API.md)
+- [Microsoft 365 and SharePoint connection plan](docs/MICROSOFT_365_CONNECTION_PLAN.md)
+- [Private portal deployment](docs/PORTAL_DEPLOYMENT.md)
+- [Private portal readiness report](docs/PORTAL_READINESS_REPORT.md)
 - [Contributing](CONTRIBUTING.md)
 
 ## License

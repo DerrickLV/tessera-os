@@ -1,0 +1,43 @@
+services:
+  - type: web
+    name: tessera-portal-api
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeployTrigger: checksPass
+    domains:
+      - api.tesseraag.com
+    disk:
+      name: tessera-runtime
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: TESSERA_ENV
+        value: production
+      - key: TESSERA_APP_URL
+        value: https://app.tesseraag.com
+      - key: TESSERA_API_URL
+        value: https://api.tesseraag.com
+      - key: TESSERA_PORTAL_DATA_DIR
+        value: /var/data/tessera
+      - key: TESSERA_M365_ENABLED
+        value: "true"
+      - key: TESSERA_M365_REDIRECT_URI
+        value: https://api.tesseraag.com/v1/integrations/microsoft/callback
+      - key: TESSERA_SESSION_SECRET
+        generateValue: true
+      - key: TESSERA_M365_CACHE_KEY
+        sync: false
+      - key: TESSERA_M365_TENANT_ID
+        sync: false
+      - key: TESSERA_M365_CLIENT_ID
+        sync: false
+      - key: TESSERA_M365_CLIENT_SECRET
+        sync: false
+      - key: TESSERA_ALLOWED_USER_IDS
+        sync: false
+      - key: TESSERA_PROJECT_CATALOG
+        sync: false
+      - key: TESSERA_M365_PROJECT_RESOURCES
+        sync: false
