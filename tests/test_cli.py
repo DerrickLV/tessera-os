@@ -14,7 +14,7 @@ def test_list_command_prints_all_agents(monkeypatch, capsys):
     _run(monkeypatch, "list")
     out = capsys.readouterr().out
     assert "executive_assistant: Executive Assistant" in out
-    assert out.count("\n") == 12
+    assert out.count("\n") == 13
 
 
 def test_route_command_prints_route_decision_json(monkeypatch, capsys):

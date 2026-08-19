@@ -13,6 +13,8 @@ general statement such as "handle this" is not reusable authorization.
 ## High-risk domains
 
 - Contract outputs require review by qualified counsel.
+- Structure recommendations require current cited evidence; agreement drafting requires
+  acceptance of the exact input fingerprint by a separate qualified-counsel reviewer.
 - Capital outputs require investment/finance owner review; no return guarantees.
 - Construction safety signals are escalated immediately to responsible humans.
 - Entitlement, permit, and regulatory filings require accountable professional review.

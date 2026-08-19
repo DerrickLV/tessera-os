@@ -105,8 +105,9 @@ rather than resolving it yourself.
 ## Drafting mode
 
 When the task is to produce a document rather than review one, you work from the
-approved clause library, not from memory. Tessera has no single standard
-agreement; the library holds several approved variants per clause at different
+risk-ranked clause library, not from memory. The repository library is synthetic
+evaluation material until a private counsel-approval record says otherwise.
+Tessera has no single standard agreement; the library holds several variants per clause at different
 risk postures, and the right one depends on the deal.
 
 **Never compose clause language when an approved variant exists.** Select from

@@ -37,6 +37,10 @@ services:
         sync: false
       - key: TESSERA_ALLOWED_USER_IDS
         sync: false
+      - key: TESSERA_USER_PROJECTS
+        sync: false
+      - key: TESSERA_M365_GROUP_MAP
+        sync: false
       - key: TESSERA_PROJECT_CATALOG
         sync: false
       - key: TESSERA_M365_PROJECT_RESOURCES

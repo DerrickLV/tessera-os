@@ -6,6 +6,7 @@ import json
 import logging
 import os
 
+from .m365_readiness import microsoft_readiness
 from .orchestrator import TesseraOrchestrator
 from .schemas import AgentRequest, UserContext
 from .settings import load_integration_settings, load_security_settings
@@ -53,6 +54,9 @@ def main() -> None:
     run.add_argument("--user-id", required=True)
     commands.add_parser("policy", help="Show the active security policy (config/security.yaml)")
     commands.add_parser("integrations", help="Show integration status (config/integrations.yaml)")
+    m365 = commands.add_parser(
+        "m365-check", help="Check Microsoft 365 launch configuration without changing anything")
+    m365.add_argument("--json", action="store_true", dest="as_json")
     serve = commands.add_parser("serve", help="Run the synthetic localhost operator console")
     serve.add_argument("--host", default="127.0.0.1", choices=["127.0.0.1", "localhost"])
     serve.add_argument("--port", default=8000, type=int)
@@ -63,6 +67,10 @@ def main() -> None:
         return
     if args.command == "integrations":
         _print_integrations()
+        return
+    if args.command == "m365-check":
+        report = microsoft_readiness()
+        print(json.dumps(report.to_dict(), indent=2) if args.as_json else report.render())
         return
     if args.command == "serve":
         if os.getenv("TESSERA_ENV", "sandbox") not in {"sandbox", "test"}:

@@ -346,7 +346,7 @@ kbd{font-family:var(--sans);font-size:.62rem;background:var(--panel-2);border:1p
 
       <div class="view" id="v-agents">
         <div class="page-intro"><div class="rule"></div>
-          <p>The twelve specialists Tessera OS routes work to. Each drafts and recommends within its lane — and each stops at a hard line where a person has to decide. The gated actions listed on each card are the exact ones the policy gateway blocks.</p></div>
+          <p>The thirteen specialists Tessera OS routes work to. Each drafts and recommends within its lane — and each stops at a hard line where a person has to decide. The gated actions listed on each card are the exact ones the policy gateway blocks.</p></div>
         <div class="agent-grid" id="agentGrid"></div>
       </div>
 
@@ -434,6 +434,7 @@ const ROUTES = {
   automation_manager:["automation","workflow","n8n","trigger","integration","webhook"],
   intelligence_agent:["market","competitor","news","research","trend","intelligence"],
   codex_engineering_agent:["code","repository","bug","test","deploy","architecture"],
+  structure_manager:["entity","structure","structuring","holdco","opco","operating agreement","governance","llc","cap table","deadlock","buy-sell","formation"],
 };
 const FALLBACK="knowledge_manager", MULTI=2;
 
@@ -441,7 +442,8 @@ const FALLBACK="knowledge_manager", MULTI=2;
 const GLYPH = { executive_assistant:"I", project_manager:"II", knowledge_manager:"III",
   proposal_manager:"IV", contract_manager:"V", due_diligence_manager:"VI",
   development_manager:"VII", construction_manager:"VIII", capital_manager:"IX",
-  automation_manager:"X", intelligence_agent:"XI", codex_engineering_agent:"XII" };
+  automation_manager:"X", intelligence_agent:"XI", codex_engineering_agent:"XII",
+  structure_manager:"XIII" };
 
 const STOPS = {
   executive_assistant:"Sending anything, or changing your calendar or tasks.",
@@ -456,6 +458,7 @@ const STOPS = {
   automation_manager:"Any production write or turning a workflow on.",
   intelligence_agent:"Publishing, alerting, or buying a paid source.",
   codex_engineering_agent:"Writing to the repository, dependencies, or deploying.",
+  structure_manager:"Formation, filing, external delivery, or drafting without qualified review.",
 };
 
 const WORKFLOWS = {
@@ -535,7 +538,8 @@ const SAMPLE = {
     {id:"capital_manager",name:"Capital Manager",owns:"Support underwriting, capitalization, lender and investor materials, and portfolio monitoring.",boundary:"term_acceptance, external_delivery, move_funds",profile:"high_reasoning",tools:["model_read"]},
     {id:"automation_manager",name:"Automation Manager",owns:"Design, test, monitor, and document reliable business workflow automations.",boundary:"workflow_enable, credential_change, production_write",profile:"default",tools:["workflow_read","log_read"]},
     {id:"intelligence_agent",name:"Intelligence Agent",owns:"Produce current, source-backed market, competitor, policy, and opportunity intelligence.",boundary:"publish, alert_send, source_purchase",profile:"default",tools:["source_read"]},
-    {id:"codex_engineering_agent",name:"Codex Engineering Agent",owns:"Design, implement, test, review, and document Tessera OS software safely.",boundary:"repository_write, dependency_change, deploy",profile:"high_reasoning",tools:["repo_read","ci_read"]}],
+    {id:"codex_engineering_agent",name:"Codex Engineering Agent",owns:"Design, implement, test, review, and document Tessera OS software safely.",boundary:"repository_write, dependency_change, deploy",profile:"high_reasoning",tools:["repo_read","ci_read"]},
+    {id:"structure_manager",name:"Structure Manager",owns:"Evaluate synthetic entity architecture, governance, control, and exit scenarios.",boundary:"structure_publish, formation_filing, agreement_send",profile:"high_reasoning",tools:["document_read","clause_search","policy_read"]}],
   security:{
     defaults:{tool_access:"deny",external_writes:"require_approval",destructive_actions:"require_approval",cross_project_retrieval:"deny",pii_logging:"redact",production_writes:"deny"},
     authentication:{protocol:"oidc_jwt",required_claims:["iss","aud","sub","tenant_id","project_ids","groups","iat","exp"],production_algorithms:["RS256","RS384","RS512","ES256"],required_group:"tessera_user"},

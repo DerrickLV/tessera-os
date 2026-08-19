@@ -1,66 +1,12 @@
 {
   "routes": {
-    "executive_assistant": [
-      "briefing",
-      "calendar",
-      "meeting",
-      "follow-up",
-      "priorities",
-      "email"
-    ],
-    "project_manager": [
-      "project",
-      "milestone",
-      "deadline",
-      "task",
-      "status",
-      "risk register"
-    ],
-    "knowledge_manager": [
-      "knowledge",
-      "document",
-      "index",
-      "taxonomy",
-      "retrieve",
-      "summarize"
-    ],
-    "proposal_manager": [
-      "proposal",
-      "scope",
-      "fee",
-      "pricing",
-      "statement of work",
-      "rfp"
-    ],
-    "contract_manager": [
-      "contract",
-      "agreement",
-      "clause",
-      "redline",
-      "indemnity",
-      "insurance"
-    ],
-    "due_diligence_manager": [
-      "diligence",
-      "background",
-      "ownership",
-      "litigation",
-      "references"
-    ],
-    "development_manager": [
-      "entitlement",
-      "zoning",
-      "feasibility",
-      "permitting",
-      "site plan"
-    ],
-    "construction_manager": [
-      "construction",
-      "rfi",
-      "submittal",
-      "schedule",
-      "change order",
-      "safety"
+    "automation_manager": [
+      "automation",
+      "workflow",
+      "n8n",
+      "trigger",
+      "integration",
+      "webhook"
     ],
     "capital_manager": [
       "capital",
@@ -70,13 +16,51 @@
       "loan",
       "financing"
     ],
-    "automation_manager": [
-      "automation",
-      "workflow",
-      "n8n",
-      "trigger",
-      "integration",
-      "webhook"
+    "codex_engineering_agent": [
+      "code",
+      "repository",
+      "bug",
+      "test",
+      "deploy",
+      "architecture"
+    ],
+    "construction_manager": [
+      "construction",
+      "rfi",
+      "submittal",
+      "schedule",
+      "change order",
+      "safety"
+    ],
+    "contract_manager": [
+      "contract",
+      "agreement",
+      "clause",
+      "redline",
+      "indemnity",
+      "insurance"
+    ],
+    "development_manager": [
+      "entitlement",
+      "zoning",
+      "feasibility",
+      "permitting",
+      "site plan"
+    ],
+    "due_diligence_manager": [
+      "diligence",
+      "background",
+      "ownership",
+      "litigation",
+      "references"
+    ],
+    "executive_assistant": [
+      "briefing",
+      "calendar",
+      "meeting",
+      "follow-up",
+      "priorities",
+      "email"
     ],
     "intelligence_agent": [
       "market",
@@ -86,13 +70,46 @@
       "trend",
       "intelligence"
     ],
-    "codex_engineering_agent": [
-      "code",
-      "repository",
-      "bug",
-      "test",
-      "deploy",
-      "architecture"
+    "knowledge_manager": [
+      "knowledge",
+      "document",
+      "index",
+      "taxonomy",
+      "retrieve",
+      "summarize"
+    ],
+    "project_manager": [
+      "project",
+      "milestone",
+      "deadline",
+      "task",
+      "status",
+      "risk register"
+    ],
+    "proposal_manager": [
+      "proposal",
+      "scope",
+      "fee",
+      "pricing",
+      "statement of work",
+      "rfp"
+    ],
+    "structure_manager": [
+      "entity",
+      "structure",
+      "structuring",
+      "holdco",
+      "opco",
+      "operating agreement",
+      "governance",
+      "llc",
+      "cap table",
+      "deadlock",
+      "buy-sell",
+      "reserved matters",
+      "member-managed",
+      "manager-managed",
+      "formation"
     ]
   },
   "fallback": "knowledge_manager",

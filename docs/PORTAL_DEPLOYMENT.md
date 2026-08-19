@@ -5,7 +5,7 @@ This guide adds a private Tessera OS pilot beside the existing public website:
 - `www.tesseraag.com` remains the public Netlify marketing site.
 - `app.tesseraag.com` is a second Netlify site containing the private portal UI.
 - `api.tesseraag.com` is the Render-hosted Python API.
-- Microsoft Entra signs in one approved pilot owner.
+- Microsoft Entra signs in explicitly invited pilot users with per-user project scope.
 - Microsoft Graph can read only explicitly mapped SharePoint project locations.
 
 The repository is deployment-ready, but it cannot create or approve resources inside
@@ -18,7 +18,8 @@ Create one empty, sanitized SharePoint pilot site and document library. Do not m
 live client site for the first test. Record these values in a password manager:
 
 - Microsoft tenant ID;
-- the pilot user's Entra **Object ID** (`oid`);
+- each pilot user's Entra **Object ID** (`oid`);
+- the Tessera Partners security-group Object ID;
 - one Tessera project ID, such as `internal-pilot`;
 - SharePoint Graph site ID and document-library drive ID;
 - optional folder item ID, otherwise use `root`.
@@ -36,9 +37,12 @@ live client site for the first test. Record these values in a password manager:
 5. Ask the Microsoft administrator to grant consent and then grant this application
    **read** access to only the sanitized pilot SharePoint site. `Sites.Selected` alone
    grants access to no sites.
-6. Under **Certificates & secrets**, create a client secret and copy its **Value**
+6. Under **Token configuration**, add the security-groups claim to the ID token.
+7. Under **Enterprise applications → Tessera OS Pilot → Properties**, require user
+   assignment, then assign Derrick and Ryan directly.
+8. Under **Certificates & secrets**, create a short-lived pilot client secret and copy its **Value**
    immediately. Store it in a password manager.
-7. Record the **Application (client) ID** and **Directory (tenant) ID**.
+9. Record the **Application (client) ID** and **Directory (tenant) ID**.
 
 Microsoft's selected-permissions procedure is documented at
 <https://learn.microsoft.com/graph/permissions-selected-overview>.
@@ -55,7 +59,9 @@ Microsoft's selected-permissions procedure is documented at
    | `TESSERA_M365_TENANT_ID` | Directory/tenant ID |
    | `TESSERA_M365_CLIENT_ID` | Application/client ID |
    | `TESSERA_M365_CLIENT_SECRET` | Secret **Value**, not secret ID |
-   | `TESSERA_ALLOWED_USER_IDS` | The one approved pilot user's Object ID |
+   | `TESSERA_ALLOWED_USER_IDS` | Comma-separated Object IDs for Derrick and Ryan |
+   | `TESSERA_USER_PROJECTS` | Explicit per-user project mapping JSON shown below |
+   | `TESSERA_M365_GROUP_MAP` | Entra group-to-Tessera role mapping shown below |
    | `TESSERA_M365_CACHE_KEY` | Output of `openssl rand -base64 32` |
    | `TESSERA_PROJECT_CATALOG` | Project display JSON shown below |
    | `TESSERA_M365_PROJECT_RESOURCES` | SharePoint mapping JSON shown below |
@@ -67,7 +73,15 @@ Microsoft's selected-permissions procedure is documented at
    ```
 
    ```json
-   {"internal-pilot":{"site_id":"YOUR_SITE_ID","drive_id":"YOUR_DRIVE_ID","folder_item_id":"root"}}
+   {"internal-pilot":{"site_id":"YOUR_SITE_ID","drive_id":"YOUR_DRIVE_ID","folder_item_id":"root","zone":"internal"}}
+   ```
+
+   ```json
+   {"DERRICK_OBJECT_ID":["internal-pilot"],"RYAN_OBJECT_ID":["internal-pilot"]}
+   ```
+
+   ```json
+   {"PARTNERS_GROUP_OBJECT_ID":"tessera_partner"}
    ```
 
    The project keys must match exactly. The API refuses to start if they differ.
@@ -118,7 +132,8 @@ the existing Netlify project or the tool that generated it.
 ## 6. First controlled sign-in
 
 1. Visit `https://app.tesseraag.com` and select **Sign in with Microsoft**.
-2. Use only the approved pilot account. A different Microsoft Object ID is rejected.
+2. Sign in separately as Derrick and Ryan. A different Microsoft Object ID is rejected,
+   and each user receives only the projects listed in `TESSERA_USER_PROJECTS`.
 3. Open the mapped project and confirm only the sanitized SharePoint documents appear.
 4. Confirm that another project ID and an unapproved account are denied.
 5. Use **Sign out** and confirm the encrypted Microsoft token cache is disconnected.
@@ -136,6 +151,5 @@ publishing, approval, and baseline writes remain disabled.
 4. Delete the Render persistent disk only after confirming the pilot is closed; this
    irreversibly removes the encrypted token cache.
 
-Do not expand to additional users until the token broker is changed from a single-user
-pilot cache to per-user isolated token storage and that design receives a security
-review.
+Do not expand beyond the two named pilot users until the identity and project mappings
+receive another security review.

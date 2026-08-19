@@ -3,21 +3,21 @@
 Tessera OS is an AI operating system for development, construction management,
 capital, advisory, and internal operations. This repository includes the Phase 2
 read-only pilot and the Phase 3 and Phase 4 manager foundations: a policy-aware
-orchestrator, twelve specialist agents, ACL-preserving retrieval, human review
+orchestrator, thirteen specialist agents, ACL-preserving retrieval, human review
 workflows, shared schemas, and offline document drafting.
 
 ## Status
 
 **Stage:** Phase 6 complete; production-readiness hardening implemented
 
-**Current milestone:** Phase 7C single-user private portal deployment and validation
+**Current milestone:** Phase 7C two-user private portal hardening and validation
 
 **Safety posture:** Offline by default; production pilot is read-only and external delivery is disabled
 
 ## What is included
 
 - A deterministic routing layer and OpenAI Agents SDK adapter
-- Specifications and prompts for 12 core agents
+- Specifications and prompts for 13 core agents
 - Shared request, response, evidence, and approval schemas
 - Central model, routing, security, and integration configuration
 - A local CLI and smoke tests that run without API credentials
@@ -75,6 +75,9 @@ workflows, shared schemas, and offline document drafting.
 - A persistent interactive pilot workspace that runs deterministic project workflows,
   creates cited draft artifacts with quality metrics and audit history, and submits them
   to qualified human review without model calls or external actions
+- A synthetic Structure Manager that produces cited entity/governance recommendations,
+  blocks stale or unresolved inputs, and permits agreement drafting only from the exact
+  qualified-counsel-approved recommendation version
 - Qualified reviewer roles, DLP redaction, deterministic usage budgets, encrypted
   artifact retention/legal hold, and tenant-scoped backup primitives
 - Locked dependencies, SHA-pinned CI actions, dependency auditing, secret-pattern
@@ -124,12 +127,14 @@ only delegated `User.Read` and `Sites.Selected`, stores its MSAL cache encrypted
 resolves SharePoint locations only through approved project mappings. Complete the
 [Microsoft 365 connection plan](docs/MICROSOFT_365_CONNECTION_PLAN.md) before enabling it.
 
-A deployment package for a single-user, invite-only production pilot is also included:
+A deployment package for a two-user, invite-only production pilot is also included:
 the static private portal in `web/tessera-portal.html`, its locked-down FastAPI layer in
 `src/tessera_os/portal.py`, a Render Blueprint and Docker image, and a separate Netlify
 site definition. It is intentionally not connected or deployed from the repository.
 Follow the [portal deployment guide](docs/PORTAL_DEPLOYMENT.md) for the required
 administrator-controlled setup in Entra, SharePoint, Render, Netlify, and Porkbun.
+The shorter [Microsoft 365 launch path](docs/MICROSOFT_365_LAUNCH_PATH.md) covers
+the Derrick/Ryan pilot and the offline `tessera m365-check` verifier.
 
 Run Tessera commands from the repository checkout. A normal local install is used
 because some Homebrew Python builds ignore hidden editable-install path files. Set
@@ -164,6 +169,7 @@ fixtures/phase4b/    Synthetic construction and capital records
 fixtures/automation/ Synthetic Phase 5 workflows, targets, and records
 fixtures/phase6/     Synthetic intelligence, engineering, and assurance records
 fixtures/console/    Synthetic operator-console clients, projects, and review items
+fixtures/clause_library/ Synthetic drafting clauses and Structure Manager samples
 web/                 Local operator console served by FastAPI
 ```
 
@@ -198,6 +204,7 @@ web/                 Local operator console served by FastAPI
 - [Console API](docs/CONSOLE_API.md)
 - [Microsoft 365 and SharePoint connection plan](docs/MICROSOFT_365_CONNECTION_PLAN.md)
 - [Private portal deployment](docs/PORTAL_DEPLOYMENT.md)
+- [Microsoft 365 launch path](docs/MICROSOFT_365_LAUNCH_PATH.md)
 - [Private portal readiness report](docs/PORTAL_READINESS_REPORT.md)
 - [Contributing](CONTRIBUTING.md)
 

@@ -55,12 +55,20 @@ ESSENTIAL_CATEGORIES: dict[AgreementType, frozenset[str]] = {
     "advisory": frozenset({"scope", "term", "payment", "liability", "indemnity", "dispute"}),
     "finders_fee": frozenset({"success_fee", "term", "liability", "indemnity", "dispute"}),
     "deal_memo": frozenset({"binding_effect", "confidentiality", "dispute"}),
+    # The exit set -- triggering_events, valuation, buysell, buyout_payment --
+    # is required together or not at all. A document with a right to buy and no
+    # way to price or pay for it reads as complete and is not, and the structure
+    # memo promises all four.
     "operating_agreement": frozenset({
-        "purpose", "capital", "distributions", "governance", "transfer", "duties",
-        "information", "exit", "dispute"}),
+        "purpose", "capital", "distributions", "governance", "authority", "transfer",
+        "duties", "information", "exit", "dispute",
+        "triggering_events", "valuation", "buysell", "buyout_payment",
+        "tax_distributions", "work_product"}),
     "jv": frozenset({
-        "purpose", "capital", "distributions", "governance", "transfer", "duties",
-        "information", "exit", "dispute"}),
+        "purpose", "capital", "distributions", "governance", "authority", "transfer",
+        "duties", "information", "exit", "dispute",
+        "triggering_events", "valuation", "buysell", "buyout_payment",
+        "tax_distributions", "work_product"}),
     "investor_subscription": frozenset({
         "subscription", "investor_representations", "securities_legend", "information",
         "dispute"}),
@@ -85,6 +93,7 @@ PartyRole = Literal[
 OwnershipShape = Literal["single", "equal", "majority_minority"]
 CounterpartyType = Literal["institutional", "operator", "individual"]
 EntityType = Literal["llc", "lp", "corporation", "none"]
+ManagementModel = Literal["member_managed", "manager_managed"]
 TaxTreatment = Literal["partnership", "s_corp", "c_corp", "disregarded", "none"]
 
 VariableKind = Literal["text", "money", "percent", "days", "months", "years", "date", "choice"]
@@ -165,6 +174,11 @@ class ClauseCondition(BaseModel):
 
     party_roles: list[PartyRole] = Field(default_factory=list)
     ownership_shapes: list[OwnershipShape] = Field(default_factory=list)
+    # Management model, so a document cannot say "manager-managed" in one section
+    # and "either Managing Partner, acting alone" in the next. Clauses that
+    # presuppose a model declare it, and exactly one of a mutually exclusive pair
+    # applies to any given deal.
+    management_models: list[ManagementModel] = Field(default_factory=list)
     max_members: int | None = None
     min_members: int | None = None
     min_deal_value: float | None = None
@@ -172,6 +186,8 @@ class ClauseCondition(BaseModel):
 
     def matches(self, profile: DealProfile) -> bool:
         if self.party_roles and profile.party_role not in self.party_roles:
+            return False
+        if self.management_models and profile.management() not in self.management_models:
             return False
         if self.ownership_shapes and profile.ownership_shape not in self.ownership_shapes:
             return False
@@ -218,6 +234,11 @@ class Clause(BaseModel):
     applies_to: list[AgreementType] = Field(min_length=1)
     industries: list[Industry] = Field(default_factory=list)
     required: bool = True
+    # Some clauses have one form rather than a risk ladder -- a valuation
+    # procedure, payment terms, a statement that titles confer no authority.
+    # Flagging "no protective variant exists" on those is noise, and noise on a
+    # warning is worse than no warning: it teaches the reader to skip them.
+    posture_neutral: bool = False
     absence_risk: str = Field(min_length=1)
     condition: ClauseCondition | None = None
     defines: list[DefinedTerm] = Field(default_factory=list)
@@ -303,6 +324,11 @@ class DealProfile(BaseModel):
     ownership_shape: OwnershipShape = "majority_minority"
     member_count: int = Field(default=2, ge=1)
 
+    # --- Who runs it. Set from a structure recommendation where one exists;
+    # otherwise derived, so a profile written before this field existed still
+    # produces a document that agrees with itself.
+    management_model: ManagementModel | None = None
+
     # --- Counterparty and deal scale.
     counterparty_type: CounterpartyType = "operator"
     deal_value: float = Field(default=0, ge=0)
@@ -316,6 +342,21 @@ class DealProfile(BaseModel):
     # the signature blocks.
     parties: list[Party] = Field(default_factory=list)
     effective_date: str | None = None
+
+    def management(self) -> ManagementModel:
+        """Member-managed only where every owner is plausibly active.
+
+        Shared authority stops working once there are enough owners that a
+        counterparty cannot tell who may sign, and it is wrong outright where
+        some of the money is passive.
+        """
+        if self.management_model is not None:
+            return self.management_model
+        if self.ownership_shape == "equal" and self.member_count <= 3:
+            return "member_managed"
+        if self.ownership_shape == "single":
+            return "member_managed"
+        return "manager_managed"
 
     def posture(self) -> Posture:
         """Derive the default risk posture from the deal's own characteristics.
@@ -406,9 +447,13 @@ class AssembledDraft(BaseModel):
         Clause language routinely points at "Exhibit A" or "Schedule A". An
         agreement that references a schedule it does not carry is incomplete in
         exactly the way that is easy to miss on a read-through.
+
+        A tax form is not an attachment: "Schedule K-1" must not be read as a
+        missing "Schedule K".
         """
         body = " ".join(item.variant.text for item in self.selections)
-        referenced = sorted(set(re.findall(r"\b(Exhibit [A-Z]|Schedule [A-Z])\b", body)))
+        referenced = sorted(set(
+            re.findall(r"\b(Exhibit [A-Z]|Schedule [A-Z])\b(?![-\w])", body)))
         generated = {"Schedule A"} if any(
             party.capital_contribution is not None or party.units is not None
             for party in self.profile.parties) else set()
@@ -505,13 +550,19 @@ class AssembledDraft(BaseModel):
 
         A draft must never leave the building with a ``{fee_percentage}`` in it.
         Every one of these is a commercial term someone has to decide.
+
+        Definitions are scanned as well as clause bodies. A placeholder that
+        appears only inside a defined term -- the day counts in "Disability", for
+        instance -- is never prompted for if only bodies are read, and the
+        document then ships with a brace in its definitions section.
         """
         found: set[str] = set()
-        for index, item in enumerate(self.selections, start=1):
-            for token in _PLACEHOLDER.findall(item.variant.text):
-                if token != "n":
-                    found.add(token)
-            del index
+        for item in self.selections:
+            texts = [item.variant.text] + [term.definition for term in item.clause.defines]
+            for text in texts:
+                for token in _PLACEHOLDER.findall(text):
+                    if token != "n":
+                        found.add(token)
         return sorted(found)
 
     def to_markdown(self, *, include_open_terms: bool = True) -> str:
@@ -526,7 +577,8 @@ class AssembledDraft(BaseModel):
             f"# {profile.agreement_type.replace('_', ' ').title()} — {profile.opportunity}",
             "",
             ("**DRAFT — FOR QUALIFIED COUNSEL REVIEW BEFORE EXECUTION.** "
-             "Assembled from approved clause variants; not legal advice."),
+             "Assembled from synthetic evaluation variants; not adopted by Tessera, "
+             "not counsel-approved, and not legal advice."),
             "",
             f"- **Counterparty:** {profile.counterparty}",
             f"- **Governing law:** {profile.jurisdiction}",
@@ -708,7 +760,7 @@ class ClauseLibrary:
         """
         if require_coverage and (missing := self.missing_essentials(profile)):
             raise ClauseCoverageError(
-                f"The clause library cannot draft a {profile.agreement_type}: no approved "
+                f"The clause library cannot draft a {profile.agreement_type}: no synthetic "
                 f"clauses for {', '.join(missing)}. Add them, with counsel, before drafting "
                 "this document type.")
         requested = posture or profile.posture()
@@ -719,9 +771,9 @@ class ClauseLibrary:
                 if clause.required:
                     omitted.append(clause)
                 continue
-            selections.append(SelectedClause(clause=clause, variant=variant,
-                                             posture_requested=requested,
-                                             substituted=variant.posture != requested))
+            selections.append(SelectedClause(
+                clause=clause, variant=variant, posture_requested=requested,
+                substituted=variant.posture != requested and not clause.posture_neutral))
         return AssembledDraft(profile=profile, posture=requested,
                               selections=selections, omitted_required=omitted)
 

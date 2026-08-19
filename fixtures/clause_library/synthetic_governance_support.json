@@ -1,0 +1,156 @@
+{
+  "notice": "SYNTHETIC EVALUATION FIXTURE. This language was created for offline testing, is not derived from Tessera or client agreements, is not an adopted playbook, and requires qualified counsel before any use.",
+  "version": "1.0.0",
+  "clauses": [
+    {
+      "id": "gov-capital-call-default",
+      "category": "capital_default",
+      "title": "Additional Capital and Funding Shortfalls",
+      "order": 212,
+      "applies_to": ["operating_agreement", "jv"],
+      "required": true,
+      "absence_risk": "A funding request without an agreed process can leave the venture unable to meet an approved obligation.",
+      "industries": [],
+      "variants": [
+        {
+          "id": "synthetic-capital-shortfall-review",
+          "posture": "protective",
+          "when": "Synthetic evaluation default where future funding may be required.",
+          "trade_off": "Any dilution or member-loan remedy materially changes economics and must be negotiated.",
+          "counsel_review": "Draft the actual notice, cure, loan, dilution, and enforcement mechanics from approved deal terms.",
+          "text": "**{n}. Additional Capital.** No Member is required to contribute additional capital unless the Members approve the amount, purpose, allocation, funding date, and consequences of a shortfall in writing. Any advance made for another Member is recorded as a proposed member loan only and has no binding economic effect until qualified counsel incorporates the approved terms into this Agreement."
+        },
+        {
+          "id": "synthetic-capital-shortfall-neutral",
+          "posture": "standard",
+          "when": "Synthetic evaluation fallback where no default remedy has been approved.",
+          "trade_off": "The venture may need a separate written amendment before accepting additional funds.",
+          "counsel_review": "Confirm whether future contributions are optional or mandatory and add approved remedies.",
+          "text": "**{n}. Additional Capital.** Additional contributions require the Members' written approval of the amount, purpose, allocation, and resulting economics. Until that approval is documented, no failure to fund changes a Member's ownership or creates a loan."
+        }
+      ]
+    },
+    {
+      "id": "gov-ordinary-course-authority",
+      "category": "authority",
+      "title": "Manager Authority and Reserved Decisions",
+      "order": 235,
+      "applies_to": ["operating_agreement", "jv"],
+      "required": true,
+      "condition": {"management_models": ["manager_managed"]},
+      "defines": [
+        {"term": "Ordinary Course Threshold", "definition": "{ordinary_course_threshold}, solely as a synthetic drafting input subject to Member and counsel approval."},
+        {"term": "Major Decision", "definition": "A decision expressly identified in this Agreement as requiring Member approval."}
+      ],
+      "absence_risk": "The draft would not distinguish routine management from owner-level decisions.",
+      "industries": [],
+      "variants": [
+        {
+          "id": "synthetic-manager-authority",
+          "posture": "protective",
+          "when": "Synthetic manager-managed evaluation structure.",
+          "trade_off": "A low threshold slows routine operations; a high threshold weakens owner oversight.",
+          "counsel_review": "Test the threshold and reserved-decision list against the approved budget and cap table.",
+          "text": "**{n}.1 Routine Authority.** Subject to the approved budget, the Manager may conduct ordinary-course business and enter a transaction not exceeding the Ordinary Course Threshold.\n\n**{n}.2 Major Decisions.** Any transaction above that threshold, and each reserved decision listed elsewhere in this Agreement, requires the approval specified in this Agreement. No approval is inferred from silence."
+        }
+      ]
+    },
+    {
+      "id": "gov-authority-partners",
+      "category": "authority",
+      "title": "Member Authority and Reserved Decisions",
+      "order": 235,
+      "applies_to": ["operating_agreement", "jv"],
+      "required": true,
+      "condition": {"management_models": ["member_managed"]},
+      "defines": [
+        {"term": "Ordinary Course Threshold", "definition": "{ordinary_course_threshold}, solely as a synthetic drafting input subject to Member and counsel approval."},
+        {"term": "Major Decision", "definition": "A decision expressly identified in this Agreement as requiring Member approval."},
+        {"term": "Managing Member", "definition": "A Member identified in Schedule A as participating in day-to-day management."}
+      ],
+      "absence_risk": "The draft would not distinguish routine member authority from jointly controlled decisions.",
+      "industries": [],
+      "variants": [
+        {
+          "id": "synthetic-member-authority",
+          "posture": "protective",
+          "when": "Synthetic member-managed evaluation structure with active owners.",
+          "trade_off": "Shared authority requires clear budget and transaction limits.",
+          "counsel_review": "Confirm who may sign, the approval threshold, and the complete reserved-decision list.",
+          "text": "**{n}.1 Routine Authority.** Each Managing Member may act for the Company only within the approved budget and only for a transaction not exceeding the Ordinary Course Threshold.\n\n**{n}.2 Major Decisions.** A Managing Member may not commit the Company to a Major Decision without the approval specified in this Agreement. Titles alone do not expand authority."
+        }
+      ]
+    },
+    {
+      "id": "gov-deadlock-ladder",
+      "category": "deadlock",
+      "title": "Deadlock Review Process",
+      "order": 246,
+      "applies_to": ["operating_agreement", "jv"],
+      "required": false,
+      "condition": {"ownership_shapes": ["equal"], "max_members": 3},
+      "defines": [{"term": "Deadlock", "definition": "A documented failure to obtain the approval required for a Major Decision after the review steps in this Section."}],
+      "absence_risk": "Equal owners may have no agreed escalation path for an unresolved reserved decision.",
+      "industries": [],
+      "variants": [
+        {
+          "id": "synthetic-deadlock-review",
+          "posture": "protective",
+          "when": "Synthetic equal-owner evaluation without a controlling vote.",
+          "trade_off": "A process can delay a time-sensitive decision and does not itself supply an exit remedy.",
+          "counsel_review": "Choose enforceable deadlines, mediation terms, and any exit remedy after reviewing liquidity and governing law.",
+          "text": "**{n}. Deadlock Review.** A Member claiming a Deadlock must give written notice describing the decision and requested resolution. The Members must meet promptly and may use non-binding mediation. This synthetic clause does not create a buy-sell, dissolution, or transfer right; any such remedy must be separately approved and drafted by qualified counsel."
+        }
+      ]
+    },
+    {
+      "id": "gov-permitted-estate-transfer",
+      "category": "estate_transfer",
+      "title": "Proposed Estate-Planning Transfer",
+      "order": 242,
+      "applies_to": ["operating_agreement", "jv"],
+      "required": false,
+      "absence_risk": "A routine estate-planning transfer may conflict with the general transfer restriction.",
+      "industries": [],
+      "posture_neutral": true,
+      "variants": [
+        {
+          "id": "synthetic-estate-transfer-review",
+          "posture": "standard",
+          "when": "Synthetic evaluation where estate planning is identified as relevant.",
+          "trade_off": "Any permitted-transfer exception can weaken owner-selection protections.",
+          "counsel_review": "Coordinate the exception with the owner's actual estate plan and require an approved joinder.",
+          "text": "**{n}. Estate-Planning Transfers.** A proposed transfer to an estate-planning vehicle requires advance written notice, confirmation that beneficial control and economics remain as approved, and execution of a counsel-approved joinder. No transfer is effective merely because it is described as estate planning."
+        }
+      ]
+    },
+    {
+      "id": "gov-restrictive-covenants",
+      "category": "restrictive_covenants",
+      "title": "Confidentiality and Post-Departure Terms",
+      "order": 288,
+      "applies_to": ["operating_agreement", "jv"],
+      "required": true,
+      "absence_risk": "The draft would not identify what confidential information remains protected after a Member leaves.",
+      "industries": [],
+      "variants": [
+        {
+          "id": "synthetic-owner-confidentiality",
+          "posture": "protective",
+          "when": "Synthetic evaluation placeholder pending jurisdiction-specific review.",
+          "trade_off": "Post-departure restrictions may be unavailable or require narrower scope depending on governing law and work location.",
+          "counsel_review": "Do not add a non-compete or non-solicit until qualified counsel confirms permitted scope, duration, geography, and consideration.",
+          "text": "**{n}. Confidentiality.** Each Member must protect non-public Company information and may use it only for Company purposes. No non-competition or non-solicitation restriction is created by this synthetic fixture; jurisdiction-specific restrictions, if approved, must be drafted by qualified counsel."
+        },
+        {
+          "id": "synthetic-owner-confidentiality-standard",
+          "posture": "standard",
+          "when": "Synthetic evaluation fallback.",
+          "trade_off": "This protects confidential information but does not restrict lawful competition.",
+          "counsel_review": "Confirm the confidentiality definition, exclusions, return obligations, and survival period.",
+          "text": "**{n}. Confidentiality.** Members may use non-public Company information only for Company purposes and must return or destroy it when reasonably requested, subject to legal retention requirements."
+        }
+      ]
+    }
+  ]
+}

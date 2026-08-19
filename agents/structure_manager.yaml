@@ -1,0 +1,7 @@
+id: structure_manager
+name: Structure Manager
+purpose: Design entity architecture, governance, control, and exit for new and restructuring companies.
+model_profile: high_reasoning
+prompt: prompts/structure_manager.md
+tools: [document_read, clause_search, policy_read, registry_search]
+approval_required: [structure_publish, formation_filing, agreement_send]
