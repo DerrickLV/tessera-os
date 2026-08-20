@@ -7,6 +7,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 COPY requirements.lock pyproject.toml README.md ./
 COPY src ./src
+COPY web ./web
 RUN python -m pip install --upgrade pip && \
     python -m pip install --no-deps -r requirements.lock && \
     python -m pip install --no-deps .

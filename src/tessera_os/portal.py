@@ -10,7 +10,8 @@ from typing import Annotated
 import jwt
 from fastapi import Cookie, Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, HttpUrl, model_validator
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
@@ -22,8 +23,8 @@ from .microsoft import (
     MicrosoftConnectionBroker,
     MicrosoftConnectionStatus,
     MicrosoftPilotSettings,
-    MicrosoftUserConnectionBroker,
 )
+from .paths import project_root
 from .schemas import SourceDocument, UserContext
 
 
@@ -37,20 +38,14 @@ class PortalSettings(BaseModel):
     app_url: HttpUrl
     api_url: HttpUrl
     session_secret: str = Field(min_length=32)
-    allowed_user_ids: frozenset[str] = Field(min_length=1)
+    allowed_user_ids: frozenset[str] = Field(min_length=1, max_length=1)
     projects: dict[str, PortalProject] = Field(min_length=1)
-    user_projects: dict[str, frozenset[str]] = Field(min_length=1)
     data_dir: Path = Path("/var/data/tessera")
 
     @model_validator(mode="after")
     def production_https(self) -> PortalSettings:
         if self.app_url.scheme != "https" or self.api_url.scheme != "https":
             raise ValueError("Production portal URLs must use HTTPS")
-        if set(self.allowed_user_ids) != set(self.user_projects):
-            raise ValueError("Every invited user needs an explicit project assignment")
-        unknown = set().union(*self.user_projects.values()) - set(self.projects)
-        if unknown:
-            raise ValueError(f"User project assignments contain unknown projects: {sorted(unknown)}")
         return self
 
     @classmethod
@@ -59,16 +54,14 @@ class PortalSettings(BaseModel):
 
         try:
             catalog = json.loads(os.environ["TESSERA_PROJECT_CATALOG"])
-            user_projects = json.loads(os.environ["TESSERA_USER_PROJECTS"])
         except (KeyError, json.JSONDecodeError) as exc:
-            raise RuntimeError(
-                "TESSERA_PROJECT_CATALOG and TESSERA_USER_PROJECTS must contain valid JSON") from exc
+            raise RuntimeError("TESSERA_PROJECT_CATALOG must contain valid JSON") from exc
         allowed = frozenset(filter(None,
             (item.strip() for item in os.getenv("TESSERA_ALLOWED_USER_IDS", "").split(","))))
         return cls(app_url=os.environ["TESSERA_APP_URL"],
             api_url=os.environ["TESSERA_API_URL"],
             session_secret=os.environ["TESSERA_SESSION_SECRET"],
-            allowed_user_ids=allowed, projects=catalog, user_projects=user_projects,
+            allowed_user_ids=allowed, projects=catalog,
             data_dir=Path(os.getenv("TESSERA_PORTAL_DATA_DIR", "/var/data/tessera")))
 
 
@@ -110,8 +103,7 @@ class SessionCodec:
 
 def create_portal_app(*, portal_settings: PortalSettings | None = None,
                       microsoft_settings: MicrosoftPilotSettings | None = None,
-                      broker: MicrosoftConnectionBroker | MicrosoftUserConnectionBroker | None = None,
-                      ) -> FastAPI:
+                      broker: MicrosoftConnectionBroker | None = None) -> FastAPI:
     settings = portal_settings or PortalSettings.from_environment()
     microsoft = microsoft_settings or MicrosoftPilotSettings.from_environment()
     if not microsoft.enabled:
@@ -119,13 +111,13 @@ def create_portal_app(*, portal_settings: PortalSettings | None = None,
     if set(settings.projects) != set(microsoft.project_resources):
         raise RuntimeError("Portal projects and Microsoft project mappings must match exactly")
     settings.data_dir.mkdir(parents=True, exist_ok=True)
-    broker = broker or MicrosoftUserConnectionBroker(
-        settings=microsoft, cache_dir=settings.data_dir / "microsoft-token-caches")
+    broker = broker or MicrosoftConnectionBroker(settings=microsoft,
+        cache_path=settings.data_dir / "microsoft-token-cache.bin")
     codec = SessionCodec(settings.session_secret)
     group_map = EntraGroupMap.from_environment()
     sharepoint = AllowlistedSharePointReader(settings=microsoft,
         graph_factory=lambda provider: MicrosoftGraphReader(provider),
-        token_provider=lambda user_id: broker.token(user_id))
+        token_provider=broker.token)
 
     app = FastAPI(title="Tessera Portal API", version="0.9.0",
                   docs_url=None, redoc_url=None, openapi_url=None)
@@ -151,7 +143,7 @@ def create_portal_app(*, portal_settings: PortalSettings | None = None,
         # group and the user's token carried it. Nothing here may add one.
         mapped = claims.get("grp") or []
         return UserContext(tenant_id=claims["tid"], user_id=claims["sub"],
-                           project_ids=settings.user_projects[claims["sub"]],
+                           project_ids=set(settings.projects),
                            group_ids={BASE_GROUP, *mapped})
 
     def current_claims(
@@ -173,6 +165,13 @@ def create_portal_app(*, portal_settings: PortalSettings | None = None,
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "no-referrer"
+        # Same-origin delivery means the policy ships with the response rather
+        # than with a static host's configuration. 'self' covers the API because
+        # the UI is served from this application.
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; connect-src 'self'; style-src 'self' 'unsafe-inline'; "
+            "script-src 'self'; img-src 'self' data:; frame-ancestors 'none'; "
+            "base-uri 'none'; form-action 'self' https://login.microsoftonline.com")
         return response
 
     @app.get("/health")
@@ -194,7 +193,7 @@ def create_portal_app(*, portal_settings: PortalSettings | None = None,
         except MicrosoftConfigurationError as exc:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
         if identity.user_id not in settings.allowed_user_ids:
-            broker.disconnect(identity.user_id)
+            broker.disconnect()
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                                 detail="Microsoft user is not invited to Tessera")
         token = codec.issue(user_id=identity.user_id, tenant_id=identity.tenant_id,
@@ -206,8 +205,8 @@ def create_portal_app(*, portal_settings: PortalSettings | None = None,
         return response
 
     @app.post("/v1/auth/logout")
-    def logout(claims: dict[str, str] = Depends(current_claims)) -> RedirectResponse:  # noqa: B008
-        broker.disconnect(claims["sub"])
+    def logout() -> RedirectResponse:
+        broker.disconnect()
         response = RedirectResponse(str(settings.app_url), status_code=status.HTTP_303_SEE_OTHER)
         response.delete_cookie("tessera_session", path="/")
         return response
@@ -216,8 +215,8 @@ def create_portal_app(*, portal_settings: PortalSettings | None = None,
     def session(claims: dict[str, str] = Depends(current_claims)) -> PortalSession:  # noqa: B008
         return PortalSession(user_id=claims["sub"], tenant_id=claims["tid"],
             display_name=claims.get("name") or "Authorized Microsoft User",
-            projects=[settings.projects[item] for item in settings.user_projects[claims["sub"]]],
-            microsoft_connected=broker.status(claims["sub"]).connected)
+            projects=list(settings.projects.values()),
+            microsoft_connected=broker.status().connected)
 
     @app.get("/v1/projects", response_model=list[PortalProject])
     def projects(context: UserContext = Depends(current_context)) -> list[PortalProject]:  # noqa: B008
@@ -238,7 +237,32 @@ def create_portal_app(*, portal_settings: PortalSettings | None = None,
     def integration_status(
         context: UserContext = Depends(current_context),  # noqa: B008
     ) -> MicrosoftConnectionStatus:
-        return broker.status(context.user_id)
+        del context
+        return broker.status()
+
+    # --- the interface ------------------------------------------------------
+    #
+    # The portal UI is served by this application rather than by a separate
+    # static host. That is a security decision, not a convenience one: the
+    # session cookie is issued SameSite=Lax, and a browser will not attach a Lax
+    # cookie to a cross-origin request. Split the UI onto another domain and
+    # sign-in appears to succeed while every subsequent call arrives
+    # unauthenticated -- a failure that reports itself as a permissions problem.
+    # One origin removes the whole class of error.
+    web_dir = project_root() / "web"
+    portal_page = web_dir / "tessera-portal.html"
+
+    @app.get("/", include_in_schema=False)
+    def index() -> FileResponse:
+        if not portal_page.is_file():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail="Portal interface is not installed in this image")
+        return FileResponse(portal_page)
+
+    if web_dir.is_dir():
+        # Mounted last: a StaticFiles mount at "/" would otherwise shadow every
+        # route declared above it.
+        app.mount("/ui", StaticFiles(directory=web_dir), name="ui")
 
     app.state.portal_settings = settings
     app.state.microsoft_broker = broker
