@@ -145,7 +145,19 @@ class EncryptedTokenCache:
         encrypted = nonce + self._cipher.encrypt(nonce, payload, b"tessera-m365")
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.write_bytes(encrypted)
-        self.path.chmod(0o600)
+        # Owner-only permissions where the filesystem implements them. In
+        # production the cache sits on an Azure Files (SMB) mount, which has no
+        # POSIX mode bits, so chmod returns EPERM after a write that succeeded.
+        # Failing here would abort a completed sign-in over a hardening step
+        # that cannot apply -- and the resulting 500 blames the callback rather
+        # than the filesystem. The file's confidentiality does not rest on the
+        # mode bits in any case: the contents are AES-GCM encrypted with a key
+        # held outside the share, and access to the share is controlled by its
+        # own credentials.
+        try:
+            self.path.chmod(0o600)
+        except OSError:
+            pass
 
     def clear(self) -> None:
         self.cache.deserialize("{}")
