@@ -38,7 +38,19 @@ class PortalSettings(BaseModel):
     app_url: HttpUrl
     api_url: HttpUrl
     session_secret: str = Field(min_length=32)
-    allowed_user_ids: frozenset[str] = Field(min_length=1, max_length=1)
+    # An explicit allowlist of Entra object IDs. The cap is a guard against a
+    # runaway configuration, not the access control -- the enumeration is.
+    #
+    # It was 1, which deadlocked the system. Every drafted agreement and
+    # structure recommendation carries a required_reviewer_group, and the review
+    # queue refuses to let the author disposition their own item ("Qualified
+    # reviews require separation of duties"). With a single permitted user, the
+    # only person who could draft was categorically barred from accepting, so
+    # nothing could ever be approved -- the system could produce work and never
+    # move it forward. The ceiling now permits both partners plus outside
+    # counsel and one co-advisor, which is the review population the governance
+    # model actually describes.
+    allowed_user_ids: frozenset[str] = Field(min_length=1, max_length=5)
     projects: dict[str, PortalProject] = Field(min_length=1)
     data_dir: Path = Path("/var/data/tessera")
 
