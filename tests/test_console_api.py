@@ -112,9 +112,16 @@ def test_console_rejects_bearer_tokens_and_invalid_filters(tmp_path, monkeypatch
     assert api.post("/v1/reviews/rq-1042/accept", json={"reason": "x"}).status_code == 422
 
 
-def test_console_fails_closed_in_production(tmp_path, monkeypatch):
+def test_console_refuses_production_on_the_synthetic_identity(tmp_path, monkeypatch):
+    """The guard is about the identity, not the environment.
+
+    The synthetic provider issues one fixed user holding every reviewer group,
+    so under it the review queue's separation of duties cannot bite: the author
+    and the approver are the same person by construction. Production without a
+    real provider must still refuse.
+    """
     monkeypatch.setenv("TESSERA_ENV", "production")
-    with pytest.raises(RuntimeError, match="cannot run in production"):
+    with pytest.raises(RuntimeError, match="authenticated context provider"):
         create_console_app(data_dir=tmp_path)
 
 
@@ -339,10 +346,11 @@ def test_live_comparison_is_flag_gated_and_preserves_artifact_shape(tmp_path, mo
     from tessera_os.workspace import LiveDraftContent, PilotClaim
 
     monkeypatch.setenv("TESSERA_PILOT_LIVE_DRAFTING", "true")
-    live = lambda _request, _template: LiveDraftContent(
-        summary="Synthetic live comparison draft.",
-        claims=[PilotClaim(text="The term is 36 months.",
-                           source_ids=["doc-meridian-nda"])])
+    def live(_request, _template):
+        return LiveDraftContent(
+            summary="Synthetic live comparison draft.",
+            claims=[PilotClaim(text="The term is 36 months.",
+                               source_ids=["doc-meridian-nda"])])
     enabled = TestClient(create_console_app(data_dir=tmp_path / "enabled",
                                             live_drafter=live))
     compared = enabled.post("/v1/workspace/compare", json=request)

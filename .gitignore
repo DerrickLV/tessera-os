@@ -20,3 +20,6 @@ work/
 *\ 2
 *\ 2.*
 _to_delete/
+
+# Sync tarballs used to move work between machines.
+.tessera-*.tar.gz

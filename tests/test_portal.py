@@ -133,12 +133,14 @@ def test_portal_static_site_avoids_inline_script_handlers():
     root = Path(__file__).parents[1]
     html = (root / "web" / "tessera-portal.html").read_text()
     javascript = (root / "web" / "assets" / "portal.js").read_text()
-    netlify = (root / "netlify.toml").read_text()
     assert 'src="/assets/portal.js"' in html
     assert "onclick=" not in html
-    assert "https://api.tesseraag.com" in javascript
-    assert "script-src 'self'" in netlify
-    assert "script-src 'self' 'unsafe-inline'" not in netlify
+    # Same-origin, and provably so. A hardcoded API host was what made the
+    # deployed portal unusable: every call went to a domain that did not exist,
+    # and even had it existed the SameSite=Lax session cookie would not have
+    # been attached to it.
+    assert "https://api.tesseraag.com" not in javascript
+    assert 'const API = "";' in javascript
 
 
 def test_the_portal_serves_its_own_interface_on_one_origin(tmp_path):

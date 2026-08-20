@@ -255,6 +255,19 @@ kbd{font-family:var(--sans);font-size:.62rem;background:var(--panel-2);border:1p
   .search-wrap{margin-left:0;width:100%}.search-wrap input{width:100%}
 }
 @media(max-width:620px){.agent-grid,.stat-row,.project-grid{grid-template-columns:1fr}.decide-bar{flex-wrap:wrap}.decide-bar .hint{display:none}}
+
+/* Structure intake */
+.s-input{width:100%;background:var(--bg-2);border:1px solid var(--line);color:var(--cream);
+  padding:11px 13px;font-family:var(--sans);font-size:.86rem;}
+.s-input:focus{outline:none;border-color:var(--gold);}
+.s-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:0 18px;}
+.s-checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));
+  gap:9px 18px;margin:6px 0 18px;}
+.s-checks label{display:flex;align-items:center;gap:9px;font-size:.83rem;color:var(--muted);
+  cursor:pointer;}
+.s-checks input{accent-color:var(--gold);width:15px;height:15px;flex:none;}
+.s-note{font-size:.78rem;color:var(--muted);border-left:2px solid var(--line);
+  padding-left:13px;margin:0 0 18px;line-height:1.55;}
 </style>
 </head>
 <body>
@@ -272,6 +285,7 @@ kbd{font-family:var(--sans);font-size:.62rem;background:var(--panel-2);border:1p
     <div class="navitem" data-view="projects">Projects</div>
     <div class="navitem" data-view="artifacts">Drafts <span class="count zero" id="artifactCount">0</span></div>
     <div class="navitem" data-view="queue">Review Queue <span class="count" id="navCount">0</span></div>
+    <div class="navitem" data-view="structure">Structure</div>
     <div class="navitem" data-view="request">Ask</div>
     <div class="navitem" data-view="agents">Specialists</div>
     <div class="navitem" data-view="policy">Guardrails</div>
@@ -326,6 +340,80 @@ kbd{font-family:var(--sans);font-size:.62rem;background:var(--panel-2);border:1p
           <div class="rq-list" id="rqList"></div>
           <div class="card gold-top" id="rqDetail"></div>
         </div>
+      </div>
+
+      <div class="view" id="v-structure">
+        <div class="page-intro"><div class="rule"></div>
+          <p>Describe the venture and the Structure Manager returns a recommendation
+          against it &mdash; entity form, layers, control thresholds, reserved matters,
+          exit mechanics &mdash; with each position marked as adopted, a starting point,
+          or a question for counsel. The recommendation becomes a draft you submit to
+          the review queue. Nothing is filed or executed.</p></div>
+        <div class="card"><div class="card-body">
+          <div class="form-row"><label for="sProject">Engagement</label>
+            <select id="sProject" class="s-input"></select></div>
+          <div class="form-row"><label for="sVenture">Venture name</label>
+            <input id="sVenture" class="s-input" placeholder="e.g. Harbor Point Holdings"></div>
+          <div class="s-grid">
+            <div class="form-row"><label for="sState">Home state</label>
+              <input id="sState" class="s-input" value="Texas"></div>
+            <div class="form-row"><label for="sActivity">Principal activity</label>
+              <select id="sActivity" class="s-input">
+                <option value="operating">Operating business</option>
+                <option value="real_estate_hold">Real property hold</option>
+                <option value="development">Development</option>
+                <option value="fund">Fund</option>
+                <option value="ip_licensing">IP licensing</option>
+                <option value="production">Production</option>
+              </select></div>
+            <div class="form-row"><label for="sPrincipals">Active principals</label>
+              <input id="sPrincipals" class="s-input" type="number" min="1" max="20" value="2"></div>
+            <div class="form-row"><label for="sPassive">Passive investors</label>
+              <input id="sPassive" class="s-input" type="number" min="0" max="500" value="0"></div>
+            <div class="form-row"><label for="sCapitalSource">Capital source</label>
+              <select id="sCapitalSource" class="s-input">
+                <option value="founders_only">Founders only</option>
+                <option value="friends_family">Friends and family</option>
+                <option value="private_placement">Private placement</option>
+                <option value="institutional">Institutional</option>
+              </select></div>
+            <div class="form-row"><label for="sCapital">Initial capital (USD)</label>
+              <input id="sCapital" class="s-input" type="number" min="0" step="1000" value="0"></div>
+            <div class="form-row"><label for="sExit">Exit intent</label>
+              <select id="sExit" class="s-input">
+                <option value="hold_indefinitely">Hold indefinitely</option>
+                <option value="sale">Sale</option>
+                <option value="refinance_recap">Refinance or recapitalize</option>
+                <option value="generational">Generational</option>
+              </select></div>
+            <div class="form-row"><label for="sHoldYears">Expected hold (years)</label>
+              <input id="sHoldYears" class="s-input" type="number" min="1" max="99" placeholder="optional"></div>
+            <div class="form-row"><label for="sRegime">Regulated regime</label>
+              <input id="sRegime" class="s-input" placeholder="e.g. cannabis &mdash; blank if none"></div>
+            <div class="form-row"><label for="sRole">Tessera&rsquo;s role</label>
+              <select id="sRole" class="s-input">
+                <option value="advisor">Advisor</option>
+                <option value="principal">Principal</option>
+                <option value="both">Both &mdash; advising and holding equity</option>
+                <option value="none">Neither</option>
+              </select></div>
+          </div>
+          <div class="s-checks">
+            <label><input type="checkbox" id="sEqual" checked> Equal ownership</label>
+            <label><input type="checkbox" id="sRealProperty"> Holds real property</label>
+            <label><input type="checkbox" id="sIP"> Material intellectual property</label>
+            <label><input type="checkbox" id="sSpouses"> Spouses involved</label>
+            <label><input type="checkbox" id="sEstate"> Estate planning relevant</label>
+            <label><input type="checkbox" id="sKeyPerson" checked> Key-person dependency</label>
+            <label><input type="checkbox" id="sMoreCapital" checked> Expects additional capital</label>
+            <label><input type="checkbox" id="sComp" checked> Operators take compensation</label>
+          </div>
+          <p class="s-note">Recorded as facts you stated on this date, not as a document.
+          The memo will read accordingly, and will strengthen when the same facts arrive
+          from signed paper.</p>
+          <button class="btn btn-gold" id="sGo">Recommend a structure</button>
+          <div class="route-result" id="sResult"></div>
+        </div></div>
       </div>
 
       <div class="view" id="v-request">
@@ -415,7 +503,13 @@ kbd{font-family:var(--sans);font-size:.62rem;background:var(--panel-2);border:1p
    accept and reject require a reason of at least 3 characters.
    =================================================================== */
 
-const API = { live: false, base: "" };
+/* The console is mounted on the portal at /console so that it shares the
+   portal's origin -- the session cookie is SameSite=Lax and a browser will not
+   attach it cross-origin. Deriving the base from the document's own path means
+   the same file works mounted, or served at the root by the sandbox. */
+const API = { live: false, production: false,
+  base: window.location.pathname.startsWith("/console") ? "/console" : "" };
+const apiUrl = path => API.base + path;
 let DATA = { session:null, dashboard:null, clients:[], projects:[], agents:[], security:null,
   integrations:[], items:[], artifacts:[], workflows:[], project_controls:[], microsoft:null,
   notice:"" };
@@ -605,7 +699,16 @@ function clientLabel(id){ const p=projectById(id); if(!p) return null;
 /* ---------- boot ---------- */
 async function boot(){
   try{
-    const r = await fetch("/v1/console/bootstrap",{headers:{Accept:"application/json"}});
+    const r = await fetch(apiUrl("/v1/console/bootstrap"),{headers:{Accept:"application/json","Cache-Control":"no-store"},credentials:"same-origin"});
+    /* An unauthenticated caller gets sent to sign in, never to sample data.
+       Falling back here would render a fully populated console of invented
+       clients, drafts and findings to someone who is simply logged out -- with
+       no visible difference from real work beyond one small pill in the
+       corner. Someone reads an invented number and acts on it. */
+    if(r.status===401 || r.status===403){
+      window.location.assign(API.base ? "/" : apiUrl("/v1/auth/microsoft/start"));
+      return;
+    }
     if(!r.ok) throw new Error("HTTP "+r.status);
     const d = await r.json();
     DATA = { session:d.session, dashboard:d.dashboard, clients:d.clients, projects:d.projects,
@@ -613,7 +716,17 @@ async function boot(){
              items:d.review_items, artifacts:d.artifacts||[], workflows:d.workflows||[],
              project_controls:d.project_controls||[], microsoft:d.microsoft||null, notice:d.notice };
     API.live = true;
+    API.production = (d.session && d.session.environment === "production") || false;
   }catch(err){
+    /* Sample data is a development affordance, and it is only ever safe where
+       there is no real data to be confused with. Mounted on the portal there
+       is, so a failure says so plainly instead of quietly substituting
+       fiction. */
+    if(API.base){
+      document.getElementById("modeText").textContent = "Not connected";
+      toast("Console unavailable", err.message || "The console API did not respond.", true);
+      return;
+    }
     const s = SAMPLE;
     DATA = { session:s.session, dashboard:null, clients:s.clients, projects:s.projects,
              agents:s.agents, security:s.security, integrations:s.integrations,
@@ -622,7 +735,7 @@ async function boot(){
     API.live = false;
     NOW = new Date("2026-08-18T14:30:00Z"); // keep sample timings sensible
   }
-  applyMode(); renderAll(); renderAgents(); renderPolicy(); renderExamples(); renderProjectOptions(); renderRoute();
+  applyMode(); renderAll(); renderAgents(); renderPolicy(); renderExamples(); renderProjectOptions(); renderStructureOptions(); renderRoute();
 }
 
 function applyMode(){
@@ -863,8 +976,9 @@ async function submitDecision(){
     try{
       const action=kind==="amend"?"amend-and-accept":kind==="accept"?"accept":"reject";
       const body={reason,category}; if(kind==="amend") body.amended_body=amendedBody;
-      const r=await fetch(`/v1/reviews/${encodeURIComponent(id)}/${action}`,
-        {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+      const r=await fetch(apiUrl(`/v1/reviews/${encodeURIComponent(id)}/${action}`),
+        {method:"POST",credentials:"same-origin",
+         headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
       if(!r.ok){
         let detail="Request failed ("+r.status+")";
         try{ const j=await r.json(); detail = typeof j.detail==="string"?j.detail
@@ -890,7 +1004,8 @@ async function submitDecision(){
 
 async function refresh(){
   if(!API.live) return;
-  try{ const r=await fetch("/v1/reviews",{headers:{Accept:"application/json"}});
+  try{ const r=await fetch(apiUrl("/v1/reviews"),
+        {headers:{Accept:"application/json"},credentials:"same-origin"});
     if(r.ok){ DATA.items=await r.json(); DATA.artifacts=await apiJson("/v1/artifacts"); renderAll(); } }catch(e){}
 }
 
@@ -993,7 +1108,7 @@ function renderRoute(){
 }
 
 async function apiJson(path,options={}){
-  const response=await fetch(path,{...options,headers:{Accept:"application/json","Content-Type":"application/json",...(options.headers||{})}});
+  const response=await fetch(apiUrl(path),{...options,credentials:"same-origin",headers:{Accept:"application/json","Content-Type":"application/json",...(options.headers||{})}});
   if(!response.ok){
     let detail=`Request failed (${response.status})`;
     try{const body=await response.json();detail=typeof body.detail==="string"?body.detail:detail;}catch(e){}
@@ -1037,6 +1152,75 @@ async function resetWorkspace(){
   }catch(error){toast("Reset failed",error.message,true);}
 }
 
+/* ---------- structure intake ---------- */
+function structurePayload(){
+  const num = (id, fallback) => {
+    const raw = document.getElementById(id).value.trim();
+    if(raw === "") return fallback;
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : fallback;
+  };
+  const on = id => document.getElementById(id).checked;
+  const regime = document.getElementById("sRegime").value.trim();
+  const holdRaw = document.getElementById("sHoldYears").value.trim();
+  return {
+    project_id: document.getElementById("sProject").value,
+    venture: {
+      venture: document.getElementById("sVenture").value.trim(),
+      home_state: document.getElementById("sState").value.trim(),
+      activity: document.getElementById("sActivity").value,
+      active_principals: num("sPrincipals", 2),
+      passive_investors: num("sPassive", 0),
+      capital_source: document.getElementById("sCapitalSource").value,
+      initial_capital: num("sCapital", 0),
+      exit_intent: document.getElementById("sExit").value,
+      expected_hold_years: holdRaw === "" ? null : num("sHoldYears", null),
+      regulated_regime: regime === "" ? null : regime,
+      tessera_role: document.getElementById("sRole").value,
+      tessera_is_principal: ["principal","both"].includes(document.getElementById("sRole").value),
+      equal_ownership: on("sEqual"),
+      real_property: on("sRealProperty"),
+      material_ip: on("sIP"),
+      spouses_involved: on("sSpouses"),
+      estate_planning_relevant: on("sEstate"),
+      key_person_dependency: on("sKeyPerson"),
+      expects_additional_capital: on("sMoreCapital"),
+      operators_take_compensation: on("sComp")
+    }
+  };
+}
+
+async function recommendStructure(){
+  const button=document.getElementById("sGo"), out=document.getElementById("sResult");
+  if(!API.live){ toast("API required","The console is not connected.",true); return; }
+  const payload=structurePayload();
+  if(!payload.venture.venture || !payload.venture.home_state){
+    toast("Incomplete","A venture name and a home state are required.",true); return;
+  }
+  if(!payload.project_id){ toast("No engagement","Select an engagement first.",true); return; }
+  button.disabled=true; out.textContent="Working\u2026";
+  try{
+    const artifact=await apiJson("/v1/structure/intake",
+      {method:"POST",body:JSON.stringify(payload)});
+    DATA.artifacts=[artifact,...DATA.artifacts.filter(a=>a.id!==artifact.id)];
+    selectedArtifact=artifact.id;
+    renderArtifacts(); renderProjects();
+    out.innerHTML=artifactMarkup(artifact);
+    toast(artifact.status==="insufficient_evidence"?"Specialist declined":"Recommendation ready",
+          artifact.title,false);
+  }catch(error){
+    out.textContent="";
+    toast("Structure Manager stopped",error.message,true);
+  }finally{ button.disabled=false; }
+}
+
+function renderStructureOptions(){
+  const select=document.getElementById("sProject");
+  if(!select) return;
+  select.innerHTML = DATA.projects.map(p=>
+    `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
+}
+
 /* ---------- help + keys ---------- */
 function openHelp(){ document.getElementById("helpOverlay").classList.add("open"); }
 function closeHelp(){ document.getElementById("helpOverlay").classList.remove("open"); }
@@ -1062,6 +1246,7 @@ document.addEventListener("keydown",e=>{
 
 document.querySelectorAll(".navitem").forEach(n=>n.addEventListener("click",()=>switchView(n.dataset.view)));
 document.getElementById("qGo").addEventListener("click",renderRoute);
+document.getElementById("sGo").addEventListener("click",recommendStructure);
 document.getElementById("dConfirm").addEventListener("click",submitDecision);
 document.getElementById("resetWorkspace").addEventListener("click",resetWorkspace);
 

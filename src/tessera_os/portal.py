@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import os
-from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
 
-import jwt
 from fastapi import Cookie, Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
@@ -26,6 +24,7 @@ from .microsoft import (
 )
 from .paths import project_root
 from .schemas import SourceDocument, UserContext
+from .sessions import COOKIE_NAME, SESSION_HOURS, SessionCodec
 
 
 class PortalProject(BaseModel):
@@ -83,34 +82,6 @@ class PortalSession(BaseModel):
     display_name: str
     projects: list[PortalProject]
     microsoft_connected: bool
-
-
-class SessionCodec:
-    issuer = "tessera-portal"
-    audience = "tessera-portal-browser"
-
-    def __init__(self, secret: str) -> None:
-        self.secret = secret
-
-    def issue(self, *, user_id: str, tenant_id: str, display_name: str,
-              group_ids: list[str] | None = None) -> str:
-        now = datetime.now(UTC)
-        # ``grp`` carries the *mapped Tessera* groups, resolved once at sign-in
-        # through the Entra group map. The browser can read the cookie's claims
-        # but cannot mint them — the session is signed server-side.
-        return jwt.encode({"sub": user_id, "tid": tenant_id, "name": display_name,
-            "grp": sorted(group_ids or []),
-            "iss": self.issuer, "aud": self.audience, "iat": now,
-            "exp": now + timedelta(hours=8)}, self.secret, algorithm="HS256")
-
-    def decode(self, token: str) -> dict[str, str]:
-        try:
-            return jwt.decode(token, self.secret, algorithms=["HS256"],
-                issuer=self.issuer, audience=self.audience,
-                options={"require": ["sub", "tid", "iss", "aud", "iat", "exp"]})
-        except jwt.PyJWTError as exc:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                                detail="Portal session is invalid or expired") from exc
 
 
 def create_portal_app(*, portal_settings: PortalSettings | None = None,
@@ -212,15 +183,15 @@ def create_portal_app(*, portal_settings: PortalSettings | None = None,
                             display_name=identity.display_name or identity.username or "Tessera User",
                             group_ids=sorted(group_map.resolve(identity.entra_group_ids)))
         response = RedirectResponse(str(settings.app_url), status_code=status.HTTP_303_SEE_OTHER)
-        response.set_cookie("tessera_session", token, httponly=True, secure=True,
-            samesite="lax", max_age=8 * 60 * 60, path="/")
+        response.set_cookie(COOKIE_NAME, token, httponly=True, secure=True,
+            samesite="lax", max_age=SESSION_HOURS * 60 * 60, path="/")
         return response
 
     @app.post("/v1/auth/logout")
     def logout() -> RedirectResponse:
         broker.disconnect()
         response = RedirectResponse(str(settings.app_url), status_code=status.HTTP_303_SEE_OTHER)
-        response.delete_cookie("tessera_session", path="/")
+        response.delete_cookie(COOKIE_NAME, path="/")
         return response
 
     @app.get("/v1/session", response_model=PortalSession)
@@ -283,8 +254,49 @@ def create_portal_app(*, portal_settings: PortalSettings | None = None,
         if assets_dir.is_dir():
             app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
+    # --- the console --------------------------------------------------------
+    #
+    # Mounted here rather than deployed beside the portal, for the same reason
+    # the portal UI is served from this app: the session cookie is SameSite=Lax
+    # and a browser will not send it cross-origin. A console on its own hostname
+    # would sign in successfully and then receive 401 on every request.
+    #
+    # It runs on the portal's own identity, projects, and data directory, so
+    # there is one invitation list, one project catalog, and one durable store
+    # rather than two that can disagree.
+    from .console import (
+        ConsoleProject,
+        PortalContextProvider,
+        create_console_app,
+        production_console_fixture,
+    )
+
+    console_projects = [
+        ConsoleProject(
+            id=project.id,
+            client_id=(microsoft.project_resources[project.id].client_id
+                       if project.id in microsoft.project_resources
+                       and microsoft.project_resources[project.id].client_id
+                       else "tessera-internal"),
+            name=project.name, phase="active", status="active",
+            manager_agent_id="structure_manager",
+            summary=project.summary or "Tessera engagement workspace")
+        for project in settings.projects.values()
+    ]
+    console_app = create_console_app(
+        data_dir=settings.data_dir / "console",
+        ui_path=web_dir / "tessera-console.html",
+        microsoft_broker=broker,
+        fixture=production_console_fixture(console_projects),
+        context_provider=PortalContextProvider(
+            codec=codec, project_ids=set(settings.projects),
+            allowed_user_ids=settings.allowed_user_ids),
+    )
+    app.mount("/console", console_app, name="console")
+
     app.state.portal_settings = settings
     app.state.microsoft_broker = broker
+    app.state.console_app = console_app
     return app
 
 

@@ -47,6 +47,9 @@ class UserContext(BaseModel):
     user_id: str = Field(min_length=1)
     project_ids: frozenset[str] = Field(default_factory=frozenset)
     group_ids: frozenset[str] = Field(default_factory=frozenset)
+    # Presentation only. Never used for authorization -- the user is the object
+    # ID, and a display name is whatever the directory happens to hold today.
+    display_name: str = ""
 
 
 class SourceDocument(BaseModel):

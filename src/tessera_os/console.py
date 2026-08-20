@@ -10,7 +10,16 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, status
+from fastapi import (
+    Cookie,
+    Depends,
+    FastAPI,
+    Header,
+    HTTPException,
+    Query,
+    Request,
+    status,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field
@@ -24,6 +33,7 @@ from .drafting import (
     StructureRequest,
 )
 from .governance import VentureProfile, recommend_structure
+from .identity import BASE_GROUP
 from .microsoft import (
     MicrosoftConfigurationError,
     MicrosoftConnectionBroker,
@@ -45,6 +55,7 @@ from .schemas import (
     UserContext,
 )
 from .service import AuthSettings, create_app
+from .sessions import SessionCodec
 from .settings import SecuritySettings, load_integration_settings, load_security_settings
 from .workspace import (
     ArtifactEvent,
@@ -200,6 +211,90 @@ class SyntheticContextProvider:
         return self.context
 
 
+class PortalContextProvider:
+    """Real identity, taken from the session the portal already issued.
+
+    The synthetic provider above hands every caller one fixed identity carrying
+    every privileged group at once. That is right for a localhost exercise and
+    disqualifying anywhere else: under it, separation of duties is a label the
+    interface displays rather than a boundary anything enforces, because the
+    same identity both drafts and accepts.
+
+    This reads the signed portal session cookie instead, and three properties
+    follow -- each one a boundary the console did not previously have:
+
+    - **The user is who Entra says they are.** ``sub`` is the Entra object ID,
+      minted server-side and signed with a secret the browser never sees.
+    - **Privileged groups come from the directory, not from code.** ``grp``
+      holds the Tessera groups resolved through the Entra group map at sign-in.
+      A user outside the mapped security group cannot carry
+      ``qualified_counsel``, so the review queue's refusal to let an author
+      disposition their own draft becomes enforceable instead of advisory.
+    - **The invitation list still applies.** A structurally valid session for
+      someone outside ``TESSERA_ALLOWED_USER_IDS`` is refused here as well as at
+      the portal, so mounting the console widens the surface without widening
+      who may reach it.
+    """
+
+    def __init__(self, *, codec: SessionCodec, project_ids: set[str],
+                 allowed_user_ids: frozenset[str]) -> None:
+        self._codec = codec
+        self._project_ids = frozenset(project_ids)
+        self._allowed_user_ids = frozenset(allowed_user_ids)
+
+    def __call__(
+        self,
+        tessera_session: Annotated[str | None, Cookie()] = None,
+    ) -> UserContext:
+        if not tessera_session:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                                detail="Sign in to Tessera OS to use the console")
+        claims = self._codec.decode(tessera_session)
+        user_id = str(claims["sub"])
+        if user_id not in self._allowed_user_ids:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail="This account is not invited to Tessera OS")
+        # An absent or empty ``grp`` is not an error. Entra omits the groups
+        # claim entirely once a user exceeds the token's group limit, and the
+        # correct reading of "no mapped groups" is no privilege -- never an
+        # assumption that the user must have meant to have some.
+        mapped = {str(item) for item in (claims.get("grp") or [])}
+        return UserContext(tenant_id=str(claims["tid"]), user_id=user_id,
+                           display_name=str(claims.get("name") or ""),
+                           project_ids=self._project_ids,
+                           group_ids=frozenset(mapped | {BASE_GROUP}))
+
+
+PRODUCTION_NOTICE = (
+    "Live engagement data. Records here are real, every decision is written to "
+    "the audit chain, and no synthetic fixture is loaded.")
+
+
+def production_console_fixture(projects: list[ConsoleProject]) -> ConsoleFixture:
+    """The catalog the console runs on when it is not running on fixtures.
+
+    Carries no ``pilot_templates`` and no ``review_items``, deliberately. The
+    templates are pre-authored synthetic drafts, and seeding a production review
+    queue with them would put invented findings in front of a reviewer through
+    the same interface, and with the same weight, as real ones. An empty queue
+    that fills from real work is the correct starting state.
+    """
+    return ConsoleFixture(
+        notice=PRODUCTION_NOTICE,
+        clients=[ConsoleClient(id=client_id,
+                               name=client_id.replace("-", " ").replace("_", " ").title())
+                 for client_id in sorted({project.client_id for project in projects})],
+        projects=list(projects), pilot_templates=[], project_controls=[], review_items=[])
+
+
+class StructureIntakeRequest(BaseModel):
+    """A venture described by the operator, rather than by a fixture."""
+
+    project_id: str = Field(min_length=1)
+    venture: VentureProfile
+    counterparty: str = ""
+
+
 def load_console_fixture(path: Path = DEFAULT_FIXTURE) -> ConsoleFixture:
     return ConsoleFixture.model_validate(json.loads(path.read_text()))
 
@@ -233,12 +328,15 @@ def _visible_clients(fixture: ConsoleFixture, context: UserContext) -> list[Cons
     return [client for client in fixture.clients if client.id in client_ids]
 
 
-def _session(context: UserContext) -> ConsoleSession:
+def _session(context: UserContext, *, environment: Environment = Environment.SANDBOX,
+             synthetic: bool = True) -> ConsoleSession:
     return ConsoleSession(tenant_id=context.tenant_id, user_id=context.user_id,
-                          display_name="Avery Reviewer (Synthetic)",
+                          display_name=(context.display_name
+                                        or ("Avery Reviewer (Synthetic)" if synthetic
+                                            else context.user_id)),
                           project_ids=sorted(context.project_ids),
                           groups=sorted(context.group_ids),
-                          environment=Environment.SANDBOX)
+                          environment=environment, synthetic=synthetic)
 
 
 def create_console_app(*, data_dir: Path | None = None,
@@ -246,16 +344,51 @@ def create_console_app(*, data_dir: Path | None = None,
                        ui_path: Path = DEFAULT_UI,
                        live_drafter: Callable[[PilotTaskRequest, PilotTemplate],
                                               LiveDraftContent] | None = None,
-                       microsoft_broker: MicrosoftConnectionBroker | None = None) -> FastAPI:
-    """Create a localhost sandbox app; production construction fails closed."""
+                       microsoft_broker: MicrosoftConnectionBroker | None = None,
+                       context_provider: Callable[..., UserContext] | None = None,
+                       fixture: ConsoleFixture | None = None,
+                       trusted_hosts: list[str] | None = None) -> FastAPI:
+    """Create the console app.
+
+    Production is permitted, but only on terms. The old guard refused it
+    outright, and that was the right refusal for what the console then was: an
+    app whose every request resolved to one hardcoded identity holding every
+    privileged group. Running that in production would have put an interface
+    with no access control in front of real client work.
+
+    What the guard was actually protecting against is the synthetic *identity*,
+    not the console. So the condition is now the specific one: production
+    requires a real context provider. Supply ``PortalContextProvider`` and the
+    console authenticates every request against the signed portal session, the
+    project ACLs are enforced against a real user, and the review queue's
+    separation of duties has two distinct people to distinguish. Supply nothing
+    and it still refuses, exactly as before.
+    """
     environment = Environment(os.getenv("TESSERA_ENV", "sandbox"))
-    if environment == Environment.PRODUCTION:
-        raise RuntimeError("Synthetic console cannot run in production")
-    if environment not in {Environment.TEST, Environment.SANDBOX}:
+    production = environment == Environment.PRODUCTION
+    if production and context_provider is None:
+        raise RuntimeError(
+            "Production console requires an authenticated context provider; "
+            "the synthetic identity carries every reviewer group and cannot "
+            "enforce separation of duties")
+    if not production and environment not in {Environment.TEST, Environment.SANDBOX}:
         raise RuntimeError("Synthetic console is limited to test and sandbox environments")
-    fixture = load_console_fixture(fixture_path)
+    fixture = fixture or load_console_fixture(fixture_path)
     project_ids = {project.id for project in fixture.projects}
-    context_provider = SyntheticContextProvider(project_ids)
+    context_provider = context_provider or SyntheticContextProvider(project_ids)
+
+    def refuse_in_production(surface: str) -> None:
+        """Refuse a surface whose content is pre-authored fiction.
+
+        These endpoints return fixture drafts, or restore them. In a sandbox
+        that is the point. In production the output would be indistinguishable
+        in the interface from a real engine result, which is the one failure
+        this system exists to prevent.
+        """
+        if production:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                detail=(f"{surface} serves pre-authored synthetic content and is "
+                        "available only in the sandbox console"))
     runtime_dir = data_dir or Path(os.getenv("TESSERA_CONSOLE_DATA_DIR",
                                              ROOT / "data" / "runtime"))
     runtime_dir.mkdir(parents=True, exist_ok=True)
@@ -266,7 +399,8 @@ def create_console_app(*, data_dir: Path | None = None,
             cache_path=runtime_dir / "microsoft-token-cache.bin",
         )
     review_queue = ReviewQueue(runtime_dir / "console-review.db")
-    review_queue.seed(fixture.review_items)
+    if fixture.review_items:
+        review_queue.seed(fixture.review_items)
     artifact_store = PilotArtifactStore(runtime_dir / "console-artifacts.db")
     clauses = ClauseLibrary.load(ROOT / "fixtures" / "clause_library")
     drafter = AgreementDrafter(library=clauses, store=artifact_store,
@@ -307,6 +441,13 @@ def create_console_app(*, data_dir: Path | None = None,
     audit_store = RuntimeAuditStore(runtime_dir / "console-audit.db")
     registry = AgentRegistry()
     live_enabled = os.getenv("TESSERA_PILOT_LIVE_DRAFTING", "false").lower() == "true"
+    if live_enabled and live_drafter is None and not isinstance(
+            context_provider, SyntheticContextProvider):
+        # The fallback drafter below runs the orchestrator as the provider's one
+        # fixed identity, which only exists in the synthetic console. Rather
+        # than silently run real drafting as the wrong user, live drafting stays
+        # off until a drafter bound to the authenticated caller is supplied.
+        live_enabled = False
     if live_enabled and live_drafter is None:
         orchestrator = TesseraOrchestrator(registry=registry)
 
@@ -346,19 +487,33 @@ def create_console_app(*, data_dir: Path | None = None,
                 PilotWorkflowOption(project_id=project_id, workflow="entity_structuring",
                                     title="Entity Structure Recommendation",
                                     agent_id="structure_manager")]
+    # The verification key is never used: create_app builds a JWT authenticator
+    # only when no context provider is supplied, and one always is here. It is
+    # still declared honestly per environment, because AuthSettings refuses a
+    # symmetric algorithm in production and that refusal is worth keeping intact
+    # rather than working around.
     auth_settings = AuthSettings(issuer="offline://tessera-console",
-        audience="tessera-console", verification_key="synthetic-console-key-not-for-production",
-        algorithm="HS256", environment=environment)
+        audience="tessera-console",
+        verification_key=("unused-authentication-is-delegated-to-the-portal-session"
+                          if production else "synthetic-console-key-not-for-production"),
+        algorithm="RS256" if production else "HS256", environment=environment)
     app = create_app(auth_settings=auth_settings, audit_store=audit_store,
                      rate_limiter=RateLimiter(limit=60), registry=registry,
                      context_provider=context_provider, enable_docs=False)
     app.title = "Tessera OS Console API"
-    app.add_middleware(TrustedHostMiddleware,
-                       allowed_hosts=["127.0.0.1", "localhost", "testserver"])
-    app.add_middleware(CORSMiddleware,
-        allow_origins=["http://127.0.0.1:8000", "http://localhost:8000"],
-        allow_credentials=False, allow_methods=["GET", "POST"],
-        allow_headers=["Content-Type", "X-Correlation-ID"])
+    if trusted_hosts:
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=trusted_hosts)
+    elif not production:
+        app.add_middleware(TrustedHostMiddleware,
+                           allowed_hosts=["127.0.0.1", "localhost", "testserver"])
+    if not production:
+        # Mounted on the portal, the console is same-origin by construction and
+        # the parent app already enforces the host allowlist. Declaring CORS
+        # here would only ever widen it.
+        app.add_middleware(CORSMiddleware,
+            allow_origins=["http://127.0.0.1:8000", "http://localhost:8000"],
+            allow_credentials=False, allow_methods=["GET", "POST"],
+            allow_headers=["Content-Type", "X-Correlation-ID"])
 
     security_settings: SecuritySettings = load_security_settings()
 
@@ -389,9 +544,12 @@ def create_console_app(*, data_dir: Path | None = None,
     def favicon() -> Response:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
+    def console_session(context: UserContext) -> ConsoleSession:
+        return _session(context, environment=environment, synthetic=not production)
+
     @app.get("/v1/session", response_model=ConsoleSession)
     def session(context: UserContext = Depends(context_provider)) -> ConsoleSession:  # noqa: B008
-        return _session(context)
+        return console_session(context)
 
     @app.get("/v1/agents", response_model=list[ConsoleAgent])
     def agents(context: UserContext = Depends(context_provider)) -> list[ConsoleAgent]:  # noqa: B008
@@ -542,6 +700,12 @@ def create_console_app(*, data_dir: Path | None = None,
     @app.post("/v1/workspace/run", response_model=PilotArtifact)
     def run_workspace(request: PilotTaskRequest,
                       context: UserContext = Depends(context_provider)) -> PilotArtifact:  # noqa: B008
+        # Both branches are fixtures. The templates are pre-authored drafts, and
+        # entity_structuring here runs the real engine over a hardcoded venture
+        # -- a genuine recommendation about an imaginary company. Production
+        # reaches the same engine through /v1/structure/intake with the
+        # operator's own facts.
+        refuse_in_production("Running a workspace workflow")
         try:
             if request.workflow == "entity_structuring":
                 if request.project_id not in context.project_ids:
@@ -559,10 +723,57 @@ def create_console_app(*, data_dir: Path | None = None,
     @app.post("/v1/workspace/compare", response_model=PilotComparison)
     def compare_workspace(request: PilotTaskRequest,
                           context: UserContext = Depends(context_provider)) -> PilotComparison:  # noqa: B008
+        refuse_in_production("Comparing workspace drafts")
         try:
             return workspace.compare(request, context=context)
         except PermissionError as exc:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+        except (PilotWorkspaceError, ValueError) as exc:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                                detail=str(exc)) from exc
+
+    @app.post("/v1/structure/intake", response_model=PilotArtifact)
+    def structure_intake(request: StructureIntakeRequest,
+                         context: UserContext = Depends(context_provider)) -> PilotArtifact:  # noqa: B008
+        """Recommend a structure from facts the operator states at intake.
+
+        This is the production entry to the structure engine. It exists because
+        the sandbox route supplies a hardcoded venture, and the whole value of
+        the recommendation is that it responds to *this* venture's facts.
+
+        The evidence record attached below is an operator statement, and is
+        labelled as one rather than dressed as a document. ``StructureRequest``
+        requires at least one piece of evidence precisely so that nothing enters
+        the record without a provenance, and the honest provenance here is "the
+        partner said so at intake on this date". A memo built on stated facts
+        should read as one; if the facts later come from a signed term sheet,
+        that becomes a different evidence record and the memo strengthens.
+        """
+        if request.project_id not in context.project_ids:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail="Project is outside authenticated scope")
+        stamp = datetime.now(UTC)
+        venture = request.venture
+        summary = (f"{venture.venture} · {venture.home_state} · {venture.activity} · "
+                   f"{venture.active_principals} active principal(s), "
+                   f"{venture.passive_investors} passive · capital "
+                   f"{venture.capital_source} · exit {venture.exit_intent}")
+        stated_by = context.display_name or context.user_id
+        try:
+            return structure_advisor.recommend(
+                StructureRequest(
+                    project_id=request.project_id, venture=venture,
+                    counterparty=request.counterparty,
+                    evidence=[Evidence(
+                        source_id=f"{request.project_id}-intake-{stamp:%Y%m%dT%H%M%S}",
+                        title=f"Structuring intake stated by {stated_by}",
+                        locator=f"portal://structure-intake/{request.project_id}",
+                        excerpt=summary,
+                        retrieved_at=stamp.isoformat())]),
+                context=context)
+        except PermissionError as exc:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail=str(exc)) from exc
         except (PilotWorkspaceError, ValueError) as exc:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                                 detail=str(exc)) from exc
@@ -685,6 +896,9 @@ def create_console_app(*, data_dir: Path | None = None,
     def reset_workspace(request: WorkspaceResetRequest,
                         context: UserContext = Depends(context_provider)) -> WorkspaceResetResult:  # noqa: B008
         del request
+        # Reset restores the synthetic queue. Against real work it would delete
+        # artifacts and decisions of record and replace them with fixtures.
+        refuse_in_production("Resetting the workspace")
         try:
             removed = artifact_store.reset_synthetic(context=context)
             restored = review_queue.reset_synthetic(
@@ -745,7 +959,7 @@ def create_console_app(*, data_dir: Path | None = None,
                      for item in artifact_store.list(context=context)]
         agents = [_agent_card(agent) for agent in registry.all()]
         integrations = _integration_cards()
-        return ConsoleBootstrap(notice=fixture.notice, session=_session(context),
+        return ConsoleBootstrap(notice=fixture.notice, session=console_session(context),
             dashboard=DashboardSummary(
                 pending_reviews=sum(item.status == ReviewStatus.PENDING
                                     for item in review_items),
