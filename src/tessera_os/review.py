@@ -7,6 +7,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from .schemas import Evidence, ReviewItem, ReviewReasonCategory, ReviewStatus, UserContext
+from .sqlite_store import connect as sqlite_connect
 
 
 class ReviewAccessDenied(PermissionError):
@@ -35,9 +36,7 @@ class ReviewQueue:
                     connection.execute(f"ALTER TABLE review_items ADD COLUMN {name} TEXT")
 
     def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self.path)
-        connection.row_factory = sqlite3.Row
-        return connection
+        return sqlite_connect(self.path)
 
     def submit(self, *, tenant_id: str, project_id: str | None, created_by: str,
                workflow: str, title: str, body: str, evidence: list[Evidence],

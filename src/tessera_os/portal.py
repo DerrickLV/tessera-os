@@ -159,7 +159,15 @@ def create_portal_app(*, portal_settings: PortalSettings | None = None,
 
     @app.get("/health")
     def health() -> dict[str, str]:
-        return {"status": "ok", "mode": "production", "writes": "disabled"}
+        # ``console`` reports the state and never the reason. A degraded
+        # deployment should announce itself -- a portal serving happily with no
+        # console is otherwise indistinguishable from a healthy one until
+        # somebody clicks through and gets a 404. But /health is unauthenticated,
+        # and the underlying error carries a filesystem path. The reason stays in
+        # the logs and on app.state where it needs a session to reach.
+        console_state = "unavailable" if getattr(app.state, "console_error", "") else "ok"
+        return {"status": "ok", "mode": "production", "writes": "disabled",
+                "console": console_state}
 
     @app.get("/v1/auth/microsoft/start")
     def start_sign_in() -> RedirectResponse:
@@ -283,20 +291,36 @@ def create_portal_app(*, portal_settings: PortalSettings | None = None,
             summary=project.summary or "Tessera engagement workspace")
         for project in settings.projects.values()
     ]
-    console_app = create_console_app(
-        data_dir=settings.data_dir / "console",
-        ui_path=web_dir / "tessera-console.html",
-        microsoft_broker=broker,
-        fixture=production_console_fixture(console_projects),
-        context_provider=PortalContextProvider(
-            codec=codec, project_ids=set(settings.projects),
-            allowed_user_ids=settings.allowed_user_ids),
-    )
-    app.mount("/console", console_app, name="console")
+    # The console is mounted if it can be built, and the portal survives if it
+    # cannot. This is not defensive habit: a locked SQLite file under the
+    # console's data directory took the whole portal down once, because the
+    # console is constructed here. Nobody could sign in, reach SharePoint, or
+    # read the review queue -- over a subsystem none of those depend on. The
+    # blast radius of a console fault is now the console.
+    #
+    # It fails loudly rather than quietly: the reason is recorded and reported
+    # by /health, so a missing console is a visible degraded state rather than a
+    # 404 someone has to go and explain.
+    console_app = None
+    console_error = ""
+    try:
+        console_app = create_console_app(
+            data_dir=settings.data_dir / "console",
+            ui_path=web_dir / "tessera-console.html",
+            microsoft_broker=broker,
+            fixture=production_console_fixture(console_projects),
+            context_provider=PortalContextProvider(
+                codec=codec, project_ids=set(settings.projects),
+                allowed_user_ids=settings.allowed_user_ids),
+        )
+        app.mount("/console", console_app, name="console")
+    except Exception as exc:  # noqa: BLE001 - the portal must outlive any one subsystem
+        console_error = f"{type(exc).__name__}: {exc}"
 
     app.state.portal_settings = settings
     app.state.microsoft_broker = broker
     app.state.console_app = console_app
+    app.state.console_error = console_error
     return app
 
 

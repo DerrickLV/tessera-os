@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field, ValidationError, model_validator
 
 from .knowledge import ScopeDenied
 from .schemas import Evidence, UserContext
+from .sqlite_store import connect as sqlite_connect
 
 
 class ActionPolicyError(ValueError):
@@ -289,9 +290,7 @@ class ActionControlStore:
             """)
 
     def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self.path)
-        connection.row_factory = sqlite3.Row
-        return connection
+        return sqlite_connect(self.path)
 
     def submit(self, request: SandboxActionRequest, *, context: UserContext,
                approver_group: str, now: datetime | None = None,

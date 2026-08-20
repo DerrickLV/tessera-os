@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 from .identity import ZoneAccessError, ZonePolicy
 from .router import Router
 from .schemas import Evidence, RouteDecision, UserContext
+from .sqlite_store import connect as sqlite_connect
 
 
 class PilotWorkspaceError(ValueError):
@@ -210,9 +211,7 @@ class PilotArtifactStore:
                 updated_at TEXT NOT NULL)""")
 
     def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self.path)
-        connection.row_factory = sqlite3.Row
-        return connection
+        return sqlite_connect(self.path)
 
     def save(self, artifact: PilotArtifact) -> PilotArtifact:
         with self._connect() as connection:

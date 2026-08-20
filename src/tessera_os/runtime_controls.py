@@ -18,6 +18,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from pydantic import BaseModel, Field
 
 from .schemas import UserContext
+from .sqlite_store import connect as sqlite_connect
 
 
 class BudgetExceeded(PermissionError):
@@ -119,9 +120,7 @@ class RuntimeAuditStore:
             """)
 
     def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self.path)
-        connection.row_factory = sqlite3.Row
-        return connection
+        return sqlite_connect(self.path)
 
     def set_budget(self, *, tenant_id: str, workflow: str, day: date,
                    token_limit: int, cost_limit: float) -> UsageBudget:
@@ -251,9 +250,7 @@ class SecureArtifactStore:
                 legal_hold INTEGER NOT NULL DEFAULT 0)""")
 
     def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self.path)
-        connection.row_factory = sqlite3.Row
-        return connection
+        return sqlite_connect(self.path)
 
     def put(self, *, context: UserContext, project_id: str, category: str,
             value: dict[str, Any], retention_days: int,

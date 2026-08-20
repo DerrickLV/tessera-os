@@ -1,3 +1,4 @@
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -118,8 +119,32 @@ def test_portal_requires_exact_project_mapping_and_https(tmp_path):
 
 
 def test_portal_health_discloses_no_configuration(tmp_path):
-    response = app_client(tmp_path).get("/health")
-    assert response.json() == {"status": "ok", "mode": "production", "writes": "disabled"}
+    """It reports that the console is up, and never why it is not.
+
+    /health is unauthenticated, and the reason a console failed to build is a
+    SQLite error carrying a filesystem path. The state belongs here so a
+    degraded deployment announces itself; the detail belongs in the logs."""
+    body = app_client(tmp_path).get("/health").json()
+    assert body == {"status": "ok", "mode": "production", "writes": "disabled",
+                    "console": "ok"}
+
+
+def test_a_broken_console_degrades_the_portal_instead_of_killing_it(tmp_path, monkeypatch):
+    """A locked SQLite file under the console's data directory once took the
+    whole portal down -- nobody could sign in, reach SharePoint, or read the
+    review queue, over a subsystem none of those depend on."""
+    import tessera_os.console as console_module
+
+    def refuse(**_kwargs):
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(console_module, "create_console_app", refuse)
+    api = app_client(tmp_path)
+    assert api.get("/health").json()["console"] == "unavailable"
+    assert api.get("/health").status_code == 200
+    assert api.get("/console/").status_code == 404
+    # The reason is retained, out of reach of an unauthenticated caller.
+    assert "locked" in api.app.state.console_error
 
 
 def test_portal_has_no_document_write_or_approval_bypass_route(tmp_path):
