@@ -275,6 +275,13 @@ def create_portal_app(*, portal_settings: PortalSettings | None = None,
         # Mounted last: a StaticFiles mount at "/" would otherwise shadow every
         # route declared above it.
         app.mount("/ui", StaticFiles(directory=web_dir), name="ui")
+        # The portal page requests "/assets/portal.js". Serving the directory
+        # only under "/ui" left that script 404ing, so the page rendered its
+        # loading state, never ran its boot(), and never gave the sign-in link
+        # an href -- a dead page served by a healthy container.
+        assets_dir = web_dir / "assets"
+        if assets_dir.is_dir():
+            app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
     app.state.portal_settings = settings
     app.state.microsoft_broker = broker

@@ -1,6 +1,10 @@
 "use strict";
 
-const API = "https://api.tesseraag.com";
+// Same-origin. The session cookie is issued SameSite=Lax, so a browser will
+// not attach it to a cross-origin request -- pointing this at another host
+// produces a sign-in that appears to succeed and 401s on every call after.
+// The empty prefix keeps every fetch relative to wherever the portal is served.
+const API = "";
 const element = id => document.getElementById(id);
 
 function escapeHtml(value) {
