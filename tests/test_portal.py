@@ -99,8 +99,8 @@ def test_portal_rejects_tampered_session_and_multiple_user_configuration(tmp_pat
     )
     assert response.status_code == 401
     assert "invalid or expired" in response.json()["detail"]
-    with pytest.raises(ValueError, match="at most 1 item"):
-        portal_settings(tmp_path, allowed=("user-1", "user-2"))
+    with pytest.raises(ValueError, match="at most 5 items"):
+        portal_settings(tmp_path, allowed=tuple(f"user-{n}" for n in range(6)))
 
 
 def test_portal_requires_exact_project_mapping_and_https(tmp_path):
@@ -169,3 +169,24 @@ def test_serving_the_interface_shadows_no_api_route(tmp_path):
     assert api.get("/health").status_code == 200
     assert api.get("/v1/session").status_code in (200, 401)
     assert api.get("/v1/projects").status_code in (200, 401)
+
+
+
+def test_the_allowlist_admits_the_second_reviewer_the_queue_requires(tmp_path):
+    """A single permitted user deadlocks the whole system.
+
+    Every drafted agreement and structure recommendation carries a
+    required_reviewer_group, and ReviewQueue refuses to let an author
+    disposition their own item. Cap the allowlist at one and the only person who
+    can draft is the only person who cannot approve — so nothing is ever
+    approved. The cap has to leave room for the reviewer the queue insists on.
+    """
+    settings = portal_settings(tmp_path, allowed=("derrick-oid", "ryan-oid"))
+    assert settings.allowed_user_ids == frozenset({"derrick-oid", "ryan-oid"})
+
+
+def test_the_allowlist_still_refuses_an_empty_configuration(tmp_path):
+    """Raising the ceiling must not open the floor. An unset variable means
+    nobody signs in, not everybody."""
+    with pytest.raises(ValueError):
+        portal_settings(tmp_path, allowed=())
