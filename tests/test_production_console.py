@@ -255,3 +255,17 @@ def test_the_interface_never_hardcodes_an_api_host(portal):
     page = portal.get("/console/", follow_redirects=True).text
     assert "api.tesseraag.com" not in page
     assert 'API.base + path' in page
+
+
+def test_the_portal_policy_does_not_break_the_console_interface(portal):
+    """The portal's script-src is 'self' with no inline allowance, and its
+    middleware wraps the mount. Applied to the console -- one inline script with
+    fonts embedded as data URIs -- it would render a blank page whose only
+    explanation was in the browser console."""
+    portal_csp = portal.get("/health").headers["content-security-policy"]
+    console_csp = portal.get("/console/", follow_redirects=True).headers[
+        "content-security-policy"]
+
+    assert "'unsafe-inline'" not in portal_csp.split("script-src")[1].split(";")[0]
+    assert "'unsafe-inline'" in console_csp.split("script-src")[1].split(";")[0]
+    assert "font-src 'self' data:" in console_csp

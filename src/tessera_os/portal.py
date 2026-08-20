@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 from typing import Annotated
@@ -25,6 +26,8 @@ from .microsoft import (
 from .paths import project_root
 from .schemas import SourceDocument, UserContext
 from .sessions import COOKIE_NAME, SESSION_HOURS, SessionCodec
+
+logger = logging.getLogger(__name__)
 
 
 class PortalProject(BaseModel):
@@ -151,7 +154,15 @@ def create_portal_app(*, portal_settings: PortalSettings | None = None,
         # Same-origin delivery means the policy ships with the response rather
         # than with a static host's configuration. 'self' covers the API because
         # the UI is served from this application.
-        response.headers["Content-Security-Policy"] = (
+        #
+        # A mounted sub-application that already set its own policy keeps it.
+        # This middleware wraps the mount, so overwriting unconditionally would
+        # impose the portal's script-src on the console -- whose interface is a
+        # single inline script with its fonts embedded as data URIs, and which
+        # would have rendered as a blank page with nothing but console errors to
+        # explain why. Each application states the policy its own interface
+        # needs; neither silently relaxes the other's.
+        response.headers.setdefault("Content-Security-Policy",
             "default-src 'self'; connect-src 'self'; style-src 'self' 'unsafe-inline'; "
             "script-src 'self'; img-src 'self' data:; frame-ancestors 'none'; "
             "base-uri 'none'; form-action 'self' https://login.microsoftonline.com")
@@ -298,9 +309,12 @@ def create_portal_app(*, portal_settings: PortalSettings | None = None,
     # read the review queue -- over a subsystem none of those depend on. The
     # blast radius of a console fault is now the console.
     #
-    # It fails loudly rather than quietly: the reason is recorded and reported
-    # by /health, so a missing console is a visible degraded state rather than a
-    # 404 someone has to go and explain.
+    # It fails loudly rather than quietly. /health reports the state and never
+    # the reason, because it is unauthenticated and the reason carries a
+    # filesystem path -- so the reason goes to the log, with a traceback. The
+    # first version of this recorded it only on app.state, where nothing could
+    # reach it, and diagnosing the very failure it was written for required
+    # opening a shell inside the running container.
     console_app = None
     console_error = ""
     try:
@@ -314,8 +328,11 @@ def create_portal_app(*, portal_settings: PortalSettings | None = None,
                 allowed_user_ids=settings.allowed_user_ids),
         )
         app.mount("/console", console_app, name="console")
-    except Exception as exc:  # noqa: BLE001 - the portal must outlive any one subsystem
+    # Broad on purpose: the portal must outlive any one subsystem, and a
+    # console that cannot build is not a reason nobody can sign in.
+    except Exception as exc:
         console_error = f"{type(exc).__name__}: {exc}"
+        logger.exception("Console unavailable; the portal is running without it")
 
     app.state.portal_settings = settings
     app.state.microsoft_broker = broker

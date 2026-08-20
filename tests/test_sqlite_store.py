@@ -11,8 +11,6 @@ read as a code failure.
 
 from __future__ import annotations
 
-import sqlite3
-
 import pytest
 
 from tessera_os.automation import ActionControlStore
@@ -31,36 +29,73 @@ def test_journalling_is_rollback_not_wal(tmp_path):
     assert mode.lower() == "delete"
 
 
+def test_locking_uses_a_lock_file_rather_than_byte_ranges(tmp_path):
+    """The whole cause, in one assertion.
+
+    SQLite coordinates with POSIX byte-range locks, which the Azure Files SMB
+    client does not implement usefully: the first CREATE TABLE on a new,
+    zero-byte, entirely uncontended database raises "database is locked".
+    Creating a lock file exclusively is something SMB does implement, so the
+    guarantee stays real instead of being switched off.
+    """
+    from tessera_os.sqlite_store import VFS
+    assert VFS == "unix-dotfile"
+    path = tmp_path / "store.db"
+    with connect(path) as connection:
+        connection.execute("CREATE TABLE t (id INTEGER)")
+    assert path.exists()
+
+
+def test_transactions_are_serialized_within_the_process(tmp_path):
+    """Dotfile locking excludes other processes but not other threads in this
+    one, and sync endpoints run in a threadpool -- so several connections in one
+    process is the normal case, not an edge case."""
+    import threading
+
+    path = tmp_path / "store.db"
+    with connect(path) as setup:
+        setup.execute("CREATE TABLE t (id INTEGER)")
+
+    overlaps = []
+    inside = threading.Event()
+
+    def writer(value: int) -> None:
+        with connect(path) as connection:
+            overlaps.append(inside.is_set())
+            inside.set()
+            connection.execute("INSERT INTO t VALUES (?)", (value,))
+            inside.clear()
+
+    threads = [threading.Thread(target=writer, args=(i,)) for i in range(8)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert not any(overlaps), "two transactions were open at once"
+    with connect(path) as check:
+        assert check.execute("SELECT count(*) FROM t").fetchone()[0] == 8
+
+
 def test_the_busy_timeout_outlasts_an_smb_lock_handover(tmp_path):
-    """SQLite's five-second default is shorter than a handover on SMB under no
-    contention at all, which is the difference between a restart that recovers
-    and a crash loop."""
+    """Now genuinely a timeout rather than a workaround: with dotfile locking a
+    wait means another transaction is in flight."""
     with connect(tmp_path / "store.db") as connection:
         timeout_ms = connection.execute("PRAGMA busy_timeout").fetchone()[0]
     assert timeout_ms == int(BUSY_TIMEOUT_SECONDS * 1000)
     assert BUSY_TIMEOUT_SECONDS >= 30
 
 
-def test_a_held_write_lock_is_waited_out_rather_than_raising(tmp_path):
-    """The behaviour the timeout buys, demonstrated rather than asserted about."""
+def test_a_store_survives_being_reopened_after_an_unclean_exit(tmp_path):
+    """The failure left a zero-byte database behind, and every restart met it.
+    Reopening one must recover rather than inherit the previous run's problem."""
     path = tmp_path / "store.db"
-    with connect(path) as setup:
-        setup.execute("CREATE TABLE t (id INTEGER)")
-
-    holder = connect(path)
-    holder.execute("BEGIN IMMEDIATE")
-    try:
-        impatient = sqlite3.connect(str(path), timeout=0)
-        with pytest.raises(sqlite3.OperationalError, match="locked"):
-            impatient.execute("BEGIN IMMEDIATE")
-        impatient.close()
-    finally:
-        holder.rollback()
-        holder.close()
-
-    # And once released, a normally configured connection proceeds.
-    with connect(path) as after:
-        after.execute("INSERT INTO t VALUES (1)")
+    path.write_bytes(b"")
+    with connect(path) as connection:
+        connection.execute("CREATE TABLE t (id INTEGER)")
+        connection.execute("INSERT INTO t VALUES (1)")
+    with connect(path) as reopened:
+        assert reopened.execute("SELECT count(*) FROM t").fetchone()[0] == 1
 
 
 @pytest.mark.parametrize("store", [ReviewQueue, PilotArtifactStore,
