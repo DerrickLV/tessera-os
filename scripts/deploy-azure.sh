@@ -26,22 +26,22 @@ API_URL="https://tessera-portal-api.delightfulground-393766a4.westus2.azureconta
 # github.com → Settings → Developer settings → Personal access tokens (classic)
 # → Generate new token → tick ONLY `read:packages`.
 GITHUB_USER="DerrickLV"
-GITHUB_TOKEN="►► FILL IN ◄◄"
+GITHUB_TOKEN="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"
 
 # ── 2. Microsoft Entra ────────────────────────────────────────────────────────
 # Entra admin center → App registrations → your app → Overview
-M365_TENANT_ID="►► FILL IN ◄◄"     # "Directory (tenant) ID"
-M365_CLIENT_ID="►► FILL IN ◄◄"     # "Application (client) ID"
-M365_CLIENT_SECRET="►► FILL IN ◄◄" # Certificates & secrets → the secret VALUE
+M365_TENANT_ID="eb991bbe-f3f2-4a09-8a2e-20ee2984d030"     # "Directory (tenant) ID"
+M365_CLIENT_ID="ed1bf367-56b6-48cd-b20b-dba0aefdaec6"     # "Application (client) ID"
+M365_CLIENT_SECRET="bV88Q~dt1mgVCS3Jw~dL~9.-qhX30idQ2xtPyauZ" # Certificates & secrets → the secret VALUE
 # Comma-separated Entra Object IDs. Yours alone works for a first boot, but the
 # review queue refuses to let an author approve their own draft, so a second
 # reviewer is required before anything can actually be accepted.
-ALLOWED_USER_IDS="►► FILL IN ◄◄"   # e.g. "your-oid" or "your-oid,ryans-oid"
+ALLOWED_USER_IDS="592a1eef-eeaa-4470-9db0-38b78fbd91d0,cb82cae5-4dfd-43ab-9dae-b3062534d0fa"   # e.g. "your-oid" or "your-oid,ryans-oid"
 
 # ── 3. SharePoint pilot site ──────────────────────────────────────────────────
 # See scripts/find-sharepoint-ids.md for how to get these two.
-SP_SITE_ID="►► FILL IN ◄◄"
-SP_DRIVE_ID="►► FILL IN ◄◄"
+SP_SITE_ID="tesseragroup581.sharepoint.com,86c8bad2-c144-4e3b-ac08-ed772e7c1f9c,788d6e24-cb4b-43e5-9eba-b483e730f5ea"
+SP_DRIVE_ID="b!0rrIhkTBO06sCO13LnwfnCRujXhLy-VDnrq0g-cw9eqqVvbEY83hQ7p2jgEMSVl5"
 
 # ── 4. Generated secrets — leave as-is, these create themselves ───────────────
 SESSION_SECRET="$(openssl rand -base64 48 | tr -d '\n')"
