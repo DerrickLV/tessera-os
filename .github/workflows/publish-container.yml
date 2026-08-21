@@ -48,3 +48,87 @@ jobs:
           labels: ${{ steps.metadata.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # Deploying by hand meant copying a SHA between two machines for every change,
+  # and the step most often skipped was the one that verified it. This deploys
+  # the exact image this run built -- never `latest`, which has already moved by
+  # the time anything goes wrong -- and then waits for the app to say it is
+  # healthy, so a green run means the change is actually serving traffic.
+  #
+  # Authentication is OIDC: GitHub presents a short-lived token that Entra
+  # exchanges for Azure credentials, scoped by a federated credential to this
+  # repository's main branch. No secret is stored in the repository, so there is
+  # nothing here to leak or rotate.
+  deploy:
+    needs: publish
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      APP: tessera-portal-api
+      GROUP: tessera-pilot-rg
+      URL: https://tessera-portal-api.delightfulground-393766a4.westus2.azurecontainerapps.io
+    steps:
+      - name: Sign in to Azure
+        # Every other action here is pinned to a commit SHA, and this one should
+        # be too. It is on a version tag because the SHA could not be verified
+        # when this was written, and a pin nobody has checked is worse than an
+        # honest tag: it looks like provenance and is not. To pin it:
+        #   gh api repos/Azure/login/commits/v2 --jq .sha
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy this commit's image
+        run: |
+          set -euo pipefail
+          TAG="sha-$(echo "${GITHUB_SHA}" | cut -c1-7)"
+          echo "Deploying ghcr.io/derricklv/tessera-os:${TAG}"
+          az containerapp update -n "$APP" -g "$GROUP" \
+            --image "ghcr.io/derricklv/tessera-os:${TAG}" >/dev/null
+          echo "TAG=${TAG}" >> "$GITHUB_ENV"
+
+      - name: Wait for the revision to become healthy
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            STATE=$(az containerapp revision list -n "$APP" -g "$GROUP" \
+              --query "[?properties.active && properties.trafficWeight==\`100\`] | [0].properties.runningState" -o tsv 2>/dev/null || true)
+            echo "attempt ${attempt}: ${STATE:-pending}"
+            case "${STATE:-}" in
+              Running|RunningAtMaxScale) echo "revision is running"; exit 0 ;;
+              Failed) echo "::error::Revision failed to start"; exit 1 ;;
+            esac
+            sleep 10
+          done
+          echo "::error::Revision did not become healthy within five minutes"
+          exit 1
+
+      - name: Check the application answers, and answers completely
+        run: |
+          set -euo pipefail
+          BODY=$(curl -fsS --retry 6 --retry-delay 10 --retry-all-errors "${URL}/health")
+          echo "$BODY"
+          echo "$BODY" | grep -q '"status":"ok"' || { echo "::error::Portal unhealthy"; exit 1; }
+          # A portal serving with no console is a degraded deployment, not a
+          # successful one. It was invisible for an evening precisely because
+          # nothing failed loudly when it happened.
+          if ! echo "$BODY" | grep -q '"console":"ok"'; then
+            echo "::error::Portal is up but the console did not mount. Check the container logs."
+            exit 1
+          fi
+
+      - name: Report
+        run: echo "### Deployed \`${TAG}\` — portal and console healthy" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Roll back on failure
+        if: failure()
+        run: |
+          echo "::warning::Deployment of ${TAG:-this build} did not become healthy."
+          echo "The previous revision continues to serve traffic; nothing is down."
+          echo "To roll the image back explicitly:"
+          echo "  az containerapp update -n $APP -g $GROUP --image ghcr.io/derricklv/tessera-os:sha-<last-good>"

@@ -289,6 +289,7 @@ kbd{font-family:var(--sans);font-size:.62rem;background:var(--panel-2);border:1p
     <div class="navitem" data-view="request">Ask</div>
     <div class="navitem" data-view="agents">Specialists</div>
     <div class="navitem" data-view="policy">Guardrails</div>
+    <a class="navitem" href="/" style="display:block;text-decoration:none;">&larr; Portal</a>
     <div class="sidebar-foot">
       <div class="who" id="sessionWho">Loading…</div>
       <div class="kbd-hint" onclick="openHelp()"><kbd>?</kbd> Keyboard shortcuts</div>
@@ -1244,7 +1245,9 @@ document.addEventListener("keydown",e=>{
   if((e.key==="r"||e.key==="R")&&selected){ e.preventDefault(); openDecide(selected,"reject"); }
 });
 
-document.querySelectorAll(".navitem").forEach(n=>n.addEventListener("click",()=>switchView(n.dataset.view)));
+// [data-view] only: the Portal link is a real navigation, not a view switch,
+// and routing it through switchView would call it with undefined first.
+document.querySelectorAll(".navitem[data-view]").forEach(n=>n.addEventListener("click",()=>switchView(n.dataset.view)));
 document.getElementById("qGo").addEventListener("click",renderRoute);
 document.getElementById("sGo").addEventListener("click",recommendStructure);
 document.getElementById("dConfirm").addEventListener("click",submitDecision);
