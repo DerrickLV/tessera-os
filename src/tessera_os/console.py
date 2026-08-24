@@ -575,8 +575,7 @@ def create_console_app(*, data_dir: Path | None = None,
     def microsoft_status(
         context: UserContext = Depends(context_provider),  # noqa: B008
     ) -> MicrosoftConnectionStatus:
-        del context
-        return microsoft_broker.status()
+        return microsoft_broker.status(context.user_id)
 
     @app.post("/v1/integrations/microsoft/connect")
     def microsoft_connect(
@@ -605,9 +604,8 @@ def create_console_app(*, data_dir: Path | None = None,
     def microsoft_disconnect(
         context: UserContext = Depends(context_provider),  # noqa: B008
     ) -> MicrosoftConnectionStatus:
-        del context
-        microsoft_broker.disconnect()
-        return microsoft_broker.status()
+        microsoft_broker.disconnect(context.user_id)
+        return microsoft_broker.status(context.user_id)
 
     @app.get("/v1/clients", response_model=list[ConsoleClient])
     def clients(context: UserContext = Depends(context_provider)) -> list[ConsoleClient]:  # noqa: B008
@@ -969,7 +967,7 @@ def create_console_app(*, data_dir: Path | None = None,
             clients=_visible_clients(fixture, context),
             projects=_visible_projects(fixture, context), agents=agents,
             security=security_settings.model_dump(mode="json"),
-            integrations=integrations, microsoft=microsoft_broker.status(),
+            integrations=integrations, microsoft=microsoft_broker.status(context.user_id),
             review_items=review_items, artifacts=artifacts,
             workflows=[option for project_id in sorted(context.project_ids)
                        for option in workflow_options(project_id, context)],
