@@ -17,7 +17,10 @@ class PortalAuthClient:
         return {"state": "state-1", "auth_uri": "https://login.microsoft.test/authorize"}
 
     def acquire_token_by_auth_code_flow(self, auth_code_flow, auth_response):
-        self.accounts = [{"username": "pilot@example.test"}]
+        self.accounts = [{
+            "username": "pilot@example.test",
+            "local_account_id": self.user_id,
+        }]
         return {"access_token": "server-only", "id_token_claims": {
             "tid": "tenant-id", "oid": self.user_id,
             "preferred_username": "pilot@example.test", "name": "Pilot User",
@@ -80,6 +83,31 @@ def test_portal_is_invite_only_and_sets_secure_server_session(tmp_path):
     assert session.status_code == 200
     assert session.json()["projects"][0]["id"] == "project-1"
     assert "server-only" not in session.text
+
+
+def test_session_selects_signed_in_user_when_cache_has_multiple_accounts(tmp_path):
+    microsoft = microsoft_settings()
+    auth_client = PortalAuthClient()
+    broker = MicrosoftConnectionBroker(settings=microsoft, cache_path=Path("unused"),
+        auth_client=auth_client)
+    app = create_portal_app(portal_settings=portal_settings(tmp_path),
+                            microsoft_settings=microsoft, broker=broker)
+    api = TestClient(app)
+    callback = sign_in(api)
+    token = callback.headers["set-cookie"].split(";", 1)[0].split("=", 1)[1]
+    auth_client.accounts.append({
+        "username": "other@example.test",
+        "local_account_id": "user-2",
+    })
+
+    session = api.get("/v1/session", headers={"Cookie": f"tessera_session={token}"})
+    status_response = api.get("/v1/integrations/microsoft/status",
+        headers={"Cookie": f"tessera_session={token}"})
+
+    assert session.status_code == 200
+    assert session.json()["microsoft_connected"] is True
+    assert status_response.status_code == 200
+    assert status_response.json()["connected"] is True
 
 
 def test_portal_rejects_uninvited_microsoft_identity(tmp_path):

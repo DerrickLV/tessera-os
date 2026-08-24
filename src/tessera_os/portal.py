@@ -218,7 +218,10 @@ def create_portal_app(*, portal_settings: PortalSettings | None = None,
         return PortalSession(user_id=claims["sub"], tenant_id=claims["tid"],
             display_name=claims.get("name") or "Authorized Microsoft User",
             projects=list(settings.projects.values()),
-            microsoft_connected=broker.status().connected)
+            # The shared encrypted cache may contain both invited partners (or
+            # duplicate MSAL account records after a repeated sign-in). Never
+            # ask the broker to guess which account owns this session.
+            microsoft_connected=broker.status(claims["sub"]).connected)
 
     @app.get("/v1/projects", response_model=list[PortalProject])
     def projects(context: UserContext = Depends(current_context)) -> list[PortalProject]:  # noqa: B008
@@ -239,8 +242,7 @@ def create_portal_app(*, portal_settings: PortalSettings | None = None,
     def integration_status(
         context: UserContext = Depends(current_context),  # noqa: B008
     ) -> MicrosoftConnectionStatus:
-        del context
-        return broker.status()
+        return broker.status(context.user_id)
 
     # --- the interface ------------------------------------------------------
     #

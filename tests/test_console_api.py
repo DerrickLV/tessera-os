@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from tessera_os.console import create_console_app
 from tessera_os.governance import VentureProfile, recommend_structure
+from tessera_os.microsoft import MicrosoftConnectionBroker, MicrosoftPilotSettings
 from tessera_os.schemas import UserContext
 from tessera_os.workspace import PilotTaskRequest
 
@@ -50,6 +51,44 @@ def test_bootstrap_is_synthetic_scoped_and_configuration_backed(tmp_path, monkey
     }
     assert payload["security"]["defaults"]["production_writes"] == "deny"
     assert payload["artifacts"] == []
+
+
+def test_bootstrap_selects_current_user_when_microsoft_cache_has_multiple_accounts(
+    tmp_path, monkeypatch,
+):
+    class MultiAccountClient:
+        def get_accounts(self):
+            return [
+                {"username": "pilot@example.test",
+                 "local_account_id": "synthetic-reviewer-a"},
+                {"username": "other@example.test", "local_account_id": "other-user"},
+            ]
+
+        def acquire_token_silent(self, scopes, account):
+            return {"access_token": "server-only"}
+
+        def remove_account(self, account):
+            return None
+
+    settings = MicrosoftPilotSettings(
+        enabled=True, tenant_id="tenant-id", client_id="client-id",
+        client_secret="secret", cache_key="unused-for-injected-client",
+        redirect_uri="https://api.example.test/v1/integrations/microsoft/callback",
+        project_resources={"riverbend-multifamily": {
+            "site_id": "site", "drive_id": "drive", "zone": "internal"}},
+    )
+    broker = MicrosoftConnectionBroker(
+        settings=settings, cache_path=Path("unused"), auth_client=MultiAccountClient())
+    monkeypatch.setenv("TESSERA_ENV", "test")
+    api = TestClient(create_console_app(data_dir=tmp_path, microsoft_broker=broker))
+
+    bootstrap = api.get("/v1/console/bootstrap")
+    status = api.get("/v1/integrations/microsoft/status")
+
+    assert bootstrap.status_code == 200
+    assert bootstrap.json()["microsoft"]["account_label"] == "pilot@example.test"
+    assert status.status_code == 200
+    assert status.json()["connected"] is True
 
 
 def test_route_uses_backend_and_rejects_out_of_scope_project(tmp_path, monkeypatch):
