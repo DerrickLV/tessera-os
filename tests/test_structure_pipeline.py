@@ -255,6 +255,36 @@ def test_the_agreement_carries_the_threshold_the_memo_recommended(tmp_path):
     assert "$60,000" in filled.markdown
 
 
+def test_the_draft_request_carries_the_memos_derived_values(tmp_path):
+    """`to_draft_request()` must attach the same values `derived_values()` computes.
+
+    Nothing calls `derived_values()` on the production handoff path unless the
+    draft request carries it forward itself -- the fill step then has one source
+    for a number instead of quietly falling back to a posture default that can
+    disagree with the memo.
+    """
+    ask = request()
+    rec = recommend_structure(ask.venture)
+    advice = advisor(tmp_path)
+    _, draft_request = approve(advice, ask)
+
+    assert draft_request.derived_values == rec.derived_values()
+
+    library = ClauseLibrary.load("fixtures/clause_library")
+    assembled = library.assemble(draft_request.profile)
+    filled = library.fill(assembled, {
+        "company_purpose": "acquiring and operating the Properties",
+        "entity_statute": "the Texas Business Organizations Code",
+        "jurisdiction": "the State of Texas",
+        "manager_name": "Northstar Sponsor LLC",
+        "promote_holder": "Northstar Sponsor LLC",
+        "survival_sections": "1, 12, 19, 20 and 23",
+        **draft_request.derived_values,
+    })
+    assert filled.values["ordinary_course_threshold"] == (
+        f"${rec.control.ordinary_course_threshold:,}")
+
+
 def test_a_supermajority_threshold_also_travels(tmp_path):
     from tessera_os.governance import VentureProfile, recommend_structure
 
@@ -364,6 +394,22 @@ def test_another_tenant_cannot_use_an_approved_structure_artifact(tmp_path):
     with pytest.raises(PermissionError):
         advice.to_draft_request(
             ask, context=outsider, approved_artifact_id=memo.id)
+
+
+def test_the_structure_handoff_leaves_fee_at_risk_unset_rather_than_zero():
+    """Zero is a confident, false claim of no fee exposure; unset is honest."""
+    rec = recommend_structure(VentureProfile(venture="X", home_state="Texas"))
+    profile = rec.to_deal_profile(counterparty="Y")
+    assert profile.fee_at_risk is None
+    assert profile.posture() in ("protective", "standard", "accommodating")
+
+
+def test_a_real_fee_still_reaches_protective_posture_once_supplied():
+    """The >= $100,000 branch must stay reachable once a real value exists to test it."""
+    rec = recommend_structure(VentureProfile(venture="X", home_state="Texas"))
+    profile = rec.to_deal_profile(counterparty="Y").model_copy(
+        update={"fee_at_risk": 150_000})
+    assert profile.posture() == "protective"
 
 
 def test_dual_role_is_preserved_in_the_agreement_handoff():

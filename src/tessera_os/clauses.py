@@ -36,8 +36,12 @@ Posture = Literal["protective", "standard", "accommodating"]
 AgreementType = Literal[
     # Engagement paper — Tessera contracting with a client
     "nda", "consulting", "advisory", "finders_fee", "deal_memo",
-    # Entity and deal paper — what Tessera structures for or with a client
-    "operating_agreement", "jv", "investor_subscription",
+    # Entity and deal paper — what Tessera structures for or with a client.
+    # Investor subscription paper is deliberately not offered: it needs
+    # subscription, investor-representations, and securities-legend clauses no
+    # variant in this library carries, and that work is counsel-only under the
+    # decision packet. Do not add it back without those clauses.
+    "operating_agreement", "jv",
 ]
 Industry = Literal["regulated", "real_estate", "trades", "media", "general"]
 
@@ -69,9 +73,6 @@ ESSENTIAL_CATEGORIES: dict[AgreementType, frozenset[str]] = {
         "duties", "information", "exit", "dispute",
         "triggering_events", "valuation", "buysell", "buyout_payment",
         "tax_distributions", "work_product"}),
-    "investor_subscription": frozenset({
-        "subscription", "investor_representations", "securities_legend", "information",
-        "dispute"}),
 }
 
 
@@ -306,7 +307,10 @@ class DealProfile(BaseModel):
     jurisdiction: str = Field(min_length=1)
     counterparty: str = Field(min_length=1)
     counterparty_represented: bool = True
-    fee_at_risk: float = Field(ge=0)
+    # None means not yet known, not zero -- the structure path has no fee input
+    # to derive this from, and asserting zero silently understated the exposure
+    # of every deal handed off from it.
+    fee_at_risk: float | None = Field(default=None, ge=0)
     relationship_stage: Literal["first_engagement", "established", "long_standing"] = (
         "first_engagement")
     tessera_capital_at_risk: bool = False
@@ -368,7 +372,8 @@ class DealProfile(BaseModel):
         """
         if self.industry == "regulated" or self.tessera_capital_at_risk:
             return "protective"
-        if self.fee_at_risk >= 100_000 or not self.counterparty_represented:
+        if (self.fee_at_risk is not None and self.fee_at_risk >= 100_000
+                or not self.counterparty_represented):
             return "protective"
         if self.deal_value >= 1_000_000:
             return "protective"
@@ -377,7 +382,10 @@ class DealProfile(BaseModel):
         if self.ownership_shape == "majority_minority" and self.party_role in {
                 "investor", "co_venturer"}:
             return "protective"
-        if self.relationship_stage == "long_standing" and self.fee_at_risk < 25_000:
+        # An unknown fee is not a confirmed small one -- only a stated number
+        # under the floor earns the accommodating posture.
+        if (self.relationship_stage == "long_standing"
+                and self.fee_at_risk is not None and self.fee_at_risk < 25_000):
             return "accommodating"
         return "standard"
 
@@ -388,7 +396,7 @@ class DealProfile(BaseModel):
             reasons.append(f"a regulated industry{regime}")
         if self.tessera_capital_at_risk:
             reasons.append("Tessera capital at risk")
-        if self.fee_at_risk >= 100_000:
+        if self.fee_at_risk is not None and self.fee_at_risk >= 100_000:
             reasons.append(f"fee exposure of ${self.fee_at_risk:,.0f}")
         if self.deal_value >= 1_000_000:
             reasons.append(f"deal value of ${self.deal_value:,.0f}")

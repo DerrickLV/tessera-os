@@ -132,6 +132,27 @@ def test_the_threshold_scales_with_the_capital_at_stake():
     assert large.control.ordinary_course_threshold <= 250_000
 
 
+def test_an_underived_threshold_is_surfaced_as_an_open_question():
+    """No initial capital means the threshold is a fictional placeholder.
+
+    It must not reach a reviewer looking like a considered number -- the memo
+    still carries a fictional figure for now, but an open question means the
+    memo cannot reach "draft" status, and the document cannot be produced,
+    until a human resolves it.
+    """
+    rec = recommend_structure(VentureProfile(venture="No Capital Stated", home_state="Texas"))
+    assert rec.control.ordinary_course_threshold == 50_000
+    questions = " ".join(q.question for q in rec.open_questions)
+    assert "ordinary-course spending threshold" in questions
+
+
+def test_a_stated_capital_does_not_raise_the_threshold_question():
+    rec = recommend_structure(VentureProfile(
+        venture="Capitalized Venture", home_state="Texas", initial_capital=500_000))
+    questions = " ".join(q.question for q in rec.open_questions)
+    assert "ordinary-course spending threshold" not in questions
+
+
 def test_no_deadlock_ladder_where_one_party_already_has_control():
     rec = recommend_structure(VentureProfile(
         venture="Ridgeline", home_state="Texas", active_principals=2,

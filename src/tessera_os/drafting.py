@@ -55,6 +55,10 @@ class AgreementDraftRequest(BaseModel):
     project_id: str = Field(min_length=1)
     profile: DealProfile
     source_artifact_id: str | None = None
+    # Commercial terms the structure recommendation already decided. Carried on
+    # the request so a later fill step has one source for a value that must
+    # match the memo, instead of recomputing it (or forgetting to).
+    derived_values: dict[str, str] = Field(default_factory=dict)
 
 
 class StructureRequest(BaseModel):
@@ -413,7 +417,8 @@ class StructureAdvisor:
             source_artifact_id=artifact.id,
             profile=rec.to_deal_profile(
                 counterparty=request.counterparty or request.venture.venture,
-                parties=request.parties, effective_date=request.effective_date))
+                parties=request.parties, effective_date=request.effective_date),
+            derived_values=rec.derived_values())
         delivered = {item.clause.category
                      for item in self.library.assemble(
                          draft_request.profile, require_coverage=False).selections}

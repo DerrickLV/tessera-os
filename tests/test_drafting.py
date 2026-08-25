@@ -8,6 +8,7 @@ audited exactly like an analysis artifact.
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 from tessera_os.clauses import ClauseLibrary, DealProfile
 from tessera_os.console import create_console_app
@@ -109,25 +110,35 @@ def test_unknown_project_is_rejected(tmp_path):
             request, context=context(project_ids={"ghost"}), structural_handoff=True)
 
 
-def test_a_partially_covered_document_type_refuses(tmp_path):
-    """Subscription paper needs reps and a securities legend the library lacks.
+def test_investor_subscription_is_not_an_offered_document_type():
+    """Subscription paper needs reps and a securities legend no variant carries.
 
-    Emitting the three clauses that happen to apply would produce something that
-    reads as a subscription agreement and is not one.
+    That work is counsel-only under the decision packet, so the type is not
+    offered at all rather than offered and permanently unable to draft --
+    a document type nobody can ever produce is worse than none.
     """
+    with pytest.raises(ValidationError):
+        profile(agreement_type="investor_subscription")
+
+
+def test_a_partially_covered_document_type_refuses(tmp_path):
+    """Emitting a document missing a required category reads as complete and is not."""
+    stripped = ClauseLibrary.load("fixtures/clause_library")
+    library = ClauseLibrary([c for c in stripped.clauses if c.category != "buysell"],
+                            variables=stripped.variables)
     with pytest.raises(PilotWorkspaceError, match="cannot draft"):
-        drafter(tmp_path).draft(
-            AgreementDraftRequest(project_id=PROJECT,
-                                  profile=profile(agreement_type="investor_subscription")),
-            context=context())
+        AgreementDrafter(library=library, store=PilotArtifactStore(tmp_path / "artifacts.db"),
+                         project_clients={PROJECT: "client-riverbend"}).draft(
+            AgreementDraftRequest(project_id=PROJECT, profile=profile()),
+            context=context(), structural_handoff=True)
 
 
-def test_the_refusal_names_what_is_missing(tmp_path):
-    library = ClauseLibrary.load("fixtures/clause_library")
-    missing = library.missing_essentials(profile(agreement_type="investor_subscription"))
-    assert "investor_representations" in missing
-    assert "securities_legend" in missing
-    assert "subscription" in missing
+def test_the_refusal_names_what_is_missing():
+    stripped = ClauseLibrary.load("fixtures/clause_library")
+    library = ClauseLibrary([c for c in stripped.clauses if c.category != "buysell"],
+                            variables=stripped.variables)
+    missing = library.missing_essentials(profile())
+    assert "buysell" in missing
 
 
 def test_covered_document_types_still_assemble():

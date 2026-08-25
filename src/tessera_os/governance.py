@@ -385,7 +385,9 @@ class StructureRecommendation(BaseModel):
             jurisdiction=jurisdiction or f"the State of {self._formation_state()}",
             counterparty=counterparty,
             counterparty_represented=self.profile.capital_source == "institutional",
-            fee_at_risk=0,
+            # The structure path has no fee input to derive a real number from
+            # (Phase 3 adds one); asserting zero would understate exposure
+            # rather than admit it is unknown.
             tessera_capital_at_risk=self.profile.role in {"principal", "both"},
             party_role=("co_venturer" if self.profile.role in {"principal", "both"}
                         else "sponsor"),
@@ -1235,6 +1237,16 @@ def _open_questions(profile: VentureProfile) -> list[OpenQuestion]:
                            "transfer rules, different exit rights, and a different answer on "
                            "whether a drag-along belongs at all.",
             blocks="Transfer and exit architecture."))
+    if profile.initial_capital <= 0:
+        questions.append(OpenQuestion(
+            question="What is the ordinary-course spending threshold, or the initial capital "
+                     "to derive one from?",
+            why_it_matters="With no initial capital stated, the recommended threshold is a "
+                           "synthetic placeholder, not a number tested against this venture's "
+                           "own spending -- the hinge of the whole governance design should "
+                           "not be invented.",
+            blocks="The ordinary-course authority recommendation, and every reserved-matter "
+                   "and Major Decision clause that cites the threshold."))
     outside = [state for state in profile.states_of_operation if state != profile.home_state]
     if outside:
         questions.append(OpenQuestion(

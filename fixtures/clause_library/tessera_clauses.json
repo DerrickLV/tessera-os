@@ -138,8 +138,7 @@
         "finders_fee",
         "deal_memo",
         "operating_agreement",
-        "jv",
-        "investor_subscription"
+        "jv"
       ],
       "industries": [],
       "required": true,
@@ -164,8 +163,7 @@
       ],
       "order_overrides": {
         "operating_agreement": 285,
-        "jv": 285,
-        "investor_subscription": 285
+        "jv": 285
       }
     },
     {
@@ -373,8 +371,7 @@
         "finders_fee",
         "deal_memo",
         "operating_agreement",
-        "jv",
-        "investor_subscription"
+        "jv"
       ],
       "industries": [],
       "required": true,
@@ -403,7 +400,6 @@
       "order_overrides": {
         "operating_agreement": 900,
         "jv": 900,
-        "investor_subscription": 900,
         "deal_memo": 900
       }
     }

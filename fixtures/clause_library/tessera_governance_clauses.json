@@ -319,8 +319,7 @@
       "order": 280,
       "applies_to": [
         "operating_agreement",
-        "jv",
-        "investor_subscription"
+        "jv"
       ],
       "industries": [],
       "required": true,
