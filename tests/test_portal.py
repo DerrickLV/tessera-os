@@ -4,7 +4,12 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from tessera_os.microsoft import MicrosoftConnectionBroker, MicrosoftPilotSettings
+from tessera_os.integrations import IntegrationError, MicrosoftGraphReader
+from tessera_os.microsoft import (
+    AllowlistedSharePointReader,
+    MicrosoftConnectionBroker,
+    MicrosoftPilotSettings,
+)
 from tessera_os.portal import PortalSettings, create_portal_app
 
 
@@ -180,6 +185,111 @@ def test_portal_has_no_document_write_or_approval_bypass_route(tmp_path):
     assert api.post("/v1/projects/project-1/documents").status_code == 405
     assert api.delete("/v1/projects/project-1/documents/doc-1").status_code == 404
     assert api.post("/v1/approvals/bypass").status_code == 404
+
+
+# --- 2.7: honest empty states for the document listing --------------------------------------
+#
+# The portal used to render "No approved documents found" whether the folder
+# was empty, misconfigured, or the read crossed a trust boundary -- three
+# different failures with one indistinguishable message. These exercise all
+# three through the real /v1/projects/{id}/documents endpoint.
+
+
+class PartnerAuthClient(PortalAuthClient):
+    """A signed-in identity that carries the mapped partner Entra group."""
+
+    def acquire_token_by_auth_code_flow(self, auth_code_flow, auth_response):
+        result = super().acquire_token_by_auth_code_flow(auth_code_flow, auth_response)
+        result["id_token_claims"]["groups"] = ["partner-entra-id"]
+        return result
+
+
+def signed_in_cookie(api) -> str:
+    callback = sign_in(api)
+    return callback.headers["set-cookie"].split(";", 1)[0].split("=", 1)[1]
+
+
+def partner_app(tmp_path, monkeypatch, *, transport):
+    monkeypatch.setenv("TESSERA_M365_GROUP_MAP", '{"partner-entra-id": "tessera_partner"}')
+    microsoft = MicrosoftPilotSettings(
+        enabled=True, tenant_id="tenant-id", client_id="client-id", client_secret="secret",
+        cache_key="unused-for-injected-client",
+        redirect_uri="https://api.tesseraag.com/v1/integrations/microsoft/callback",
+        project_resources={"project-1": {
+            "site_id": "site", "drive_id": "drive", "root_path": "Projects/Internal Pilot",
+        }})
+    broker = MicrosoftConnectionBroker(settings=microsoft, cache_path=Path("unused"),
+        auth_client=PartnerAuthClient())
+    reader = AllowlistedSharePointReader(
+        settings=microsoft, token_provider=broker.token,
+        graph_factory=lambda provider: MicrosoftGraphReader(provider, transport=transport))
+    app = create_portal_app(portal_settings=portal_settings(tmp_path),
+                            microsoft_settings=microsoft, broker=broker, sharepoint=reader)
+    return TestClient(app)
+
+
+def test_an_empty_project_folder_returns_an_empty_list(tmp_path, monkeypatch):
+    def transport(url, headers):
+        if "root:/" in url:
+            return {"id": "root-item", "folder": {}}
+        return {"value": []}
+
+    api = partner_app(tmp_path, monkeypatch, transport=transport)
+    token = signed_in_cookie(api)
+    response = api.get("/v1/projects/project-1/documents",
+                       headers={"Cookie": f"tessera_session={token}"})
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_a_draft_document_does_not_appear_under_approved_documents(tmp_path, monkeypatch):
+    def transport(url, headers):
+        if "root:/" in url:
+            return {"id": "root-item", "folder": {}}
+        if "items/root-item/children" in url:
+            return {"value": [
+                {"id": "approved-folder", "name": "Approved", "folder": {}},
+                {"id": "drafts-folder", "name": "Drafts", "folder": {}},
+            ]}
+        if "items/approved-folder/children" in url:
+            return {"value": [{"id": "memo", "name": "memo.docx", "file": {}, "size": 3}]}
+        if "items/drafts-folder/children" in url:
+            return {"value": [{"id": "draft1", "name": "draft.docx", "file": {}, "size": 3}]}
+        raise AssertionError(f"unexpected url {url}")
+
+    api = partner_app(tmp_path, monkeypatch, transport=transport)
+    token = signed_in_cookie(api)
+    response = api.get("/v1/projects/project-1/documents",
+                       headers={"Cookie": f"tessera_session={token}"})
+    titles = {item["title"] for item in response.json()}
+    assert titles == {"memo.docx"}
+
+
+def test_a_misconfigured_root_path_is_a_named_error_only_for_an_authenticated_partner(
+        tmp_path, monkeypatch):
+    def transport(url, headers):
+        raise IntegrationError("simulated 404")
+
+    api = partner_app(tmp_path, monkeypatch, transport=transport)
+    token = signed_in_cookie(api)
+    response = api.get("/v1/projects/project-1/documents",
+                       headers={"Cookie": f"tessera_session={token}"})
+    assert response.status_code == 409
+    assert "Projects/Internal Pilot" in response.json()["detail"]
+
+    anonymous = api.get("/v1/projects/project-1/documents")
+    assert anonymous.status_code == 401
+    assert "Projects/Internal Pilot" not in anonymous.text
+
+
+def test_zone_refusal_uses_the_existing_refusal_message(tmp_path):
+    api = app_client(tmp_path)
+    callback = sign_in(api)
+    token = callback.headers["set-cookie"].split(";", 1)[0].split("=", 1)[1]
+    response = api.get("/v1/projects/project-1/documents",
+                       headers={"Cookie": f"tessera_session={token}"})
+    assert response.status_code == 403
+    assert "partners" in response.json()["detail"]
 
 
 def test_portal_static_site_avoids_inline_script_handlers():

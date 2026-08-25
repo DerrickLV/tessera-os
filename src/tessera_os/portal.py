@@ -89,7 +89,8 @@ class PortalSession(BaseModel):
 
 def create_portal_app(*, portal_settings: PortalSettings | None = None,
                       microsoft_settings: MicrosoftPilotSettings | None = None,
-                      broker: MicrosoftConnectionBroker | None = None) -> FastAPI:
+                      broker: MicrosoftConnectionBroker | None = None,
+                      sharepoint: AllowlistedSharePointReader | None = None) -> FastAPI:
     settings = portal_settings or PortalSettings.from_environment()
     microsoft = microsoft_settings or MicrosoftPilotSettings.from_environment()
     if not microsoft.enabled:
@@ -101,7 +102,7 @@ def create_portal_app(*, portal_settings: PortalSettings | None = None,
         cache_path=settings.data_dir / "microsoft-token-cache.bin")
     codec = SessionCodec(settings.session_secret)
     group_map = EntraGroupMap.from_environment()
-    sharepoint = AllowlistedSharePointReader(settings=microsoft,
+    sharepoint = sharepoint or AllowlistedSharePointReader(settings=microsoft,
         graph_factory=lambda provider: MicrosoftGraphReader(provider),
         token_provider=broker.token)
 
@@ -232,11 +233,18 @@ def create_portal_app(*, portal_settings: PortalSettings | None = None,
     def project_documents(project_id: str,
             context: UserContext = Depends(current_context)) -> list[SourceDocument]:  # noqa: B008
         try:
-            return sharepoint.project_documents(context=context, project_id=project_id)
+            documents = sharepoint.project_documents(context=context, project_id=project_id)
         except PermissionError as exc:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
         except MicrosoftConfigurationError as exc:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+        # This endpoint is the portal's "approved documents" listing (see
+        # web/assets/portal.js). A Drafts/ or Source/ document is real and
+        # readable via knowledge search, but it is not yet an approved
+        # position -- it must not appear here just because the library reader
+        # can now see the whole tree (2.4) instead of a flat, filtered folder.
+        return [document for document in documents
+                if document.metadata.get("lifecycle") == "approved"]
 
     @app.get("/v1/integrations/microsoft/status", response_model=MicrosoftConnectionStatus)
     def integration_status(

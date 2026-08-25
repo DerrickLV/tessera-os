@@ -96,19 +96,21 @@ def test_allowlisted_reader_resolves_project_mapping_and_preserves_scope():
     def transport(url, headers):
         calls.append((url, headers))
         return {"value": [{
-            "id": "doc-1", "name": "Status.docx", "file": {},
+            "id": "doc-1", "name": "Status.txt", "file": {}, "size": 21,
             "lastModifiedDateTime": "2026-08-18T12:00:00+00:00",
-            "listItem": {"fields": {
-                "ProjectId": "project-1", "TesseraContent": "Milestone is current",
-            }},
-            "allowedGroupIds": ["project-team"],
         }]}
 
+    def content_transport(url, headers):
+        assert "items/doc-1/content" in url
+        return b"Milestone is current"
+
     reader = AllowlistedSharePointReader(settings=settings(),
-        graph_factory=lambda provider: MicrosoftGraphReader(provider, transport=transport),
+        graph_factory=lambda provider: MicrosoftGraphReader(
+            provider, transport=transport, content_transport=content_transport),
         token_provider=lambda user_id: f"token-{user_id}")
     documents = reader.project_documents(context=context(), project_id="project-1")
     assert documents[0].content == "Milestone is current"
+    assert documents[0].metadata["lifecycle"] == "source"
     assert "sites/approved-site/drives/approved-drive/items/approved-folder/children" in calls[0][0]
     assert "token" not in calls[0][0]
     assert calls[0][1]["Authorization"] == "Bearer token-alice"

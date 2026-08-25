@@ -14,8 +14,8 @@ from uuid import uuid4
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from pydantic import BaseModel, Field, SecretStr, model_validator
 
-from .identity import ZONE_LABEL, TrustZone, ZonePolicy
-from .integrations import MicrosoftGraphReader
+from .identity import PARTNER_GROUP, ZONE_LABEL, TrustZone, ZonePolicy
+from .integrations import MicrosoftGraphReader, SharePointPathNotFoundError
 from .schemas import SourceDocument, UserContext
 
 
@@ -26,6 +26,15 @@ class MicrosoftConfigurationError(ValueError):
 class SharePointProjectResource(BaseModel):
     site_id: str = Field(min_length=1)
     drive_id: str = Field(min_length=1)
+    # The project's scope within the drive (D1): "Projects/{client folder}".
+    # Configuration names it explicitly rather than deriving it from
+    # project_id -- a slugified guess happens to work until a client's folder
+    # is named anything else, and then it fails silently into the wrong
+    # client's folder instead of loudly.
+    root_path: str | None = None
+    # Deprecated in favor of root_path. Accepted for one release; see
+    # MicrosoftGraphReader.sharepoint_documents, which logs every time this
+    # fallback is actually used.
     folder_item_id: str = "root"
     # Which trust boundary of the Tessera governance model this resource sits
     # in. Defaults to Internal — the most restrictive zone — so a mapping that
@@ -41,6 +50,17 @@ class SharePointProjectResource(BaseModel):
         if self.zone in {"engagement", "collaborator"} and not self.client_id:
             raise MicrosoftConfigurationError(
                 f"A {self.zone}-zone SharePoint resource must name its client or engagement")
+        return self
+
+    @model_validator(mode="after")
+    def root_path_is_relative_and_contained(self) -> SharePointProjectResource:
+        if self.root_path is not None and (
+            self.root_path.startswith("/")
+            or any(segment == ".." for segment in self.root_path.split("/"))
+        ):
+            raise MicrosoftConfigurationError(
+                "root_path must be a relative path within the drive: no leading "
+                "'/' and no '..' segments")
         return self
 
 
@@ -399,13 +419,25 @@ class AllowlistedSharePointReader:
         # Trust boundary before transport: an Internal-zone library is readable
         # only by the partners' group, whatever SharePoint's own ACLs say today.
         zone = self.zones.check_read(context=context, project_id=project_id)
-        documents = self.graph_factory(
-            lambda: self.token_provider(context.user_id)).sharepoint_documents(
-            site_id=resource.site_id, drive_id=resource.drive_id,
-            folder_item_id=resource.folder_item_id, context=context, project_id=project_id)
+        try:
+            documents = self.graph_factory(
+                lambda: self.token_provider(context.user_id)).sharepoint_documents(
+                site_id=resource.site_id, drive_id=resource.drive_id,
+                root_path=resource.root_path, folder_item_id=resource.folder_item_id,
+                context=context, project_id=project_id)
+        except SharePointPathNotFoundError as exc:
+            # An empty result here is indistinguishable from an empty folder --
+            # the failure mode that hid this whole class of bug. Name the path.
+            raise MicrosoftConfigurationError(
+                f"SharePoint project folder not found: {exc.path!r}") from exc
+        # D4: the ACL is explicit and identical on every read path, derived
+        # from the zone the document was actually read under -- never left
+        # empty for knowledge.py's fail-closed check to silently swallow.
+        acl_group = PARTNER_GROUP if zone == "internal" else f"engagement:{resource.client_id}"
         for document in documents:
             document.metadata.setdefault("trust_zone", zone)
             document.metadata.setdefault("trust_zone_label", ZONE_LABEL[zone])
             if resource.client_id:
                 document.metadata.setdefault("client_id", resource.client_id)
+            document.allowed_group_ids = frozenset({acl_group})
         return documents

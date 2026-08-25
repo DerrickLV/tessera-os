@@ -150,19 +150,19 @@ def test_documents_carry_their_zone_so_downstream_checks_can_run():
         return {"value": [{
             "id": "doc-1", "name": "Model.docx", "file": {},
             "lastModifiedDateTime": "2026-08-18T12:00:00+00:00",
-            "listItem": {"fields": {"ProjectId": "internal-pilot",
-                                    "TesseraContent": "content"}},
         }]}
 
     from tessera_os.integrations import MicrosoftGraphReader
 
     reader = AllowlistedSharePointReader(
         settings=internal_settings(),
-        graph_factory=lambda provider: MicrosoftGraphReader(provider, transport=transport),
+        graph_factory=lambda provider: MicrosoftGraphReader(
+            provider, transport=transport, content_transport=lambda url, headers: b"content"),
         token_provider=lambda _user_id: "token")
     documents = reader.project_documents(context=partner_context(),
                                          project_id="internal-pilot")
     assert documents[0].metadata["trust_zone"] == "internal"
+    assert documents[0].allowed_group_ids == {"tessera_partner"}
 
 
 # --- the golden rule at citation time --------------------------------------------

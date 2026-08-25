@@ -44,7 +44,7 @@ async function loadDocuments(projectId, button) {
     );
     target.innerHTML = documents.length
       ? documents.map(document => `<div class="doc"><b>${escapeHtml(document.title)}</b><span class="meta">${escapeHtml(document.source_id)} · ${escapeHtml(document.modified_at || "date unavailable")}</span></div>`).join("")
-      : "No approved documents found.";
+      : "No approved documents in this project yet.";
   } catch (error) {
     target.textContent = error.message;
   } finally {
