@@ -187,7 +187,7 @@ def test_fastapi_requires_auth_role_scope_and_valid_token(tmp_path):
     app = create_app(auth_settings=auth_settings(),
         audit_store=RuntimeAuditStore(tmp_path / "runtime.db"), rate_limiter=RateLimiter(limit=10))
     client = TestClient(app)
-    assert client.get("/health").json()["writes"] == "disabled"
+    assert "writes" not in client.get("/health").json()  # nothing here measures it
     assert client.post("/v1/route", json={"task": "monitor policy intelligence",
                                          "project_id": "project-1"}).status_code == 401
     no_role = token(groups=[])

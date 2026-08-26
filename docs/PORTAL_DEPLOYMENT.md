@@ -87,7 +87,7 @@ Microsoft's selected-permissions procedure is documented at
    The project keys must match exactly. The API refuses to start if they differ.
 4. Deploy and confirm Render's health check reports healthy at
    `https://api.tesseraag.com/health`. It must return:
-   `{"status":"ok","mode":"production","writes":"disabled"}`.
+   `{"status":"ok","mode":"production"}`.
 5. In Render, verify the custom domain `api.tesseraag.com`. Render will display the
    required DNS target and certificate status.
 

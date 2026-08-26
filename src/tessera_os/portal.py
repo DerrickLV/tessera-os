@@ -178,8 +178,11 @@ def create_portal_app(*, portal_settings: PortalSettings | None = None,
         # and the underlying error carries a filesystem path. The reason stays in
         # the logs and on app.state where it needs a session to reach.
         console_state = "unavailable" if getattr(app.state, "console_error", "") else "ok"
-        return {"status": "ok", "mode": "production", "writes": "disabled",
-                "console": console_state}
+        # No "writes" field: nothing here measures whether writes are enabled --
+        # ExternalActionDisabled is a code-level invariant, not a runtime toggle,
+        # so there is no live state to report. See
+        # docs/BUILD_BRIEF_PHASE_2_LIBRARY_READING.md section 7.
+        return {"status": "ok", "mode": "production", "console": console_state}
 
     @app.get("/v1/auth/microsoft/start")
     def start_sign_in() -> RedirectResponse:

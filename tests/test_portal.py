@@ -158,8 +158,15 @@ def test_portal_health_discloses_no_configuration(tmp_path):
     SQLite error carrying a filesystem path. The state belongs here so a
     degraded deployment announces itself; the detail belongs in the logs."""
     body = app_client(tmp_path).get("/health").json()
-    assert body == {"status": "ok", "mode": "production", "writes": "disabled",
-                    "console": "ok"}
+    assert body == {"status": "ok", "mode": "production", "console": "ok"}
+
+
+def test_portal_health_has_no_writes_field_because_nothing_measures_it(tmp_path):
+    """Writes are disabled by code (ExternalActionDisabled), not by a runtime
+    toggle -- there is no live state for /health to report here, so it must
+    not claim one. See docs/BUILD_BRIEF_PHASE_2_LIBRARY_READING.md section 7."""
+    body = app_client(tmp_path).get("/health").json()
+    assert "writes" not in body
 
 
 def test_a_broken_console_degrades_the_portal_instead_of_killing_it(tmp_path, monkeypatch):

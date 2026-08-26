@@ -113,8 +113,11 @@ def create_app(*, auth_settings: AuthSettings | None = None,
 
     @app.get("/health")
     def health() -> dict[str, str]:
-        return {"status": "ok", "mode": settings.environment.value,
-                "writes": "disabled"}
+        # No "writes" field: nothing here measures whether writes are enabled --
+        # PolicyGateway.forbidden_actions is a code-level invariant, not a
+        # runtime toggle, so there is no live state to report. See
+        # docs/BUILD_BRIEF_PHASE_2_LIBRARY_READING.md section 7.
+        return {"status": "ok", "mode": settings.environment.value}
 
     @app.post("/v1/route", response_model=RouteEnvelope)
     def route(request: RouteRequest,
