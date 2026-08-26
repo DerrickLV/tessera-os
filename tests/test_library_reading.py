@@ -192,6 +192,47 @@ def test_paging_is_followed_at_every_level_not_just_the_first():
     assert {document.title for document in documents} == {"a.txt", "b.txt", "c.txt"}
 
 
+def test_a_large_library_completes_in_one_bounded_call_chain():
+    """500 files across 40 folders, one level below root_path.
+
+    The walk must cost one children request per folder -- 41 total, root plus
+    each of the 40 -- not something that scales with file count or refetches a
+    folder it has already listed. A fan-out bug here would still pass every
+    other test in this file, since none of them are large enough to show it.
+    """
+    folder_count, total_files = 40, 500
+    # An uneven split so no single "files per folder" constant would coincidentally
+    # make the arithmetic work by accident.
+    files_per_folder = [total_files // folder_count + (1 if i < total_files % folder_count else 0)
+                        for i in range(folder_count)]
+    listing_calls: list[str] = []
+
+    def transport(url, headers):
+        if "root:/" in url:
+            return {"id": "root-item", "folder": {}}
+        if "items/root-item/children" in url:
+            listing_calls.append(url)
+            return {"value": [
+                {"id": f"folder-{i}", "name": f"Folder {i}", "folder": {}}
+                for i in range(folder_count)]}
+        for i in range(folder_count):
+            if f"items/folder-{i}/children" in url:
+                listing_calls.append(url)
+                return {"value": [
+                    {"id": f"f{i}-{j}", "name": f"file-{i}-{j}.txt", "file": {}, "size": 1}
+                    for j in range(files_per_folder[i])]}
+        raise AssertionError(f"unexpected url {url}")
+
+    reader = reader_for(settings_for(), transport, content_transport=lambda url, headers: b"x")
+    documents = reader.project_documents(context=context(), project_id="internal-pilot")
+
+    assert len(documents) == total_files == sum(files_per_folder)
+    # One listing call per folder (root + 40 subfolders), not one per file, and
+    # each folder listed exactly once.
+    assert len(listing_calls) == folder_count + 1
+    assert len(set(listing_calls)) == len(listing_calls)
+
+
 # --- 2.3 -- lifecycle from folder, per D2 -------------------------------------------------------
 
 def test_lifecycle_is_derived_from_the_first_folder_below_root_path():

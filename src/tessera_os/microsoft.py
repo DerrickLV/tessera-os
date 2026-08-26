@@ -433,7 +433,7 @@ class AllowlistedSharePointReader:
         # D4: the ACL is explicit and identical on every read path, derived
         # from the zone the document was actually read under -- never left
         # empty for knowledge.py's fail-closed check to silently swallow.
-        acl_group = PARTNER_GROUP if zone == "internal" else f"engagement:{resource.client_id}"
+        acl_group = PARTNER_GROUP if zone == "internal" else f"{zone}:{resource.client_id}"
         for document in documents:
             document.metadata.setdefault("trust_zone", zone)
             document.metadata.setdefault("trust_zone_label", ZONE_LABEL[zone])
