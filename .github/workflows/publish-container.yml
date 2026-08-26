@@ -89,7 +89,7 @@ jobs:
           TAG="sha-$(echo "${GITHUB_SHA}" | cut -c1-7)"
           echo "Deploying ghcr.io/derricklv/tessera-os:${TAG}"
           az containerapp update -n "$APP" -g "$GROUP" \
-            --image "ghcr.io/derricklv/tessera-os:${TAG}" >/dev/null
+            --image "ghcr.io/derricklv/tessera-os:${TAG}" --no-wait >/dev/null
           echo "TAG=${TAG}" >> "$GITHUB_ENV"
 
       - name: Wait for the revision to become healthy
