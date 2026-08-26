@@ -69,7 +69,7 @@ jobs:
     env:
       APP: tessera-portal-api
       GROUP: tessera-pilot-rg
-      URL: https://tessera-portal-api.delightfulground-393766a4.westus2.azurecontainerapps.io
+      URL: https://api.tesseraag.com
     steps:
       - name: Sign in to Azure
         # Every other action here is pinned to a commit SHA, and this one should
