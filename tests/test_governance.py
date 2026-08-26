@@ -25,7 +25,11 @@ def test_it_reproduces_the_synthetic_reference_structure():
     control = recommend_structure(synthetic_reference()).control
     assert control.management_model == "member_managed"
     assert control.approval_rule == "unanimous"
-    assert control.ordinary_course_threshold == 50_000
+    # No initial capital was stated, so the threshold is unresolved (Phase 3,
+    # D1) rather than a fabricated $50,000 default -- see
+    # test_an_underived_threshold_is_surfaced_as_an_open_question.
+    assert control.ordinary_course_threshold.state == "unresolved"
+    assert control.ordinary_course_threshold.value is None
     assert control.deadlock_ladder
     assert control.buy_sell == "shotgun"
 
@@ -127,21 +131,25 @@ def test_the_threshold_scales_with_the_capital_at_stake():
         venture="A", home_state="Texas", initial_capital=150_000))
     large = recommend_structure(VentureProfile(
         venture="B", home_state="Texas", initial_capital=8_000_000))
-    assert small.control.ordinary_course_threshold >= 10_000
-    assert large.control.ordinary_course_threshold > small.control.ordinary_course_threshold
-    assert large.control.ordinary_course_threshold <= 250_000
+    assert small.control.ordinary_course_threshold.state == "proposed"
+    assert small.control.ordinary_course_threshold.value >= 10_000
+    assert (large.control.ordinary_course_threshold.value
+            > small.control.ordinary_course_threshold.value)
+    assert large.control.ordinary_course_threshold.value <= 250_000
 
 
 def test_an_underived_threshold_is_surfaced_as_an_open_question():
-    """No initial capital means the threshold is a fictional placeholder.
+    """No initial capital means there is no basis for a threshold at all.
 
-    It must not reach a reviewer looking like a considered number -- the memo
-    still carries a fictional figure for now, but an open question means the
-    memo cannot reach "draft" status, and the document cannot be produced,
-    until a human resolves it.
+    Per Phase 3 D1, it must not reach a reviewer looking like a considered
+    number, and it must not reach one as a fabricated placeholder either: the
+    threshold carries no value at all, and an open question means the memo
+    cannot reach "draft" status, and the document cannot be produced, until a
+    human resolves it.
     """
     rec = recommend_structure(VentureProfile(venture="No Capital Stated", home_state="Texas"))
-    assert rec.control.ordinary_course_threshold == 50_000
+    assert rec.control.ordinary_course_threshold.state == "unresolved"
+    assert rec.control.ordinary_course_threshold.value is None
     questions = " ".join(q.question for q in rec.open_questions)
     assert "ordinary-course spending threshold" in questions
 

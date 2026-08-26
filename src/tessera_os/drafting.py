@@ -30,6 +30,7 @@ from pydantic import BaseModel, Field
 
 from .clauses import AssembledDraft, ClauseCoverageError, ClauseLibrary, DealProfile, Party
 from .governance import BASIS_LABEL, StructureRecommendation, VentureProfile, recommend_structure
+from .numbers import NumberConfirmationStore
 from .review import ReviewAccessDenied, ReviewQueue
 from .schemas import Evidence, ReviewStatus, RouteDecision, UserContext
 from .workspace import (
@@ -276,11 +277,19 @@ class StructureAdvisor:
     def __init__(self, *, store: PilotArtifactStore,
                  project_clients: dict[str, str],
                  library: ClauseLibrary,
-                 review_queue: ReviewQueue | None = None) -> None:
+                 review_queue: ReviewQueue | None = None,
+                 number_confirmations: NumberConfirmationStore | None = None) -> None:
         self.store = store
         self.project_clients = project_clients
         self.library = library
         self.review_queue = review_queue
+        self.number_confirmations = number_confirmations
+
+    def _confirmations_for(self, *, context: UserContext, project_id: str):
+        if self.number_confirmations is None:
+            return {}
+        return self.number_confirmations.for_project(
+            tenant_id=context.tenant_id, project_id=project_id)
 
     def recommend(self, request: StructureRequest, *,
                   context: UserContext) -> PilotArtifact:
@@ -301,7 +310,9 @@ class StructureAdvisor:
                        sort_keys=True),
         )
 
-        rec = recommend_structure(request.venture)
+        confirmations = self._confirmations_for(
+            context=context, project_id=request.project_id)
+        rec = recommend_structure(request.venture, confirmations=confirmations)
         venture = request.venture
         now = datetime.now(UTC)
 
@@ -309,6 +320,8 @@ class StructureAdvisor:
         unanswered = _unanswered(rec, request)
         evidence_age_days = _evidence_age_days(request, now)
         evidence_current = evidence_age_days <= request.freshness_days
+        unconfirmed_numbers = [number for number in rec.derived_numbers()
+                               if number.state != "stated"]
         refusal_reasons = []
         if not evidence_current:
             refusal_reasons.append(
@@ -317,6 +330,13 @@ class StructureAdvisor:
             refusal_reasons.append("Structural conflicts must be resolved before drafting.")
         if unanswered:
             refusal_reasons.append("Blocking questions remain unanswered.")
+        if unconfirmed_numbers:
+            # 3.5: a memo carrying any proposed or unresolved figure cannot
+            # report status "draft" -- a number nobody has looked at is not a
+            # finished recommendation.
+            refusal_reasons.append(
+                "Figures remain unconfirmed: "
+                + ", ".join(number.label for number in unconfirmed_numbers) + ".")
         status = "insufficient_evidence" if refusal_reasons else "draft"
         artifact = PilotArtifact(
             tenant_id=context.tenant_id, client_id=client_id,
@@ -333,7 +353,8 @@ class StructureAdvisor:
                 f"{rec.control.management_model.replace('_', ' ')}, with "
                 f"{len(rec.control.reserved_matters)} reserved matters decided by "
                 f"{rec.control.approval_rule.replace('_', ' ')} and an ordinary-course "
-                f"threshold of ${rec.control.ordinary_course_threshold:,}. "
+                "threshold of "
+                f"{rec.control.ordinary_course_threshold.render_inline(fmt=lambda v: f'${v:,}')}. "
                 f"{'A deadlock ladder applies. ' if rec.control.deadlock_ladder else ''}"
                 f"{len(rec.adopted())} positions are adopted Tessera positions; "
                 f"{len(rec.synthetic_references())} come from the synthetic "
@@ -399,7 +420,13 @@ class StructureAdvisor:
         if artifact.input_fingerprint != _structure_fingerprint(request):
             raise PilotWorkspaceError("Structure inputs changed after review; create a new memo")
         if artifact.status == "insufficient_evidence" or artifact.refusal_reasons:
-            raise PilotWorkspaceError("Insufficient-evidence recommendations cannot be drafted")
+            # Name the stored reasons rather than a generic refusal -- when
+            # the cause is an unconfirmed DerivedNumber (3.4), the caller
+            # needs to know exactly which figure to confirm next.
+            detail = "Insufficient-evidence recommendations cannot be drafted"
+            if artifact.refusal_reasons:
+                detail += ": " + "; ".join(artifact.refusal_reasons)
+            raise PilotWorkspaceError(detail)
         if artifact.review_item_id is None:
             raise PilotWorkspaceError("Structure memo has not been submitted for review")
         try:
@@ -409,9 +436,20 @@ class StructureAdvisor:
         if review.status != ReviewStatus.ACCEPTED:
             raise PilotWorkspaceError("Qualified counsel must approve the structure memo first")
 
-        rec = recommend_structure(request.venture)
-        if rec.conflicts or _unanswered(rec, request):
-            raise PilotWorkspaceError("Resolve all conflicts and blocking questions before drafting")
+        confirmations = self._confirmations_for(context=context, project_id=request.project_id)
+        rec = recommend_structure(request.venture, confirmations=confirmations)
+        unconfirmed = [number.label for number in rec.derived_numbers()
+                      if number.state != "stated"]
+        if rec.conflicts or _unanswered(rec, request) or unconfirmed:
+            reasons = []
+            if rec.conflicts or _unanswered(rec, request):
+                reasons.append("Resolve all conflicts and blocking questions before drafting")
+            if unconfirmed:
+                # D3: an unconfirmed proposal cannot reach an agreement. Name
+                # each one so a caller knows exactly what to confirm next,
+                # rather than a generic refusal that names nothing.
+                reasons.append(f"Unconfirmed figures: {', '.join(unconfirmed)}")
+            raise PilotWorkspaceError("; ".join(reasons))
         draft_request = AgreementDraftRequest(
             project_id=request.project_id,
             source_artifact_id=artifact.id,
@@ -428,14 +466,20 @@ class StructureAdvisor:
                 f"Structure memo promises clause categories the document lacks: {unmet}")
         return draft_request
 
-    @staticmethod
-    def derived_values(request: StructureRequest) -> dict[str, str]:
+    def derived_values(self, request: StructureRequest, *,
+                       context: UserContext) -> dict[str, str]:
         """The commercial terms the structure decided, for :meth:`ClauseLibrary.fill`.
 
         Pass these in when filling the draft. Otherwise the library supplies its
         own posture defaults and the agreement quietly contradicts the memo.
+
+        An instance method rather than the free function it used to be:
+        per D3, only a confirmed (``stated``) figure may reach the document,
+        and knowing which figures are confirmed for this project requires
+        ``self.number_confirmations`` -- a bare ``VentureProfile`` cannot say.
         """
-        return recommend_structure(request.venture).derived_values()
+        confirmations = self._confirmations_for(context=context, project_id=request.project_id)
+        return recommend_structure(request.venture, confirmations=confirmations).derived_values()
 
 
 def _validate_citations(assembled: AssembledDraft, artifact: PilotArtifact):

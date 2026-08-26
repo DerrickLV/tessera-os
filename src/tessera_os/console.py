@@ -40,6 +40,7 @@ from .microsoft import (
     MicrosoftConnectionStatus,
     MicrosoftPilotSettings,
 )
+from .numbers import DerivedNumberConfirmation, NumberConfirmationStore
 from .orchestrator import TesseraOrchestrator
 from .paths import project_root
 from .policy import Environment
@@ -295,6 +296,12 @@ class StructureIntakeRequest(BaseModel):
     counterparty: str = ""
 
 
+class NumberConfirmationRequest(BaseModel):
+    project_id: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+    value: int
+
+
 def load_console_fixture(path: Path = DEFAULT_FIXTURE) -> ConsoleFixture:
     return ConsoleFixture.model_validate(json.loads(path.read_text()))
 
@@ -406,11 +413,14 @@ def create_console_app(*, data_dir: Path | None = None,
     drafter = AgreementDrafter(library=clauses, store=artifact_store,
                                project_clients={project.id: project.client_id
                                                 for project in fixture.projects})
+    number_confirmations = NumberConfirmationStore(
+        runtime_dir / "console-number-confirmations.db")
     structure_advisor = StructureAdvisor(
         store=artifact_store,
         review_queue=review_queue,
         library=clauses,
         project_clients={project.id: project.client_id for project in fixture.projects},
+        number_confirmations=number_confirmations,
     )
 
     def synthetic_structure_request(project_id: str) -> StructureRequest:
@@ -810,6 +820,24 @@ def create_console_app(*, data_dir: Path | None = None,
         except (PilotWorkspaceError, ValueError) as exc:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                                 detail=str(exc)) from exc
+
+    @app.post("/v1/structure/numbers/confirm", response_model=DerivedNumberConfirmation)
+    def confirm_number(
+        request: NumberConfirmationRequest,
+        context: UserContext = Depends(context_provider),  # noqa: B008
+    ) -> DerivedNumberConfirmation:
+        """Record a person's decision on a proposed figure (D4).
+
+        Same authorization boundary as ``/v1/structure/intake``: a project
+        outside the caller's scope is a 403, not a 404 that would leak which
+        project IDs exist.
+        """
+        if request.project_id not in context.project_ids:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail="Project is outside authenticated scope")
+        return number_confirmations.confirm(
+            tenant_id=context.tenant_id, project_id=request.project_id, label=request.label,
+            value=request.value, confirmed_by=context.user_id)
 
     @app.get("/v1/projects/{project_id}/workflows",
              response_model=list[PilotWorkflowOption])

@@ -19,6 +19,7 @@ from tessera_os.drafting import (
     StructureRequest,
 )
 from tessera_os.governance import VentureProfile, recommend_structure
+from tessera_os.numbers import NumberConfirmationStore
 from tessera_os.review import ReviewQueue
 from tessera_os.schemas import Evidence, UserContext
 from tessera_os.workspace import PilotArtifactStore, PilotWorkspaceError
@@ -39,7 +40,25 @@ def advisor(tmp_path) -> StructureAdvisor:
         review_queue=ReviewQueue(tmp_path / "reviews.db"),
         library=ClauseLibrary.load("fixtures/clause_library"),
         project_clients={PROJECT: "client-riverbend"},
+        number_confirmations=NumberConfirmationStore(tmp_path / "number-confirmations.db"),
     )
+
+
+def confirm_proposed_numbers(advice: StructureAdvisor, ask: StructureRequest) -> None:
+    """Accept the engine's own proposals as-is, at their current computed value.
+
+    Most of the tests in this file are about review, citation, and drafting --
+    not about the confirm-or-replace mechanics of DerivedNumber, which get
+    their own coverage in test_derived_numbers.py. Without this, every
+    recommendation here would stall at "insufficient_evidence" per Phase 3 D3
+    (an unconfirmed proposal cannot reach an agreement).
+    """
+    rec = recommend_structure(ask.venture)
+    for number in rec.derived_numbers():
+        if number.state == "proposed":
+            advice.number_confirmations.confirm(
+                tenant_id="tenant-synthetic", project_id=ask.project_id,
+                label=number.label, value=number.value, confirmed_by="synthetic-partner")
 
 
 def venture(**overrides) -> VentureProfile:
@@ -74,6 +93,7 @@ def request(**overrides) -> StructureRequest:
 
 def approve(advice: StructureAdvisor, ask: StructureRequest, *, reviewer=None):
     reviewer = reviewer or context(user_id="synthetic-counsel-b")
+    confirm_proposed_numbers(advice, ask)
     memo = advice.recommend(ask, context=context())
     item = advice.review_queue.submit(
         tenant_id=memo.tenant_id, project_id=memo.project_id,
@@ -94,7 +114,10 @@ def approve(advice: StructureAdvisor, ask: StructureRequest, *, reviewer=None):
 # --- the recommendation as a governed artifact ------------------------------
 
 def test_a_recommendation_is_a_reviewable_artifact(tmp_path):
-    artifact = advisor(tmp_path).recommend(request(), context=context())
+    advice = advisor(tmp_path)
+    ask = request()
+    confirm_proposed_numbers(advice, ask)
+    artifact = advice.recommend(ask, context=context())
     assert artifact.workflow == "entity_structuring"
     assert artifact.agent_id == "structure_manager"
     assert artifact.status == "draft"
@@ -236,7 +259,7 @@ def test_the_agreement_carries_the_threshold_the_memo_recommended(tmp_path):
 
     ask = request()
     rec = recommend_structure(ask.venture)
-    assert rec.control.ordinary_course_threshold == 60_000
+    assert rec.control.ordinary_course_threshold.value == 60_000
 
     library = ClauseLibrary.load("fixtures/clause_library")
     advice = advisor(tmp_path)
@@ -249,7 +272,7 @@ def test_the_agreement_carries_the_threshold_the_memo_recommended(tmp_path):
         "manager_name": "Northstar Sponsor LLC",
         "promote_holder": "Northstar Sponsor LLC",
         "survival_sections": "1, 12, 19, 20 and 23",
-        **StructureAdvisor.derived_values(ask),
+        **advice.derived_values(ask, context=context()),
     })
     assert filled.values["ordinary_course_threshold"] == "$60,000"
     assert "$60,000" in filled.markdown
@@ -264,11 +287,15 @@ def test_the_draft_request_carries_the_memos_derived_values(tmp_path):
     disagree with the memo.
     """
     ask = request()
-    rec = recommend_structure(ask.venture)
     advice = advisor(tmp_path)
     _, draft_request = approve(advice, ask)
 
-    assert draft_request.derived_values == rec.derived_values()
+    # Recomputed with the same confirmations `approve()` just recorded, so
+    # this is a fair comparison rather than the unconfirmed proposal.
+    confirmed_rec = recommend_structure(
+        ask.venture, confirmations=advice.number_confirmations.for_project(
+            tenant_id="tenant-synthetic", project_id=ask.project_id))
+    assert draft_request.derived_values == confirmed_rec.derived_values()
 
     library = ClauseLibrary.load("fixtures/clause_library")
     assembled = library.assemble(draft_request.profile)
@@ -282,7 +309,7 @@ def test_the_draft_request_carries_the_memos_derived_values(tmp_path):
         **draft_request.derived_values,
     })
     assert filled.values["ordinary_course_threshold"] == (
-        f"${rec.control.ordinary_course_threshold:,}")
+        f"${confirmed_rec.control.ordinary_course_threshold.value:,}")
 
 
 def test_a_supermajority_threshold_also_travels(tmp_path):
@@ -293,7 +320,9 @@ def test_a_supermajority_threshold_also_travels(tmp_path):
         equal_ownership=True, initial_capital=1_000_000))
     rec = recommend_structure(ask.venture)
     assert rec.control.approval_rule == "supermajority"
-    values = StructureAdvisor.derived_values(ask)
+    advice = advisor(tmp_path)
+    confirm_proposed_numbers(advice, ask)
+    values = advice.derived_values(ask, context=context())
     assert values["member_approval_threshold"] == "75%"
 
 
@@ -302,9 +331,12 @@ def test_a_unanimous_structure_does_not_invent_a_percentage(tmp_path):
 
     ask = request(venture=VentureProfile(
         venture="Two Partners", home_state="Texas", active_principals=2,
-        equal_ownership=True))
-    values = StructureAdvisor.derived_values(ask)
+        equal_ownership=True, initial_capital=500_000))
+    advice = advisor(tmp_path)
+    confirm_proposed_numbers(advice, ask)
+    values = advice.derived_values(ask, context=context())
     assert "member_approval_threshold" not in values
+    assert "ordinary_course_threshold" in values
     assert "ordinary_course_threshold" in values
 
 
@@ -313,6 +345,7 @@ def test_a_unanimous_structure_does_not_invent_a_percentage(tmp_path):
 def test_an_unreviewed_memo_cannot_be_turned_into_an_agreement(tmp_path):
     advice = advisor(tmp_path)
     ask = request()
+    confirm_proposed_numbers(advice, ask)
     memo = advice.recommend(ask, context=context())
     with pytest.raises(PilotWorkspaceError, match="submitted for review"):
         advice.to_draft_request(
@@ -322,6 +355,7 @@ def test_an_unreviewed_memo_cannot_be_turned_into_an_agreement(tmp_path):
 def test_setting_the_artifact_status_does_not_bypass_the_review_queue(tmp_path):
     advice = advisor(tmp_path)
     ask = request()
+    confirm_proposed_numbers(advice, ask)
     memo = advice.recommend(ask, context=context())
     memo.status = "accepted"
     advice.store.update(memo)
@@ -333,6 +367,7 @@ def test_setting_the_artifact_status_does_not_bypass_the_review_queue(tmp_path):
 def test_runtime_handoff_refuses_when_memo_promises_a_missing_clause_category(tmp_path):
     advice = advisor(tmp_path)
     ask = request()
+    confirm_proposed_numbers(advice, ask)
     memo = advice.recommend(ask, context=context())
     item = advice.review_queue.submit(
         tenant_id=memo.tenant_id, project_id=memo.project_id,

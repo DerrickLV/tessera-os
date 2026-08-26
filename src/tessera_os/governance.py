@@ -35,6 +35,12 @@ from pydantic import BaseModel, Field
 
 from .adoption import AdoptedPosition, AdoptionLedger
 from .clauses import DealProfile, EntityType, Industry, Party, TaxTreatment
+from .numbers import (
+    APPROVAL_THRESHOLD_LABEL,
+    ORDINARY_COURSE_THRESHOLD_LABEL,
+    DerivedNumber,
+    DerivedNumberConfirmation,
+)
 from .sectors import SectorPattern, pattern_for, regime_for
 
 # --- provenance -------------------------------------------------------------
@@ -277,9 +283,9 @@ class ControlArchitecture(BaseModel):
     when they do not."""
 
     management_model: ManagementModel
-    ordinary_course_threshold: int
+    ordinary_course_threshold: DerivedNumber
     approval_rule: ApprovalRule
-    approval_threshold_percent: int
+    approval_threshold_percent: DerivedNumber
     reserved_matters: list[str]
     deadlock_ladder: bool
     deadlock_steps: list[str] = Field(default_factory=list)
@@ -411,16 +417,31 @@ class StructureRecommendation(BaseModel):
 
         Without this the clause library falls back to its posture defaults, and
         the memo and the agreement disagree about the same number -- the memo
-        says the ordinary-course threshold is $60,000 while the document it
-        produced says $25,000. Both are defensible; having both is not.
+        says one ordinary-course threshold while the document it produced says
+        another. Both are defensible; having both is not.
+
+        Per D3, an unconfirmed figure never reaches the agreement: a value is
+        included here only once its :class:`~tessera_os.numbers.DerivedNumber`
+        is ``stated``. ``to_draft_request`` already refuses to reach this
+        point while anything is ``proposed`` or ``unresolved`` -- this check is
+        the same rule enforced a second time, at the one place that actually
+        writes into document text, rather than trusted to be enforced only
+        upstream.
         """
-        values = {
-            "ordinary_course_threshold": f"${self.control.ordinary_course_threshold:,}",
-        }
+        values = {}
+        threshold = self.control.ordinary_course_threshold
+        if threshold.state == "stated":
+            values["ordinary_course_threshold"] = f"${threshold.value:,}"
         if self.control.approval_rule == "supermajority":
-            values["member_approval_threshold"] = (
-                f"{self.control.approval_threshold_percent}%")
+            percent = self.control.approval_threshold_percent
+            if percent.state == "stated":
+                values["member_approval_threshold"] = f"{percent.value}%"
         return values
+
+    def derived_numbers(self) -> list[DerivedNumber]:
+        """Every figure in this recommendation that must be ``stated`` before
+        it may reach an agreement. See D3 and ``to_draft_request``."""
+        return [self.control.ordinary_course_threshold, self.control.approval_threshold_percent]
 
     def _formation_state(self) -> str:
         for layer in self.layers:
@@ -436,23 +457,69 @@ class StructureRecommendation(BaseModel):
 
 # --- the engine -------------------------------------------------------------
 
-# Synthetic evaluation rule. The number is deliberately fictional and must be
-# replaced with an approved threshold tested against the venture's real budget.
+# Phase 3 (docs/BUILD_BRIEF_PHASE_3_REAL_NUMBERS.md): none of the following
+# module-level numbers are sourced from a Tessera position, a client fact, or
+# anything else that would let them stand as advice on their own. Each is
+# named here, once, so that a number reaching a memo or a document is always
+# traceable to exactly one of these constants (or to a DerivedNumber) rather
+# than typed directly into rendered prose where it would read as researched.
+# tests/test_no_invented_numbers.py enforces that nothing new is typed
+# directly into governance.py's rendered text without being named here first.
+
+# Unsourced coefficients behind the ordinary-course threshold proposal (3.2).
+# The floor, the coefficient, and the cap are a plausible shape with invented
+# parameters -- see docs/BUILD_BRIEF_PHASE_3_REAL_NUMBERS.md section 1. There
+# is deliberately no fallback figure for zero stated capital any more: that
+# case is unresolved, not a fabricated $50,000 default.
+_THRESHOLD_COEFFICIENT = 0.02
 _THRESHOLD_FLOOR = 10_000
-_SYNTHETIC_THRESHOLD = 50_000
+_THRESHOLD_CAP = 250_000
+
+# Unsourced approval-threshold percentages (3.3). 100% for the unanimous rule
+# is a direct consequence of choosing unanimity, not an independently guessed
+# figure; 75% and 51% are guesses with no Tessera position behind them.
+_UNANIMOUS_PERCENT = 100
+_SUPERMAJORITY_PERCENT = 75
+_MAJORITY_PERCENT = 51
+
+# Unsourced reserved-matter contract-duration ceiling.
+_ORDINARY_COURSE_CONTRACT_MONTHS = 12
 
 
-def _ordinary_course_threshold(profile: VentureProfile) -> int:
+def _ordinary_course_threshold(profile: VentureProfile) -> DerivedNumber:
+    """Propose a threshold from stated capital, or leave it unresolved.
+
+    Per D1, a venture with no stated capital gets no number at all -- the
+    zero-capital case is surfaced as a blocking open question by
+    ``_open_questions`` rather than papered over with a fabricated default.
+    """
     if profile.initial_capital <= 0:
-        return _SYNTHETIC_THRESHOLD
-    scaled = int(round(profile.initial_capital * 0.02, -3))
-    return max(_THRESHOLD_FLOOR, min(scaled, 250_000))
+        return DerivedNumber(label=ORDINARY_COURSE_THRESHOLD_LABEL, value=None,
+                             state="unresolved")
+    scaled = int(round(profile.initial_capital * _THRESHOLD_COEFFICIENT, -3))
+    value = max(_THRESHOLD_FLOOR, min(scaled, _THRESHOLD_CAP))
+    derivation = (
+        f"Derived as {_THRESHOLD_COEFFICIENT:.0%} of stated initial capital "
+        f"(${profile.initial_capital:,.0f}), floored at ${_THRESHOLD_FLOOR:,} and capped at "
+        f"${_THRESHOLD_CAP:,}. This is a common starting point but is not a Tessera position "
+        "and has not been tested against your actual operating budget. Confirm or replace "
+        "before this reaches a document.")
+    return DerivedNumber(label=ORDINARY_COURSE_THRESHOLD_LABEL, value=value, state="proposed",
+                         derivation=derivation)
+
+
+def _dollars(value: int) -> str:
+    return f"${value:,}"
+
+
+def _percent(value: int) -> str:
+    return f"{value}%"
 
 
 # Generic synthetic reserved-matter checklist for offline evaluation.
 _BASE_RESERVED = [
     ("Incurring, guaranteeing, or refinancing debt, or any contract above the ordinary "
-     "course threshold or running beyond twelve (12) months"),
+     f"course threshold or running beyond twelve ({_ORDINARY_COURSE_CONTRACT_MONTHS}) months"),
     "Issuing new interests, admitting a member, or granting any option or right to acquire one",
     "Selling, leasing, transferring, or encumbering a material asset outside the ordinary course",
     "Merging, converting, consolidating, reorganising, dissolving, or filing for bankruptcy",
@@ -527,16 +594,37 @@ def _management_model(profile: VentureProfile) -> tuple[ManagementModel, str, Ba
             "scaffold")
 
 
-def _approval_rule(profile: VentureProfile) -> tuple[ApprovalRule, int, Basis]:
+def _approval_rule(profile: VentureProfile) -> tuple[ApprovalRule, DerivedNumber, Basis]:
     if profile.total_members == 2 and profile.equal_ownership:
-        return ("unanimous", 100,
+        return ("unanimous", DerivedNumber(
+                    label=APPROVAL_THRESHOLD_LABEL, value=_UNANIMOUS_PERCENT, state="proposed",
+                    derivation=(
+                        f"{_percent(_UNANIMOUS_PERCENT)} follows directly from requiring "
+                        "unanimous consent between both members -- it is a consequence of "
+                        "choosing unanimity below, not an independently chosen figure. Confirm "
+                        "that unanimity, rather than a lower threshold, is what you want.")),
                 "synthetic_reference")
     if profile.equal_ownership and profile.total_members >= 3:
-        return ("supermajority", 75, "scaffold")
-    return ("majority_with_minority_veto", 51, "scaffold")
+        return ("supermajority", DerivedNumber(
+                    label=APPROVAL_THRESHOLD_LABEL, value=_SUPERMAJORITY_PERCENT, state="proposed",
+                    derivation=(
+                        f"{_percent(_SUPERMAJORITY_PERCENT)} is a common supermajority line for "
+                        "three or more equal owners, but no Tessera position sets it and it has "
+                        "not been tested against how often you expect to disagree. Confirm or "
+                        "replace before this reaches a document.")),
+                "scaffold")
+    return ("majority_with_minority_veto", DerivedNumber(
+                label=APPROVAL_THRESHOLD_LABEL, value=_MAJORITY_PERCENT, state="proposed",
+                derivation=(
+                    f"{_percent(_MAJORITY_PERCENT)} is a bare majority, used here only to decide "
+                    "reserved matters outside the protective list. It has not been chosen for "
+                    "this venture specifically. Confirm or replace before this reaches a "
+                    "document.")),
+            "scaffold")
 
 
-def _deadlock_needed(profile: VentureProfile, rule: ApprovalRule, threshold: int) -> bool:
+def _deadlock_needed(profile: VentureProfile, rule: ApprovalRule,
+                     threshold: DerivedNumber) -> bool:
     """A deadlock ladder belongs only where no coalition can carry a reserved matter.
 
     Where one party holds control, adding a ladder does not protect anyone -- it
@@ -551,7 +639,7 @@ def _deadlock_needed(profile: VentureProfile, rule: ApprovalRule, threshold: int
         return False
     if rule == "unanimous":
         return True
-    required = math.ceil(profile.total_members * threshold / 100)
+    required = math.ceil(profile.total_members * threshold.value / 100)
     return required >= profile.total_members
 
 
@@ -565,16 +653,29 @@ def _no_deadlock_reason(rule: ApprovalRule) -> str:
             "enumerated list, not an exit mechanism.")
 
 
+# Unsourced procedural day-counts for the deadlock ladder -- reasonable-looking
+# defaults, not tested against how this venture actually operates.
+_DEADLOCK_NOTICE_DAYS = 10
+_DEADLOCK_MEETING_DAYS = 15
+_DEADLOCK_MEDIATION_DAYS = 30
+_DEADLOCK_REMEDY_DAYS = 45
+
 _DEADLOCK_STEPS = [
-    ("Ten (10) business days from the day either party first raises the matter in writing, "
-     "after which either may serve a deadlock notice"),
-    "A meeting in person or by video within fifteen (15) business days of the notice",
-    ("Non-binding mediation before a single neutral, completed within thirty (30) days of "
-     "selection, fees shared equally"),
-    ("Any separately approved exit remedy available forty-five (45) days after the notice — "
-     "but only if the deadlock materially "
+    (f"Ten ({_DEADLOCK_NOTICE_DAYS}) business days from the day either party first raises the "
+     "matter in writing, after which either may serve a deadlock notice"),
+    (f"A meeting in person or by video within fifteen ({_DEADLOCK_MEETING_DAYS}) business days "
+     "of the notice"),
+    (f"Non-binding mediation before a single neutral, completed within thirty "
+     f"({_DEADLOCK_MEDIATION_DAYS}) days of selection, fees shared equally"),
+    (f"Any separately approved exit remedy available forty-five ({_DEADLOCK_REMEDY_DAYS}) days "
+     "after the notice — but only if the deadlock materially "
      "impairs the company's ability to operate in the ordinary course"),
 ]
+
+
+# Unsourced shotgun-buy-sell mechanics (3.6, the known "1% shotgun unit").
+_SHOTGUN_UNIT_PERCENT = 1
+_SHOTGUN_ELECTION_DAYS = 30
 
 
 def _buy_sell_style(profile: VentureProfile) -> tuple[BuySellStyle, str, Basis]:
@@ -590,19 +691,36 @@ def _buy_sell_style(profile: VentureProfile) -> tuple[BuySellStyle, str, Basis]:
             "scaffold")
 
 
+# Unsourced procedural day-counts for the exit triggers below.
+_DISABILITY_CONSECUTIVE_DAYS = 90
+_DISABILITY_LOOKBACK_TRIGGER_DAYS = 120
+_DISABILITY_LOOKBACK_WINDOW_DAYS = 180
+_BREACH_CURE_DAYS = 30
+
 _BASE_TRIGGERS = [
     "Death",
-    ("Disability — unable to perform for ninety (90) consecutive days, or one hundred twenty "
-     "(120) days in any trailing one hundred eighty (180)"),
+    (f"Disability — unable to perform for ninety ({_DISABILITY_CONSECUTIVE_DAYS}) consecutive "
+     f"days, or one hundred twenty ({_DISABILITY_LOOKBACK_TRIGGER_DAYS}) days in any trailing "
+     f"one hundred eighty ({_DISABILITY_LOOKBACK_WINDOW_DAYS})"),
     "Bankruptcy, or an assignment for the benefit of creditors",
     "Voluntary withdrawal or resignation from active involvement",
-    "Material breach uncured for thirty (30) days after written notice",
+    f"Material breach uncured for thirty ({_BREACH_CURE_DAYS}) days after written notice",
     ("Conviction of, or a plea to, a felony or a crime of fraud, dishonesty, or moral turpitude "
      "that materially and adversely affects the company"),
 ]
 _SPOUSE_TRIGGER = (
     "Divorce or dissolution of marriage that would transfer any part of the interest to a "
     "spouse or former spouse, absent a premarital or postmarital waiver")
+
+
+# Unsourced valuation-and-payment commercial figures (3.6). Phase 5 owns
+# whether these are the right numbers; Phase 3 only owns naming the fact that
+# they are currently invented. See docs/BUILD_BRIEF_PHASE_3_REAL_NUMBERS.md.
+_VALUATION_AGREEMENT_DAYS = 20
+_VALUATION_BAND_PERCENT = 15
+_BUYOUT_CASH_PERCENT = 25
+_BUYOUT_NOTE_PERCENT = 100 - _BUYOUT_CASH_PERCENT
+_BUYOUT_NOTE_MONTHS = 24
 
 
 def _exit_architecture(profile: VentureProfile, buy_sell: BuySellStyle) -> ExitArchitecture:
@@ -614,14 +732,16 @@ def _exit_architecture(profile: VentureProfile, buy_sell: BuySellStyle) -> ExitA
         permitted_estate_transfer=profile.estate_planning_relevant,
         triggering_events=triggers,
         valuation_method=(
-            "Agree within twenty (20) days; failing that each side appoints an appraiser, and "
-            "if the two are within fifteen percent (15%) the value is their average, otherwise the "
-            "two appoint a third whose determination binds. Each pays its own appraiser; the "
-            "third is shared."),
+            f"Agree within twenty ({_VALUATION_AGREEMENT_DAYS}) days; failing that each side "
+            f"appoints an appraiser, and if the two are within fifteen percent "
+            f"({_VALUATION_BAND_PERCENT}%) the value is their average, otherwise the two appoint "
+            "a third whose determination binds. Each pays its own appraiser; the third is "
+            "shared."),
         payment_terms=(
-            "Twenty-five percent (25%) cash at closing and seventy-five percent (75%) by note "
-            "at an approved lawful rate over twenty-four (24) months, secured by a pledge of the "
-            "interest acquired, prepayable without penalty."),
+            f"Twenty-five percent ({_BUYOUT_CASH_PERCENT}%) cash at closing and seventy-five "
+            f"percent ({_BUYOUT_NOTE_PERCENT}%) by note at an approved lawful rate over "
+            f"twenty-four ({_BUYOUT_NOTE_MONTHS}) months, secured by a pledge of the interest "
+            "acquired, prepayable without penalty."),
         tag_along=not profile.equal_ownership or profile.has_passive_capital,
         drag_along=profile.exit_intent == "sale",
         insurance_funded=profile.key_person_dependency,
@@ -852,23 +972,26 @@ def _recommendations(profile: VentureProfile, control: ControlArchitecture,
 
     items.append(Recommendation(
         area="Ordinary-course authority", basis="synthetic_reference",
-        position=f"Either principal may act alone up to ${control.ordinary_course_threshold:,}; "
-                 "above it, the reserved-matter rule applies.",
+        position=f"Either principal may act alone up to "
+                 f"{control.ordinary_course_threshold.render_inline(fmt=_dollars)}; above it, "
+                 "the reserved-matter rule applies.",
         because="This one number is the hinge of the whole design. Below it the business can "
                 "move without a meeting; above it nobody can commit the others to something "
                 "they never saw.",
         confirm="Test the number against a normal month of spending before adopting it — too "
                 "low and every invoice becomes a negotiation."))
 
+    approval_percent = control.approval_threshold_percent.render_inline(fmt=_percent)
     rule_text = {
         "unanimous": "Reserved matters require the unanimous written consent of both members, "
                      "which either may withhold in its sole discretion.",
-        "supermajority": f"Reserved matters require the written consent of members holding "
-                         f"{control.approval_threshold_percent}% of units.",
+        "supermajority": "Reserved matters require the written consent of members holding "
+                         f"{approval_percent} of units.",
         "majority_with_minority_veto":
-            "Reserved matters carry on a majority of units, except for an enumerated protective "
-            "list — amendments, new interests, related-party transactions, and any change to "
-            "the distribution waterfall — over which the minority holds a veto.",
+            f"Reserved matters carry on a majority of units ({approval_percent}), except for an "
+            "enumerated protective list — amendments, new interests, related-party "
+            "transactions, and any change to the distribution waterfall — over which the "
+            "minority holds a veto.",
     }[control.approval_rule]
     items.append(Recommendation(
         area="Reserved matters", basis=approval_basis,
@@ -895,9 +1018,10 @@ def _recommendations(profile: VentureProfile, control: ControlArchitecture,
     if control.buy_sell != "none":
         items.append(Recommendation(
             area="Buy-sell", basis=buy_sell_basis,
-            position=("A shotgun: one party names a single price per one percent (1%) of "
-                      "interest, the other elects to buy or sell at it within thirty (30) days, "
-                      "and failure to elect is deemed an election to sell."
+            position=(f"A shotgun: one party names a single price per one percent "
+                      f"({_SHOTGUN_UNIT_PERCENT}%) of interest, the other elects to buy or sell "
+                      f"at it within thirty ({_SHOTGUN_ELECTION_DAYS}) days, and failure to "
+                      "elect is deemed an election to sell."
                       if control.buy_sell == "shotgun"
                       else "An appraisal buy-sell at fair market value determined by the "
                            "three-appraiser procedure."),
@@ -1444,13 +1568,13 @@ def _capital_architecture(profile: VentureProfile) -> CapitalArchitecture:
         WaterfallTier(
             order=1, name="Return of capital",
             what_happens="Distributable cash first returns unreturned capital contributions.",
-            to_investors="100% until contributed capital is returned in full",
+            to_investors="All distributable cash until contributed capital is returned in full",
             to_sponsor="Pro rata on any capital the sponsor itself contributed"),
         WaterfallTier(
             order=2, name="Preferred return",
             what_happens="A cumulative, non-compounding annual return on unreturned capital, "
                          "accrued from the date each contribution was funded.",
-            to_investors="100% until the preferred return is paid current",
+            to_investors="All distributable cash until the preferred return is paid current",
             to_sponsor="Nothing at this tier"),
         WaterfallTier(
             order=3, name="Sponsor catch-up",
@@ -1514,8 +1638,8 @@ def _capital_architecture(profile: VentureProfile) -> CapitalArchitecture:
 # Taken from Tessera's own plain-English glossary, so the memo speaks in the
 # words the firm already uses publicly rather than inventing a second register.
 _GLOSSARY: dict[str, str] = {
-    "Equity": "Ownership in the company. If you own 60% of the equity, you own 60% of the "
-              "business.",
+    "Equity": "Ownership in the company. The more of the equity you own, the more of the "
+              "business you own.",
     "Dilution": "When your slice of ownership gets smaller because new shares were handed "
                 "out, usually to bring in investors. The pie grew, but your piece is now a "
                 "smaller share of it.",
@@ -1604,24 +1728,50 @@ def _apply_adoptions(recommendations: list[Recommendation],
     return upgraded
 
 
+def _apply_confirmation(number: DerivedNumber,
+                        confirmed: DerivedNumberConfirmation | None) -> DerivedNumber:
+    """Override a computed proposal with a person's confirmed figure.
+
+    Confirming is allowed to replace the proposed value, not just accept it --
+    the derivation text itself says "confirm or replace". Once a number is
+    ``stated`` here it stays that way; a later run of the engine (a changed
+    profile, say) does not silently un-confirm it.
+    """
+    if confirmed is None or number.state == "stated":
+        return number
+    return DerivedNumber(label=number.label, value=confirmed.value, state="stated",
+                         derivation=number.derivation, confirmed_by=confirmed.confirmed_by,
+                         confirmed_at=confirmed.confirmed_at)
+
+
 def recommend_structure(profile: VentureProfile,
-                        ledger: AdoptionLedger | None = None) -> StructureRecommendation:
+                        ledger: AdoptionLedger | None = None,
+                        confirmations: dict[str, DerivedNumberConfirmation] | None = None,
+                        ) -> StructureRecommendation:
     """Produce the structure for a venture, with the reasoning and the open questions.
 
     Deterministic: the same profile and the same adoption ledger always produce
     the same structure, so a recommendation can be reviewed, disagreed with, and
-    traced back to the input that drove it.
+    traced back to the input that drove it. ``confirmations`` is the one
+    intentional exception -- it is how a person's recorded decision (D4)
+    reaches a recommendation that is otherwise computed fresh from the profile
+    every time, keyed by :class:`~tessera_os.numbers.DerivedNumber` label.
     """
     ledger = ledger if ledger is not None else AdoptionLedger.load()
+    confirmations = confirmations or {}
     model, mgmt_why, mgmt_basis = _management_model(profile)
     rule, threshold_percent, approval_basis = _approval_rule(profile)
+    threshold_percent = _apply_confirmation(
+        threshold_percent, confirmations.get(APPROVAL_THRESHOLD_LABEL))
     deadlock = _deadlock_needed(profile, rule, threshold_percent)
     buy_sell, buy_sell_why, buy_sell_basis = _buy_sell_style(profile)
     tax, tax_why, tax_basis = _tax_treatment(profile)
+    threshold = _apply_confirmation(
+        _ordinary_course_threshold(profile), confirmations.get(ORDINARY_COURSE_THRESHOLD_LABEL))
 
     control = ControlArchitecture(
         management_model=model,
-        ordinary_course_threshold=_ordinary_course_threshold(profile),
+        ordinary_course_threshold=threshold,
         approval_rule=rule,
         approval_threshold_percent=threshold_percent,
         reserved_matters=_reserved_matters(profile),
@@ -1734,11 +1884,11 @@ def render_structure_memo(rec: StructureRecommendation) -> str:
     out.append("")
     out.append(f"- Management: {rec.control.management_model.replace('_', ' ')}")
     out.append(f"- Either principal may act alone up to "
-               f"${rec.control.ordinary_course_threshold:,}")
+               f"{rec.control.ordinary_course_threshold.render_inline(fmt=_dollars)}")
     out.append(f"- Reserved matters: {len(rec.control.reserved_matters)}, decided by "
                f"{rec.control.approval_rule.replace('_', ' ')}"
-               + (f" at {rec.control.approval_threshold_percent}%"
-                  if rec.control.approval_rule == "supermajority" else ""))
+               + (f" at {rec.control.approval_threshold_percent.render_inline(fmt=_percent)}"
+                  if rec.control.approval_rule != "unanimous" else ""))
     out.append(f"- Deadlock ladder: {'yes' if rec.control.deadlock_ladder else 'not applicable'}")
     out.append(f"- Buy-sell: {rec.control.buy_sell}")
     out.append("")
@@ -1751,6 +1901,8 @@ def render_structure_memo(rec: StructureRecommendation) -> str:
         out.append("")
         out += [f"{index}. {step}" for index, step in enumerate(rec.control.deadlock_steps, 1)]
         out.append("")
+
+    out += _render_figures_to_confirm(rec.derived_numbers())
 
     out.append("## Positions")
     out.append("")
@@ -1827,6 +1979,31 @@ def render_structure_memo(rec: StructureRecommendation) -> str:
         out.append("")
 
     return "\n".join(out).rstrip() + "\n"
+
+
+def _render_figures_to_confirm(numbers: list[DerivedNumber]) -> list[str]:
+    """D2: a proposed number renders with the rule that produced it, in plain
+    language, so a reader who disagrees can see exactly what to argue with.
+
+    Stated numbers are omitted here -- they already render plainly, with their
+    source, at every place they are used. Unresolved numbers are omitted too:
+    that state is surfaced as a blocking open question (D1), not repeated
+    here as a second, differently-worded gap.
+    """
+    proposed = [number for number in numbers if number.state == "proposed"]
+    if not proposed:
+        return []
+    formatters = {ORDINARY_COURSE_THRESHOLD_LABEL: _dollars, APPROVAL_THRESHOLD_LABEL: _percent}
+    out = ["## Figures to confirm", "",
+           ("These are computed starting points, not settled terms. Confirm or replace each "
+            "one before it reaches a document.")]
+    out.append("")
+    for number in proposed:
+        fmt = formatters.get(number.label, _dollars)
+        out.append(f"**{number.label.capitalize()} — proposed: {fmt(number.value)}.**")
+        out.append(number.derivation)
+        out.append("")
+    return out
 
 
 def _render_capital(capital: CapitalArchitecture) -> list[str]:

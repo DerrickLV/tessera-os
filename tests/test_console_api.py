@@ -424,6 +424,17 @@ def test_structure_api_requires_review_and_preserves_lineage(tmp_path, monkeypat
             for item in recommend_structure(venture).open_questions
         },
     }
+    # Phase 3 D3: an unconfirmed proposal cannot reach an agreement, and per
+    # 3.5 a memo carrying one cannot even report status "draft". Confirm every
+    # proposed figure through the same endpoint a partner would use, before
+    # the memo is created.
+    for number in recommend_structure(venture).derived_numbers():
+        if number.state == "proposed":
+            confirmed = api.post("/v1/structure/numbers/confirm", json={
+                "project_id": "riverbend-multifamily", "label": number.label,
+                "value": number.value})
+            assert confirmed.status_code == 200, confirmed.text
+
     recommendation = api.post("/v1/structure/recommendations", json=payload)
     assert recommendation.status_code == 200
     memo = recommendation.json()
