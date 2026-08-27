@@ -135,6 +135,7 @@ Every one of these cost real time. The symptom is what you see first.
 | `The containerapp '' does not exist` | A shell variable evaluated empty | Use literal names in Cloud Shell — variables don't survive reconnects |
 | `The containerapp '<name>' does not exist` from Actions | Deploy identity lacks `Reader` on the resource group | Azure reports unresolvable as *not found*, not *forbidden*. Grant Reader at group scope |
 | Deploy job hangs then dies mid-poll | `az containerapp update` polling for minutes; connection drops | `--no-wait`; the next step already waits for health |
+| Deploy job green but production unchanged | Wait loop matched the previous revision | Pin by revision name |
 | Health check returns 400 repeatedly | Checking the default `*.azurecontainerapps.io` FQDN after a custom domain is bound | Check `https://api.tesseraag.com` |
 | `ContainerAppOperationInProgress` | Two operations racing | Wait for the first; retry |
 | Role grant "created" but nothing works | It silently didn't | `az role assignment list --assignee <sp> --all -o table`. Then wait 5–10 minutes |

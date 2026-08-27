@@ -87,25 +87,58 @@ jobs:
         run: |
           set -euo pipefail
           TAG="sha-$(echo "${GITHUB_SHA}" | cut -c1-7)"
-          echo "Deploying ghcr.io/derricklv/tessera-os:${TAG}"
+          # Revision suffixes must be lowercase alphanumeric and dashes; a git
+          # SHA already is, so the tag minus its "sha-" prefix works as-is.
+          SUFFIX="${TAG#sha-}"
+          REVISION="${APP}--${SUFFIX}"
+          echo "Deploying ghcr.io/derricklv/tessera-os:${TAG} as revision ${REVISION}"
           az containerapp update -n "$APP" -g "$GROUP" \
-            --image "ghcr.io/derricklv/tessera-os:${TAG}" --no-wait >/dev/null
+            --image "ghcr.io/derricklv/tessera-os:${TAG}" \
+            --revision-suffix "$SUFFIX" --no-wait >/dev/null
           echo "TAG=${TAG}" >> "$GITHUB_ENV"
+          echo "REVISION=${REVISION}" >> "$GITHUB_ENV"
 
       - name: Wait for the revision to become healthy
         run: |
           set -euo pipefail
+          # --no-wait returns as soon as Azure accepts the update request --
+          # before the new revision exists at all. Polling "whichever revision
+          # currently holds 100% traffic" (the old query here) then matches
+          # the PREVIOUS revision, which is already Running at 100%, and this
+          # step exits successfully on its very first poll without the new
+          # image ever having deployed: a green run that deployed nothing.
+          # The poll must therefore be pinned to this run's own revision name
+          # (a name Azure will only ever attach to the image built above) and
+          # require 100% traffic on that exact name -- never "any revision
+          # that looks healthy". Do not simplify this back.
+          seen=false
           for attempt in $(seq 1 30); do
-            STATE=$(az containerapp revision list -n "$APP" -g "$GROUP" \
-              --query "[?properties.active && properties.trafficWeight==\`100\`] | [0].properties.runningState" -o tsv 2>/dev/null || true)
-            echo "attempt ${attempt}: ${STATE:-pending}"
-            case "${STATE:-}" in
-              Running|RunningAtMaxScale) echo "revision is running"; exit 0 ;;
-              Failed) echo "::error::Revision failed to start"; exit 1 ;;
-            esac
+            REV_JSON=$(az containerapp revision list -n "$APP" -g "$GROUP" \
+              --query "[?name=='${REVISION}'] | [0]" -o json 2>/dev/null || echo "")
+            if [ -n "$REV_JSON" ] && [ "$REV_JSON" != "null" ]; then
+              seen=true
+              STATE=$(echo "$REV_JSON" | jq -r '.properties.runningState // empty')
+              WEIGHT=$(echo "$REV_JSON" | jq -r '.properties.trafficWeight // 0')
+              echo "attempt ${attempt}: ${REVISION} state=${STATE:-pending} traffic=${WEIGHT}"
+              if [ "$STATE" = "Failed" ]; then
+                echo "::error::Revision ${REVISION} failed to start"
+                exit 1
+              fi
+              if { [ "$STATE" = "Running" ] || [ "$STATE" = "RunningAtMaxScale" ]; } \
+                  && [ "$WEIGHT" = "100" ]; then
+                echo "revision ${REVISION} is running at 100% traffic"
+                exit 0
+              fi
+            else
+              echo "attempt ${attempt}: ${REVISION} does not exist yet"
+            fi
             sleep 10
           done
-          echo "::error::Revision did not become healthy within five minutes"
+          if [ "$seen" = false ]; then
+            echo "::error::Revision ${REVISION} was never created"
+          else
+            echo "::error::Revision ${REVISION} did not reach 100% traffic within five minutes"
+          fi
           exit 1
 
       - name: Check the application answers, and answers completely
