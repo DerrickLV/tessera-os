@@ -269,3 +269,78 @@ def test_the_portal_policy_does_not_break_the_console_interface(portal):
     assert "'unsafe-inline'" not in portal_csp.split("script-src")[1].split(";")[0]
     assert "'unsafe-inline'" in console_csp.split("script-src")[1].split(";")[0]
     assert "font-src 'self' data:" in console_csp
+
+
+# --- confirming a proposed figure (Phase 3) -----------------------------------
+
+def test_the_interface_calls_the_real_confirmation_endpoint(portal):
+    """Nothing hand-rolled -- the same POST /v1/structure/numbers/confirm the
+    backend exposes, reached the same same-origin, credentialed way as every
+    other console call."""
+    page = portal.get("/console/", follow_redirects=True).text
+    assert '"/v1/structure/numbers/confirm"' in page
+    assert "async function confirmFigure(" in page
+
+
+def test_the_interface_shows_the_full_derivation_not_a_tooltip(portal):
+    """D2's whole point: the derivation is what a reader argues with, so it
+    has to be on the page, in a readable paragraph -- not hidden behind a
+    hover state a reader might never trigger."""
+    page = portal.get("/console/", follow_redirects=True).text
+    assert 'class="figure-derivation"' in page
+    assert "${esc(n.derivation)}" in page
+
+
+def test_the_interface_lets_a_figure_be_replaced_not_only_accepted(portal):
+    """The derivation says 'confirm or replace' -- so the value control must
+    be a real editable input seeded with the proposal, not a read-only
+    display with an Accept button next to it."""
+    page = portal.get("/console/", follow_redirects=True).text
+    assert 'type="number" value="${n.value}"' in page
+    assert 'onclick="confirmFigure(' in page
+    assert ">Confirm<" in page
+
+
+def test_a_stated_figure_shows_who_confirmed_it_and_when(portal):
+    page = portal.get("/console/", follow_redirects=True).text
+    assert "Confirmed by ${esc(n.confirmed_by)}" in page
+    assert "n.confirmed_at" in page
+
+
+def test_a_blocked_recommendation_names_the_problem_with_controls_right_there(portal):
+    """Not a generic error: the blocked banner and the per-figure confirm
+    controls come from the same rendering pass, so a blocked memo shows both
+    together rather than a dead-end message pointing nowhere."""
+    page = portal.get("/console/", follow_redirects=True).text
+    assert "This recommendation is blocked on unconfirmed figures." in page
+    render_fn = page.split("function numberStateMarkup(")[1].split("\nasync function")[0]
+    assert "blocked on unconfirmed figures" in render_fn
+    assert "figure-controls" in render_fn
+
+
+def test_unresolved_figures_render_as_the_open_question_they_are(portal):
+    """Never an empty input inviting a guess -- there must be no input field
+    on the unresolved branch of the figure card at all."""
+    page = portal.get("/console/", follow_redirects=True).text
+    assert 'n.state==="unresolved"' in page
+    unresolved_branch = page.split('n.state==="unresolved"')[1].split("if(n.state")[0]
+    assert "<input" not in unresolved_branch
+    assert "blocking open" in unresolved_branch.lower()
+
+
+def test_confirming_uses_the_shared_same_origin_credentialed_fetch_helper(portal):
+    """Same-origin fetch with credentials, no hardcoded API host -- reusing
+    apiJson() rather than a bespoke fetch call for this one feature."""
+    page = portal.get("/console/", follow_redirects=True).text
+    confirm_fn = page.split("async function confirmFigure(")[1].split("\n}")[0]
+    assert 'apiJson("/v1/structure/numbers/confirm"' in confirm_fn
+    assert "api.tesseraag.com" not in page
+
+
+def test_apijson_redirects_to_sign_in_on_401_like_boot_does(portal):
+    """A session that expires mid-confirmation must not fail silently or
+    leave a stale, possibly-unconfirmed figure looking current on screen."""
+    page = portal.get("/console/", follow_redirects=True).text
+    api_json_fn = page.split("async function apiJson(")[1].split("\nasync function")[0]
+    assert "response.status===401" in api_json_fn
+    assert 'window.location.assign(API.base ? "/"' in api_json_fn

@@ -13,6 +13,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 
 from .identity import ZoneAccessError, ZonePolicy
+from .numbers import DerivedNumber
 from .router import Router
 from .schemas import Evidence, RouteDecision, UserContext
 from .sqlite_store import connect as sqlite_connect
@@ -138,6 +139,11 @@ class PilotArtifact(BaseModel):
     citations: list[ArtifactCitation] = Field(default_factory=list)
     refusal_reasons: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+    # Populated only by structure recommendations (Phase 3). Every figure the
+    # engine computed, whatever its state -- the console interface needs the
+    # full set, not just the unconfirmed ones, so a confirmed figure still
+    # shows who confirmed it and when.
+    pending_numbers: list[DerivedNumber] = Field(default_factory=list)
     metrics: list[ArtifactMetric] = Field(default_factory=list)
     required_reviewer_group: str | None = None
     review_item_id: str | None = None

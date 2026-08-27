@@ -377,6 +377,7 @@ class StructureAdvisor:
             evidence=_structure_evidence(rec, request),
             citations=[],
             refusal_reasons=refusal_reasons,
+            pending_numbers=rec.derived_numbers(),
             metrics=[
                 ArtifactMetric(name="citation_coverage", value=100, unit="percent",
                                target="100%", passed=True),

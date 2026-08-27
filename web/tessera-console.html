@@ -240,6 +240,12 @@ kbd{font-family:var(--sans);font-size:.62rem;background:var(--panel-2);border:1p
 .timeline{border-left:1px solid var(--line-gold);margin-left:5px;padding-left:18px}
 .timeline .event{margin:12px 0;font-size:.78rem}.timeline .event b{color:var(--cream);display:block}
 .warning{border:1px solid var(--wait-line);background:var(--wait-bg);color:var(--gold-soft);padding:12px;margin-top:14px;font-size:.78rem}
+.figure-card{border:1px solid var(--line);padding:13px 15px;margin-bottom:9px;background:var(--bg-2)}
+.figure-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.figure-label{color:var(--cream);font-size:.82rem;font-weight:500}
+.figure-derivation{color:var(--text);font-size:.8rem;line-height:1.6;margin-top:8px}
+.figure-controls{display:flex;gap:10px;align-items:center;margin-top:11px}
+.figure-controls .s-input{width:auto;flex:0 0 180px;padding:9px 12px;font-size:.8rem}
 
 @media(max-width:1100px){.agent-grid{grid-template-columns:repeat(2,1fr)}.stat-row{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:900px){
@@ -761,6 +767,10 @@ function routeTask(task){
 
 /* ---------- views ---------- */
 let filter="pending", selected=null, search="", decideCtx=null, selectedArtifact=null;
+// The request that produced the currently-shown structure recommendation, so
+// confirming a figure can replay it and show the freshly-confirmed state --
+// the artifact store keeps the value used, not the venture that produced it.
+let lastStructureRefresh=null;
 const PAGES={dashboard:["Overview","What needs you today"],projects:["Projects","Synthetic pilot engagements"],
   artifacts:["Drafts","Cited pilot artifacts and audit history"],queue:["Review Queue","Drafts waiting on a decision"],
   request:["Ask","See who handles a task before it runs"],agents:["Specialists","The twelve agents and where each stops"],
@@ -846,6 +856,89 @@ function renderArtifacts(){
   detail.innerHTML=artifact?artifactMarkup(artifact):`<div class="detail-empty"><div class="big">TG</div><p>Run a synthetic workflow to create the first cited draft.</p></div>`;
 }
 function selectArtifact(id){ selectedArtifact=id; renderArtifacts(); }
+
+/* ---------- figures: proposed / stated / unresolved (Phase 3) ---------- */
+function formatFigureValue(label,value){
+  return label==="approval threshold" ? `${value}%` : `$${Number(value).toLocaleString()}`;
+}
+function numberStateMarkup(a){
+  const numbers=a.pending_numbers||[];
+  if(!numbers.length) return "";
+  const blocked=numbers.some(n=>n.state!=="stated");
+  const cards=numbers.map(n=>{
+    const label=esc(prettify(n.label));
+    if(n.state==="unresolved"){
+      return `<div class="figure-card">
+        <div class="figure-head"><span class="figure-label">${label}</span><span class="pill stop">Unresolved</span></div>
+        <p class="figure-derivation">No basis exists for this figure yet — it is a blocking open
+        question, not a number to guess at. See "Open questions" below for what is missing;
+        once it is supplied and the recommendation is run again, this figure becomes a
+        proposal you can confirm.</p>
+      </div>`;
+    }
+    if(n.state==="stated"){
+      const when=n.confirmed_at?esc(absTime(n.confirmed_at)):"";
+      return `<div class="figure-card">
+        <div class="figure-head"><span class="figure-label">${label}</span><span class="pill ok">✓ ${esc(formatFigureValue(n.label,n.value))}</span></div>
+        <p class="figure-derivation">Confirmed by ${esc(n.confirmed_by)}${when?` on ${when}`:""}.</p>
+      </div>`;
+    }
+    const inputId=`fig-${a.id}-${n.label.replace(/[^a-z0-9]+/gi,"-")}`;
+    return `<div class="figure-card">
+      <div class="figure-head"><span class="figure-label">${label}</span><span class="pill wait">Proposed: ${esc(formatFigureValue(n.label,n.value))}</span></div>
+      <p class="figure-derivation">${esc(n.derivation)}</p>
+      <div class="figure-controls">
+        <input class="s-input" id="${inputId}" type="number" value="${n.value}" aria-label="${label} value">
+        <button class="btn btn-gold btn-sm" onclick="confirmFigure('${esc(a.id)}','${esc(a.project_id)}','${encodeURIComponent(n.label)}','${inputId}')">Confirm</button>
+      </div>
+    </div>`;
+  }).join("");
+  return `<div class="artifact-section"><h4>Figures to confirm</h4>
+    ${blocked?`<div class="warning"><b>This recommendation is blocked on unconfirmed figures.</b>
+      Confirm or replace each one below before it can be submitted for review.</div>`:""}
+    ${cards}</div>`;
+}
+async function confirmFigure(artifactId,projectId,encodedLabel,inputId){
+  const label=decodeURIComponent(encodedLabel);
+  const input=document.getElementById(inputId);
+  const raw=input.value.trim();
+  const value=Number(raw);
+  if(raw===""||!Number.isFinite(value)){
+    toast("Enter a number",`${prettify(label)} needs a numeric value before it can be confirmed.`,true);
+    return;
+  }
+  try{
+    await apiJson("/v1/structure/numbers/confirm",{method:"POST",
+      body:JSON.stringify({project_id:projectId,label,value:Math.round(value)})});
+    // Only replay the last request if the confirmed figure belongs to the
+    // artifact it produced -- otherwise this would overwrite whatever is on
+    // screen with an unrelated recommendation.
+    const refreshed=artifactId===selectedArtifact?await refreshStructureArtifact():null;
+    toast("Confirmed",refreshed?`${prettify(label)} recorded and the recommendation refreshed.`
+      :`${prettify(label)} recorded. Run the recommendation again to see it reflected here.`,false);
+  }catch(error){
+    toast("Confirmation failed",error.message,true);
+  }
+}
+async function refreshStructureArtifact(){
+  if(!lastStructureRefresh) return null;
+  try{
+    const artifact=await apiJson(lastStructureRefresh.endpoint,
+      {method:"POST",body:JSON.stringify(lastStructureRefresh.payload)});
+    DATA.artifacts=[artifact,...DATA.artifacts.filter(x=>x.id!==artifact.id)];
+    selectedArtifact=artifact.id;
+    renderArtifacts(); renderProjects();
+    const sResult=document.getElementById("sResult");
+    if(sResult && sResult.innerHTML) sResult.innerHTML=artifactMarkup(artifact);
+    const qResult=document.getElementById("qResult");
+    if(qResult && qResult.innerHTML) qResult.innerHTML=artifactMarkup(artifact);
+    return artifact;
+  }catch(error){
+    toast("Refresh failed",error.message,true);
+    return null;
+  }
+}
+
 function artifactMarkup(a){
   const lists=(title,items)=>items.length?`<div class="artifact-section"><h4>${title}</h4><ul>${items.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`:"";
   return `<div class="card-head"><h3>${esc(a.title)}</h3>${artifactPill(a.status)}</div><div class="card-body">
@@ -854,6 +947,7 @@ function artifactMarkup(a){
     <div class="meta-row"><span class="k">Created</span><span class="v">${esc(absTime(a.created_at))}</span></div>
     <div class="meta-row"><span class="k">Review</span><span class="v">${a.review_item_id?esc(a.review_item_id):"Not submitted"}</span></div></div>
     <div class="artifact-section"><h4>Decision-ready summary</h4><div class="draft-body">${esc(a.summary)}</div></div>
+    ${numberStateMarkup(a)}
     ${lists("Recommendations",a.recommendations)}${lists("Risks",a.risks)}${lists("Assumptions",a.assumptions)}
     ${a.refusal_reasons?.length?`<div class="warning"><b>Insufficient evidence</b>${a.refusal_reasons.map(r=>`<div>${esc(r)}</div>`).join("")}</div>`:""}
     ${a.warnings.map(w=>`<div class="warning">${esc(w)}</div>`).join("")}
@@ -1110,6 +1204,13 @@ function renderRoute(){
 
 async function apiJson(path,options={}){
   const response=await fetch(apiUrl(path),{...options,credentials:"same-origin",headers:{Accept:"application/json","Content-Type":"application/json",...(options.headers||{})}});
+  if(response.status===401){
+    // A session that expired mid-use goes to sign-in, same as boot() sends a
+    // logged-out visitor there -- never a silent failure that leaves stale,
+    // possibly-unconfirmed figures looking current on screen.
+    window.location.assign(API.base ? "/" : apiUrl("/v1/auth/microsoft/start"));
+    throw new Error("Signed out");
+  }
   if(!response.ok){
     let detail=`Request failed (${response.status})`;
     try{const body=await response.json();detail=typeof body.detail==="string"?body.detail:detail;}catch(e){}
@@ -1121,7 +1222,9 @@ async function apiJson(path,options={}){
 async function executeWorkflow(projectId,workflow){
   if(!API.live){toast("API required","Start the local console with tessera serve.",true);return;}
   try{
-    const artifact=await apiJson("/v1/workspace/run",{method:"POST",body:JSON.stringify({project_id:projectId,workflow})});
+    const payload={project_id:projectId,workflow};
+    if(workflow==="entity_structuring") lastStructureRefresh={endpoint:"/v1/workspace/run",payload};
+    const artifact=await apiJson("/v1/workspace/run",{method:"POST",body:JSON.stringify(payload)});
     DATA.artifacts=[artifact,...DATA.artifacts.filter(a=>a.id!==artifact.id)];
     selectedArtifact=artifact.id;
     renderArtifacts(); renderProjects();
@@ -1201,6 +1304,7 @@ async function recommendStructure(){
   if(!payload.project_id){ toast("No engagement","Select an engagement first.",true); return; }
   button.disabled=true; out.textContent="Working\u2026";
   try{
+    lastStructureRefresh={endpoint:"/v1/structure/intake",payload};
     const artifact=await apiJson("/v1/structure/intake",
       {method:"POST",body:JSON.stringify(payload)});
     DATA.artifacts=[artifact,...DATA.artifacts.filter(a=>a.id!==artifact.id)];
