@@ -329,5 +329,5 @@ def test_once_every_number_is_confirmed_the_memo_reaches_draft_status(tmp_path):
 
 def test_the_basis_type_is_unaffected_and_stays_importable():
     """Confidence check that Basis (the position-provenance literal) and
-    DerivedNumber's Basis3 remain two distinct, non-interfering types."""
+    DerivedNumber's NumberState remain two distinct, non-interfering types."""
     assert Basis.__args__ == ("tessera_adopted", "synthetic_reference", "scaffold")

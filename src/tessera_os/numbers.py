@@ -45,7 +45,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from .sqlite_store import connect as sqlite_connect
 
-Basis3 = Literal["stated", "proposed", "unresolved"]
+NumberState = Literal["stated", "proposed", "unresolved"]
 
 # The labels governance.py uses to key confirmations. Shared here so the
 # engine and the confirmation store never drift apart on a typo'd string.
@@ -58,7 +58,7 @@ class DerivedNumber(BaseModel):
 
     label: str = Field(min_length=1)
     value: int | None
-    state: Basis3
+    state: NumberState
     derivation: str = ""
     confirmed_by: str = ""
     confirmed_at: datetime | None = None

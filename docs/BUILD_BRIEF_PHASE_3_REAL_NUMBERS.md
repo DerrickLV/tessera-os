@@ -117,12 +117,12 @@ second option is fine. Silently keeping them is not.
 **Change.** Introduce a type carrying value, state, derivation, and evidence:
 
 ```python
-Basis3 = Literal["stated", "proposed", "unresolved"]
+NumberState = Literal["stated", "proposed", "unresolved"]
 
 class DerivedNumber(BaseModel):
     label: str                       # "ordinary-course threshold"
     value: int | None                # None when unresolved
-    state: Basis3
+    state: NumberState
     derivation: str                  # plain-language rule, required for "proposed"
     confirmed_by: str = ""           # user id, set on confirmation
     confirmed_at: datetime | None = None
