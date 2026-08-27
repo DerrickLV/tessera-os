@@ -25,6 +25,20 @@ python scripts/security_scan.py   # committed-credential scan; CI runs it
 
 All three must pass before a commit. CI runs the same three plus `pip-audit`.
 
+## Working agreement
+
+**Push before reporting done.** After committing, push the branch and verify
+with `git log origin/<branch>..HEAD` returning empty. Work that is committed
+but unpushed is invisible to review, to CI, and to deployment — it looks
+identical to work that was never done. Do not report a task complete until
+the push is verified.
+
+**Check the registry config when a deploy fails with no revision.**
+`RevisionNotFound` with a Failed provisioning state usually means
+`properties.configuration.registries` names a registry that no longer exists.
+Azure reports it as a generic provisioning failure. Check with:
+`az containerapp show -n tessera-portal-api -g tessera-pilot-rg --query "properties.configuration.registries" -o json`
+
 ## Invariants
 
 These are not preferences. Each one exists because of a specific failure, and
