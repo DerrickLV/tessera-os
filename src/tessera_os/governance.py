@@ -452,6 +452,18 @@ class StructureRecommendation(BaseModel):
         shape = ("single" if self.profile.total_members == 1
                  else "equal" if self.profile.equal_ownership
                  else "majority_minority")
+        # Which clause variant the document uses is a substantive choice, not
+        # a posture: a formula valuation is a different clause from an
+        # appraisal, not the same one with a number swapped. An unselected
+        # menu contributes no entry, so the library's untagged (pre-Phase-5)
+        # variant is used -- the same fallback that keeps to_draft_request's
+        # own gate (menus() must all be selected) the only place that matters
+        # for whether this document is actually ready.
+        selected_terms = {}
+        if self.exit.valuation_menu.selected:
+            selected_terms["valuation"] = self.exit.valuation_menu.selected
+        if self.exit.payment_menu.selected:
+            selected_terms["buyout_payment"] = self.exit.payment_menu.selected
         return DealProfile(
             opportunity=self.profile.venture,
             agreement_type="operating_agreement",
@@ -478,6 +490,7 @@ class StructureRecommendation(BaseModel):
             regulatory_regime=self.profile.regulated_regime,
             parties=parties or [],
             effective_date=effective_date,
+            selected_terms=selected_terms,
         )
 
     def derived_values(self) -> dict[str, str]:
@@ -522,6 +535,11 @@ class StructureRecommendation(BaseModel):
             _FMV_DETERMINATION_DAYS_LABEL: ("fmv_determination_days", str),
             _BUYOUT_CASH_PERCENT_LABEL: ("buyout_cash_percent", _percent),
             _BUYOUT_NOTE_MONTHS_LABEL: ("buyout_note_months", str),
+            _EARNINGS_MULTIPLE_LABEL: ("earnings_multiple", lambda v: f"{v}x"),
+            _FIXED_VALUE_LABEL: ("fixed_value", _dollars),
+            _FIXED_VALUE_RESET_MONTHS_LABEL: ("fixed_value_reset_months", str),
+            _EARNOUT_PRICE_PERCENT_LABEL: ("earnout_price_percent", _percent),
+            _EARNOUT_PERIOD_MONTHS_LABEL: ("earnout_period_months", str),
             _TAX_DISTRIBUTION_DAYS_LABEL: ("tax_distribution_days", str),
             _MEMBER_LOAN_RATE_LABEL: ("default_loan_rate", _percent),
             _CAPITAL_CALL_CURE_DAYS_LABEL: ("capital_call_days", str),

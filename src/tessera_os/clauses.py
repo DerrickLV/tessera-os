@@ -215,6 +215,14 @@ class ClauseVariant(BaseModel):
     # jurisdiction, or be ruled out in one entirely.
     jurisdiction_notes: dict[str, str] = Field(default_factory=dict)
     unavailable_in: list[str] = Field(default_factory=list)
+    # Phase 5: which TermOption (from a governance.py TermMenu) this variant's
+    # language actually is. A formula valuation and a three-appraiser process
+    # are not the same clause at different postures -- they are different
+    # clauses, and this is what tells ``variant_for`` apart from posture,
+    # which only varies the numbers inside one clause. None means the variant
+    # is not tied to a menu choice -- posture is the only axis of selection,
+    # exactly as before this field existed.
+    term_option: str | None = None
 
     def note_for(self, jurisdiction: str) -> str | None:
         for key, note in self.jurisdiction_notes.items():
@@ -248,9 +256,23 @@ class Clause(BaseModel):
 
     @model_validator(mode="after")
     def unique_postures(self) -> Clause:
-        postures = [variant.posture for variant in self.variants]
-        if len(postures) != len(set(postures)):
-            raise ValueError(f"Clause {self.id!r} has duplicate postures")
+        """Postures must be unique only within one term option's variants.
+
+        A menu-backed clause carries one variant group per TermOption (the
+        formula valuation, the fixed-value-with-reset valuation, and so on),
+        and each group is free to reuse the same postures the others use --
+        they are different clauses in substance, not competing entries for
+        the same slot. Two variants that share both a term option (including
+        the shared ``None`` group, for a clause with no menu tie) and a
+        posture are the real duplicate this guards against.
+        """
+        by_group: dict[str | None, list[Posture]] = {}
+        for variant in self.variants:
+            by_group.setdefault(variant.term_option, []).append(variant.posture)
+        for term_option, postures in by_group.items():
+            if len(postures) != len(set(postures)):
+                label = f" for term option {term_option!r}" if term_option else ""
+                raise ValueError(f"Clause {self.id!r} has duplicate postures{label}")
         return self
 
     def referenced_clause_ids(self) -> set[str]:
@@ -275,7 +297,8 @@ class Clause(BaseModel):
         return self.condition is None or self.condition.matches(profile)
 
     def variant_for(self, posture: Posture,
-                    jurisdiction: str = "") -> ClauseVariant | None:
+                    jurisdiction: str = "", term_option: str | None = None
+                    ) -> ClauseVariant | None:
         """Return the variant at ``posture``, else the closest one available.
 
         Preference runs toward the more protective side first. Dropping a
@@ -283,9 +306,22 @@ class Clause(BaseModel):
         produce an agreement with no liability cap or no contractor
         clause -- worse than substituting a neighbouring variant and saying so.
         Variants ruled out in the governing jurisdiction are excluded first.
+
+        ``term_option`` narrows to the variant group standing for that
+        TermMenu selection (the substantively different clause, not a
+        different posture of the same one). When it names a group this
+        clause actually carries, only that group is eligible for the
+        posture match above. Otherwise -- no selection recorded, or a
+        selection this clause draws no distinction on -- the untagged group
+        is used, which is exactly this clause's only group for anything not
+        built around a Phase 5 menu, so behaviour is unchanged for those.
         """
         usable = [v for v in self.variants
                   if not jurisdiction or v.available_in(jurisdiction)]
+        tagged = {v.term_option for v in usable if v.term_option is not None}
+        if tagged:
+            usable = [v for v in usable
+                     if v.term_option == (term_option if term_option in tagged else None)]
         by_posture = {variant.posture: variant for variant in usable}
         if posture in by_posture:
             return by_posture[posture]
@@ -346,6 +382,14 @@ class DealProfile(BaseModel):
     # the signature blocks.
     parties: list[Party] = Field(default_factory=list)
     effective_date: str | None = None
+
+    # --- Phase 5: which TermOption a menu-backed clause category resolves
+    # to, keyed by clause category (e.g. "valuation" -> "Formula: a multiple
+    # of earnings"). A category absent here draws on whichever variant
+    # carries no term_option -- the only group a clause has until a Phase 5
+    # menu is built for it -- so a profile built before menus existed still
+    # assembles the same document it always did.
+    selected_terms: dict[str, str] = Field(default_factory=dict)
 
     def management(self) -> ManagementModel:
         """Member-managed only where every owner is plausibly active.
@@ -774,7 +818,9 @@ class ClauseLibrary:
         requested = posture or profile.posture()
         selections, omitted = [], []
         for clause in self.applicable(profile):
-            variant = clause.variant_for(requested, profile.jurisdiction)
+            variant = clause.variant_for(
+                requested, profile.jurisdiction,
+                term_option=profile.selected_terms.get(clause.category))
             if variant is None:
                 if clause.required:
                     omitted.append(clause)

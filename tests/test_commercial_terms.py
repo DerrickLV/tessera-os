@@ -19,7 +19,7 @@ from pydantic import ValidationError
 
 from tessera_os import governance
 from tessera_os.clauses import ClauseLibrary, DealProfile
-from tessera_os.drafting import StructureAdvisor, StructureRequest
+from tessera_os.drafting import AgreementDrafter, StructureAdvisor, StructureRequest
 from tessera_os.governance import (
     CAPITAL_CALL_AREA,
     PAYMENT_AREA,
@@ -554,3 +554,157 @@ def test_once_every_menu_is_selected_and_confirmed_the_memo_reaches_draft(tmp_pa
     memo = advice.recommend(ask, context=context())
     assert memo.status == "draft"
     assert not memo.refusal_reasons
+
+
+# --- follow-up: three menu options that could not reach a document -----------------------------
+#
+# formula valuation, fixed-value-with-reset valuation, and the earnout payment
+# option were selectable and confirmable, but derived_values() had no clause
+# variable to carry their figures into and the clause library had only one
+# variant per category -- so choosing any of the three produced an agreement
+# describing the three-appraiser method or the cash-plus-note method that
+# nobody selected. Each test below drives the whole path end to end -- select,
+# confirm, produce the document -- and checks the rendered clause text itself,
+# not just that a variable exists.
+
+def select_menus(advice: StructureAdvisor, ask: StructureRequest, *,
+                 chosen: dict[str, str] | None = None,
+                 manual_values: dict[str, int] | None = None) -> None:
+    """Select every menu's first option, except the areas named in
+    ``chosen`` -- confirming every number the selected option carries.
+
+    ``manual_values`` supplies a value for a number this deal has no basis to
+    propose (an ``unresolved`` DerivedNumber, e.g. the earnings multiple),
+    exactly as a human confirming it from scratch would.
+    """
+    chosen = chosen or {}
+    manual_values = manual_values or {}
+    rec = recommend_structure(ask.venture)
+    for number in rec.derived_numbers():
+        if number.state == "proposed":
+            advice.number_confirmations.confirm(
+                tenant_id="tenant-synthetic", project_id=ask.project_id,
+                label=number.label, value=number.value, confirmed_by="derrick")
+    for menu in rec.menus():
+        option = menu.option(chosen[menu.area]) if menu.area in chosen else menu.options[0]
+        for number in option.numbers:
+            if number.state == "proposed":
+                advice.number_confirmations.confirm(
+                    tenant_id="tenant-synthetic", project_id=ask.project_id,
+                    label=number.label, value=number.value, confirmed_by="derrick")
+            elif number.state == "unresolved" and number.label in manual_values:
+                advice.number_confirmations.confirm(
+                    tenant_id="tenant-synthetic", project_id=ask.project_id,
+                    label=number.label, value=manual_values[number.label],
+                    confirmed_by="derrick")
+        advice.menu_selections.select(
+            tenant_id="tenant-synthetic", project_id=ask.project_id,
+            area=menu.area, label=option.label, selected_by="derrick")
+
+
+# Generic text terms the clause library declares no default for -- required on
+# every operating agreement regardless of which commercial menu was picked.
+_GENERIC_FILL = {"company_purpose": "operating the venture", "promote_holder": "the Manager",
+                 "entity_statute": "the Texas Business Organizations Code"}
+
+
+def approve_and_draft(advice: StructureAdvisor, ask: StructureRequest, *,
+                      chosen: dict[str, str] | None = None,
+                      manual_values: dict[str, int] | None = None) -> str:
+    """The whole chain: select and confirm, submit for review, accept, hand
+    off to drafting, produce the governed artifact, and fill in the terms
+    the confirmed structure did not already decide -- the same path the
+    console drives, not a shortcut through the clause library alone.
+    Returns the filled agreement text, where a selected term's own numbers
+    actually appear rather than the ``{variable}`` placeholder for them.
+    """
+    select_menus(advice, ask, chosen=chosen, manual_values=manual_values)
+    memo = advice.recommend(ask, context=context())
+    item = advice.review_queue.submit(
+        tenant_id=memo.tenant_id, project_id=memo.project_id, created_by=memo.agent_id,
+        workflow=memo.workflow, title=memo.title, body=memo.review_body(),
+        evidence=memo.evidence, required_reviewer_group=memo.required_reviewer_group)
+    memo.review_item_id = item.id
+    advice.store.update(memo)
+    advice.review_queue.accept(item_id=item.id, context=context(user_id="counsel-b"),
+                              reason="Synthetic acceptance for the wiring test.")
+    draft_request = advice.to_draft_request(ask, context=context(), approved_artifact_id=memo.id)
+    drafter = AgreementDrafter(library=advice.library, store=advice.store,
+                               project_clients=advice.project_clients)
+    agreement = drafter.draft(draft_request, context=context(), structural_handoff=True)
+    assert agreement.status == "draft"
+
+    assembled = advice.library.assemble(draft_request.profile)
+    filled = advice.library.fill(assembled, {
+        **draft_request.derived_values, **_GENERIC_FILL,
+        "jurisdiction": draft_request.profile.jurisdiction})
+    return filled.markdown
+
+
+def test_a_selected_formula_valuation_does_not_silently_become_an_appraisal(tmp_path):
+    """Regression: the option was selectable and confirmable while
+    derived_values() had no variable to carry its multiple into, so the
+    agreement fell back to the one clause variant the library had --
+    the appraisal method nobody chose."""
+    advice = advisor(tmp_path)
+    ask = structure_request()
+    rec = recommend_structure(ask.venture)
+    multiple_label = rec.exit.valuation_menu.option(
+        "Formula: a multiple of earnings").numbers[0].label
+
+    body = approve_and_draft(
+        advice, ask, chosen={VALUATION_AREA: "Formula: a multiple of earnings"},
+        manual_values={multiple_label: 4})
+
+    assert "Fair Market Value — Formula" in body
+    assert "a multiple of 4x" in body
+    assert "Adjusted EBITDA" in body
+    # The method nobody selected must not be the one that shipped.
+    assert "qualified independent business appraiser" not in body
+    assert "the Fixed Value" not in body
+    # The essential exit set travelled with it.
+    assert "Triggering Events" in body
+    assert "Buy-Sell Procedure" in body
+    assert "Payment Terms and Withdrawal" in body
+    assert "{" not in body
+
+
+def test_a_selected_fixed_value_reset_does_not_silently_become_an_appraisal(tmp_path):
+    """Same failure as the formula case, for the other option the clause
+    library had no variant for: selecting it produced an appraisal clause,
+    not the fixed value the parties actually agreed to."""
+    advice = advisor(tmp_path)
+    ask = structure_request()
+
+    body = approve_and_draft(
+        advice, ask, chosen={VALUATION_AREA: "Fixed value with periodic reset"})
+
+    assert "Fair Market Value — Fixed, with Periodic Reset" in body
+    assert "$3,000,000" in body  # the venture's own initial capital, not a generic figure
+    assert "every 12 months" in body
+    assert "qualified independent business appraiser" not in body
+    assert "Adjusted EBITDA" not in body
+    assert "Triggering Events" in body
+    assert "Buy-Sell Procedure" in body
+    assert "Payment Terms and Withdrawal" in body
+    assert "{" not in body
+
+
+def test_a_selected_earnout_payment_does_not_silently_become_a_note(tmp_path):
+    """Same failure again, on the payment side: an earnout selection reached
+    the document as the cash-plus-note clause nobody chose, because that was
+    the only payment_terms variant the library had."""
+    advice = advisor(tmp_path)
+    ask = structure_request()
+
+    body = approve_and_draft(advice, ask, chosen={PAYMENT_AREA: "Earnout"})
+
+    assert "Earnout Amount" in body
+    assert "The remaining 30% of the purchase price" in body
+    assert "over the 24 months following closing" in body
+    # The method nobody selected must not be the one that shipped.
+    assert "a promissory note issued by the purchasing party" not in body
+    assert "Triggering Events" in body
+    assert "Buy-Sell Procedure" in body
+    assert "Payment Terms and Withdrawal" in body
+    assert "{" not in body

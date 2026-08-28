@@ -246,6 +246,34 @@
       }
     },
     {
+      "name": "earnings_multiple",
+      "label": "Earnings multiple",
+      "kind": "text",
+      "help": "State as e.g. '4x'. No default: the engine has no earnings figure to propose a multiple against, so this is confirmed or replaced, never assumed."
+    },
+    {
+      "name": "earnout_period_months",
+      "label": "Earnout period (months)",
+      "kind": "months",
+      "help": "How long the business's performance is measured before the earnout is finally settled.",
+      "defaults_by_posture": {
+        "protective": "12",
+        "standard": "24",
+        "accommodating": "36"
+      }
+    },
+    {
+      "name": "earnout_price_percent",
+      "label": "Share of price contingent on the earnout",
+      "kind": "percent",
+      "help": "The rest is paid at closing. Higher shares more of the price-uncertainty risk onto the seller.",
+      "defaults_by_posture": {
+        "protective": "20%",
+        "standard": "30%",
+        "accommodating": "40%"
+      }
+    },
+    {
       "name": "entity_statute",
       "label": "Governing entity statute",
       "kind": "text",
@@ -292,6 +320,23 @@
       "defaults_by_posture": {
         "protective": "3%",
         "standard": "2%"
+      }
+    },
+    {
+      "name": "fixed_value",
+      "label": "Starting fixed value",
+      "kind": "money",
+      "help": "The value that governs until the first scheduled reset. No default: this is set to the deal's own starting capital, not a generic figure."
+    },
+    {
+      "name": "fixed_value_reset_months",
+      "label": "Fixed value reset interval (months)",
+      "kind": "months",
+      "help": "How often the fixed value is revisited. Shorter keeps it closer to reality; longer trades accuracy for certainty.",
+      "defaults_by_posture": {
+        "protective": "12",
+        "standard": "12",
+        "accommodating": "24"
       }
     },
     {
