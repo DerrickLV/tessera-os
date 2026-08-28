@@ -1390,6 +1390,30 @@ def _open_questions(profile: VentureProfile) -> list[OpenQuestion]:
     if (sector := profile.sector) is not None:
         questions += [OpenQuestion(question=q, why_it_matters=why, blocks=blocks)
                       for q, why, blocks in sector.open_questions]
+    else:
+        # Phase 4, D1: a sector declared in the Sector literal with no
+        # SectorPattern is a defect, not a state to handle gracefully. Silently
+        # proceeding means the memo reads exactly like one where the sector
+        # added nothing -- no extra entities, no sector reserved matters, no
+        # sector failure modes -- and nothing in the interface says a pattern
+        # was missing. Naming it as a blocking open question makes the gap
+        # loud instead: it keeps this recommendation out of "draft" status
+        # (via the existing unanswered-question gate) until either a pattern
+        # is added for this activity or a person explicitly acknowledges the
+        # gap. See docs/BUILD_BRIEF_PHASE_4_SECTOR_COVERAGE.md D1 and 4.1, and
+        # tests/test_sector_coverage.py, which enumerates every declared
+        # Sector value against SECTOR_PATTERNS so a newly-declared sector with
+        # no pattern fails CI rather than shipping silently.
+        questions.append(OpenQuestion(
+            question=f'No structuring pattern exists yet for "{profile.activity}" ventures.',
+            why_it_matters=(
+                "Without a pattern this recommendation carries none of the entities, reserved "
+                "matters, failure modes, or open questions this activity actually needs -- it "
+                "would otherwise look identical to an activity where nothing sector-specific "
+                "applies, which is a different and much rarer case."),
+            blocks=(
+                "Every sector-specific consideration for this venture, and this recommendation "
+                "reaching draft status.")))
     if (regime := regime_for(profile.regulated_regime)) is not None:
         questions += [OpenQuestion(question=q, why_it_matters=why, blocks=blocks)
                       for q, why, blocks in regime.open_questions]
