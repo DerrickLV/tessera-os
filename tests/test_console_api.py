@@ -428,12 +428,29 @@ def test_structure_api_requires_review_and_preserves_lineage(tmp_path, monkeypat
     # 3.5 a memo carrying one cannot even report status "draft". Confirm every
     # proposed figure through the same endpoint a partner would use, before
     # the memo is created.
-    for number in recommend_structure(venture).derived_numbers():
+    rec = recommend_structure(venture)
+    for number in rec.derived_numbers():
         if number.state == "proposed":
             confirmed = api.post("/v1/structure/numbers/confirm", json={
                 "project_id": "riverbend-multifamily", "label": number.label,
                 "value": number.value})
             assert confirmed.status_code == 200, confirmed.text
+
+    # Phase 5, 5.7: same rule for a menu instead of a number -- select every
+    # commercial menu (the engine's own first-listed option, here) through
+    # the same endpoint a partner would use, and confirm the numbers that
+    # option carries.
+    for menu in rec.menus():
+        option = menu.options[0]
+        for number in option.numbers:
+            if number.state == "proposed":
+                confirmed = api.post("/v1/structure/numbers/confirm", json={
+                    "project_id": "riverbend-multifamily", "label": number.label,
+                    "value": number.value})
+                assert confirmed.status_code == 200, confirmed.text
+        selected = api.post("/v1/structure/menus/select", json={
+            "project_id": "riverbend-multifamily", "area": menu.area, "label": option.label})
+        assert selected.status_code == 200, selected.text
 
     recommendation = api.post("/v1/structure/recommendations", json=payload)
     assert recommendation.status_code == 200

@@ -54,7 +54,7 @@ def test_positions_carry_their_provenance():
     rec = recommend_structure(synthetic_reference())
     assert rec.synthetic_references()
     areas = {item.area for item in rec.synthetic_references()}
-    assert {"Ordinary-course authority", "Capital calls"} <= areas
+    assert {"Ordinary-course authority", "Titles"} <= areas
     # And the ones nobody has adopted say so rather than passing as standards.
     for item in rec.unadopted():
         assert item.basis == "scaffold"

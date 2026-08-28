@@ -58,6 +58,7 @@ from .schemas import (
 from .service import AuthSettings, create_app
 from .sessions import SessionCodec
 from .settings import SecuritySettings, load_integration_settings, load_security_settings
+from .terms import MenuSelection, MenuSelectionStore
 from .workspace import (
     ArtifactEvent,
     LiveDraftContent,
@@ -302,6 +303,12 @@ class NumberConfirmationRequest(BaseModel):
     value: int
 
 
+class MenuSelectionRequest(BaseModel):
+    project_id: str = Field(min_length=1)
+    area: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+
+
 def load_console_fixture(path: Path = DEFAULT_FIXTURE) -> ConsoleFixture:
     return ConsoleFixture.model_validate(json.loads(path.read_text()))
 
@@ -415,12 +422,14 @@ def create_console_app(*, data_dir: Path | None = None,
                                                 for project in fixture.projects})
     number_confirmations = NumberConfirmationStore(
         runtime_dir / "console-number-confirmations.db")
+    menu_selections = MenuSelectionStore(runtime_dir / "console-menu-selections.db")
     structure_advisor = StructureAdvisor(
         store=artifact_store,
         review_queue=review_queue,
         library=clauses,
         project_clients={project.id: project.client_id for project in fixture.projects},
         number_confirmations=number_confirmations,
+        menu_selections=menu_selections,
     )
 
     def synthetic_structure_request(project_id: str) -> StructureRequest:
@@ -838,6 +847,22 @@ def create_console_app(*, data_dir: Path | None = None,
         return number_confirmations.confirm(
             tenant_id=context.tenant_id, project_id=request.project_id, label=request.label,
             value=request.value, confirmed_by=context.user_id)
+
+    @app.post("/v1/structure/menus/select", response_model=MenuSelection)
+    def select_menu_option(
+        request: MenuSelectionRequest,
+        context: UserContext = Depends(context_provider),  # noqa: B008
+    ) -> MenuSelection:
+        """Record a person's choice among a commercial menu's options
+        (Phase 5, 5.7). Same authorization boundary as
+        ``/v1/structure/numbers/confirm`` and ``/v1/structure/intake``.
+        """
+        if request.project_id not in context.project_ids:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail="Project is outside authenticated scope")
+        return menu_selections.select(
+            tenant_id=context.tenant_id, project_id=request.project_id, area=request.area,
+            label=request.label, selected_by=context.user_id)
 
     @app.get("/v1/projects/{project_id}/workflows",
              response_model=list[PilotWorkflowOption])

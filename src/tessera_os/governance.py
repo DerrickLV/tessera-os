@@ -29,9 +29,11 @@ what cannot be drafted until they are answered.
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
+from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from .adoption import AdoptedPosition, AdoptionLedger
 from .clauses import DealProfile, EntityType, Industry, Party, TaxTreatment
@@ -42,6 +44,7 @@ from .numbers import (
     DerivedNumberConfirmation,
 )
 from .sectors import SectorPattern, pattern_for, regime_for
+from .terms import MenuSelection
 
 # --- provenance -------------------------------------------------------------
 
@@ -269,6 +272,59 @@ class CapitalArchitecture(BaseModel):
     sponsor_protective: list[str] = Field(default_factory=list)
     investor_protective: list[str] = Field(default_factory=list)
     open_points: list[str] = Field(default_factory=list)
+    # Phase 5, 5.2/D1: the waterfall is a choice with tradeoffs, not a single
+    # settled structure. None when `applies` is False -- there is nothing to
+    # choose between when there is no outside or tiered capital at all.
+    waterfall_menu: TermMenu | None = None
+
+
+class TermOption(BaseModel):
+    """One viable commercial choice, with what it does and what it costs.
+
+    Phase 5, D1: economics produces options with tradeoffs, not a position.
+    ``Recommendation`` is the shape for "here is the structure and why";
+    this is the shape for "here are the real alternatives, choose one" --
+    forcing a commercial choice into ``Recommendation`` would either hide
+    the alternatives or invent a single settled answer this engine has no
+    business settling.
+    """
+
+    label: str = Field(min_length=1)
+    summary: str = Field(min_length=1)
+    favours: str = Field(min_length=1)
+    costs: str = Field(min_length=1)
+    numbers: list[DerivedNumber] = Field(default_factory=list)
+    when_appropriate: str = Field(min_length=1)
+    basis: Basis = "scaffold"
+
+
+class TermMenu(BaseModel):
+    """A commercial choice with at least two real alternatives.
+
+    D1: a menu of one option is a recommendation wearing a menu's clothes,
+    hence ``min_length=2`` -- pydantic enforces this at construction, not as
+    an afterthought check some call site could skip.
+    """
+
+    area: str = Field(min_length=1)
+    options: list[TermOption] = Field(min_length=2)
+    selected: str = ""
+    selected_by: str = ""
+    selected_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def _selection_is_internally_consistent(self) -> TermMenu:
+        if self.selected and self.selected not in {option.label for option in self.options}:
+            raise ValueError(
+                f"selected {self.selected!r} does not name an option in this menu")
+        if self.selected_by and not self.selected:
+            raise ValueError("selected_by requires selected to name an option")
+        if bool(self.selected_by) != (self.selected_at is not None):
+            raise ValueError("selected_by and selected_at must be set together")
+        return self
+
+    def option(self, label: str) -> TermOption:
+        return next(item for item in self.options if item.label == label)
 
 
 class GlossaryEntry(BaseModel):
@@ -290,14 +346,22 @@ class ControlArchitecture(BaseModel):
     deadlock_ladder: bool
     deadlock_steps: list[str] = Field(default_factory=list)
     buy_sell: BuySellStyle = "none"
+    # Phase 5, 5.4: the shotgun unit and its election window were named
+    # constants (Phase 3's sweep) but not DerivedNumbers -- still unconfirmed
+    # figures reaching rendered text. None when buy_sell != "shotgun".
+    shotgun_unit_percent: DerivedNumber | None = None
+    shotgun_election_days: DerivedNumber | None = None
 
 
 class ExitArchitecture(BaseModel):
     right_of_first_refusal: bool
     permitted_estate_transfer: bool
     triggering_events: list[str]
-    valuation_method: str
-    payment_terms: str
+    # Phase 5, 5.4: the pricing method and the payment method are separate
+    # decisions the old single valuation_method/payment_terms sentences
+    # fused. Each is now its own menu with real alternatives.
+    valuation_menu: TermMenu
+    payment_menu: TermMenu
     tag_along: bool
     drag_along: bool
     insurance_funded: bool
@@ -320,6 +384,10 @@ class StructureRecommendation(BaseModel):
     disclosure: str | None = Field(
         default=None,
         description="Dual-role disclosure text, where Tessera both advises and holds.")
+    # Phase 5: menus that must be selected before this recommendation can
+    # reach an agreement -- see menus() and to_draft_request().
+    capital_call_menu: TermMenu
+    tax_distribution_menu: TermMenu
 
     # -- provenance ----------------------------------------------------------
 
@@ -436,12 +504,63 @@ class StructureRecommendation(BaseModel):
             percent = self.control.approval_threshold_percent
             if percent.state == "stated":
                 values["member_approval_threshold"] = f"{percent.value}%"
+        if self.control.shotgun_election_days is not None:
+            days = self.control.shotgun_election_days
+            if days.state == "stated":
+                values["buysell_election_days"] = str(days.value)
+        # Phase 5: every DerivedNumber inside a *selected* option that this
+        # clause library already declares a fillable variable for. Numbers
+        # inside an unselected option, or a number the library has no
+        # variable for at all, are simply not included -- the library's own
+        # posture default fills those, unchanged from before this phase.
+        variable_for = {
+            _PREFERRED_RETURN_LABEL: ("preferred_return", _percent),
+            _PROMOTE_LABEL: ("residual_split", _percent),
+            _FMV_AGREEMENT_DAYS_LABEL: ("fmv_agreement_days", str),
+            _FMV_APPRAISER_DAYS_LABEL: ("fmv_appraiser_days", str),
+            _FMV_CONVERGENCE_PERCENT_LABEL: ("fmv_convergence_percent", _percent),
+            _FMV_DETERMINATION_DAYS_LABEL: ("fmv_determination_days", str),
+            _BUYOUT_CASH_PERCENT_LABEL: ("buyout_cash_percent", _percent),
+            _BUYOUT_NOTE_MONTHS_LABEL: ("buyout_note_months", str),
+            _TAX_DISTRIBUTION_DAYS_LABEL: ("tax_distribution_days", str),
+            _MEMBER_LOAN_RATE_LABEL: ("default_loan_rate", _percent),
+            _CAPITAL_CALL_CURE_DAYS_LABEL: ("capital_call_days", str),
+        }
+        for menu in self.menus():
+            if not menu.selected:
+                continue
+            for number in menu.option(menu.selected).numbers:
+                if number.state != "stated" or number.label not in variable_for:
+                    continue
+                variable, fmt = variable_for[number.label]
+                values[variable] = fmt(number.value)
         return values
 
     def derived_numbers(self) -> list[DerivedNumber]:
-        """Every figure in this recommendation that must be ``stated`` before
-        it may reach an agreement. See D3 and ``to_draft_request``."""
-        return [self.control.ordinary_course_threshold, self.control.approval_threshold_percent]
+        """Every standalone figure in this recommendation that must be
+        ``stated`` before it may reach an agreement, plus every figure inside
+        a *selected* menu option -- an unselected option's numbers are not
+        yet relevant, since the menu itself has not been chosen. See D3 and
+        ``to_draft_request``."""
+        numbers = [self.control.ordinary_course_threshold, self.control.approval_threshold_percent]
+        if self.control.shotgun_unit_percent is not None:
+            numbers.append(self.control.shotgun_unit_percent)
+        if self.control.shotgun_election_days is not None:
+            numbers.append(self.control.shotgun_election_days)
+        for menu in self.menus():
+            if menu.selected:
+                numbers += menu.option(menu.selected).numbers
+        return numbers
+
+    def menus(self) -> list[TermMenu]:
+        """Every commercial menu in this recommendation that must be
+        selected before it may reach an agreement (Phase 5, D1). See
+        ``to_draft_request``."""
+        result = [self.exit.valuation_menu, self.exit.payment_menu, self.capital_call_menu,
+                 self.tax_distribution_menu]
+        if self.capital.waterfall_menu is not None:
+            result.append(self.capital.waterfall_menu)
+        return result
 
     def _formation_state(self) -> str:
         for layer in self.layers:
@@ -731,17 +850,8 @@ def _exit_architecture(profile: VentureProfile, buy_sell: BuySellStyle) -> ExitA
         right_of_first_refusal=True,
         permitted_estate_transfer=profile.estate_planning_relevant,
         triggering_events=triggers,
-        valuation_method=(
-            f"Agree within twenty ({_VALUATION_AGREEMENT_DAYS}) days; failing that each side "
-            f"appoints an appraiser, and if the two are within fifteen percent "
-            f"({_VALUATION_BAND_PERCENT}%) the value is their average, otherwise the two appoint "
-            "a third whose determination binds. Each pays its own appraiser; the third is "
-            "shared."),
-        payment_terms=(
-            f"Twenty-five percent ({_BUYOUT_CASH_PERCENT}%) cash at closing and seventy-five "
-            f"percent ({_BUYOUT_NOTE_PERCENT}%) by note at an approved lawful rate over "
-            f"twenty-four ({_BUYOUT_NOTE_MONTHS}) months, secured by a pledge of the interest "
-            "acquired, prepayable without penalty."),
+        valuation_menu=_valuation_menu(profile),
+        payment_menu=_payment_menu(profile),
         tag_along=not profile.equal_ownership or profile.has_passive_capital,
         drag_along=profile.exit_intent == "sale",
         insurance_funded=profile.key_person_dependency,
@@ -1021,25 +1131,21 @@ def _recommendations(profile: VentureProfile, control: ControlArchitecture,
             position="No deadlock ladder. Reserved matters resolve on the voting rule.",
             because=_no_deadlock_reason(control.approval_rule)))
 
-    if control.buy_sell != "none":
+    if control.buy_sell == "shotgun" and control.shotgun_unit_percent is not None:
+        unit = control.shotgun_unit_percent.render_inline(fmt=_percent)
+        window = control.shotgun_election_days.render_inline(fmt=lambda v: f"{v} days")
         items.append(Recommendation(
             area="Buy-sell", basis=buy_sell_basis,
-            position=(f"A shotgun: one party names a single price per one percent "
-                      f"({_SHOTGUN_UNIT_PERCENT}%) of interest, the other elects to buy or sell "
-                      f"at it within thirty ({_SHOTGUN_ELECTION_DAYS}) days, and failure to "
-                      "elect is deemed an election to sell."
-                      if control.buy_sell == "shotgun"
-                      else "An appraisal buy-sell at fair market value determined by the "
-                           "three-appraiser procedure."),
+            position=(f"A shotgun: one party names a single price per {unit} of interest, the "
+                      f"other elects to buy or sell at it within {window}, and failure to "
+                      "elect is deemed an election to sell."),
             because=buy_sell_why))
-
-    items.append(Recommendation(
-        area="Capital calls", basis="synthetic_reference",
-        position="No additional contribution, member loan, or dilution occurs until the amount, "
-                 "purpose, allocation, and consequences are approved in writing.",
-        because="The synthetic engine must not invent a capital-call remedy or change ownership "
-                "economics before the parties and qualified counsel approve it.",
-        confirm="Qualified counsel drafts any loan, dilution, cure, and enforcement mechanics."))
+    elif control.buy_sell != "none":
+        items.append(Recommendation(
+            area="Buy-sell", basis=buy_sell_basis,
+            position="An appraisal buy-sell at fair market value determined by the "
+                     "three-appraiser procedure.",
+            because=buy_sell_why))
 
     items.append(Recommendation(
         area="Transfer restrictions", basis="scaffold",
@@ -1061,18 +1167,10 @@ def _recommendations(profile: VentureProfile, control: ControlArchitecture,
                 "into business with. The right to buy is what converts that from a crisis into "
                 "a transaction."))
 
-    items.append(Recommendation(
-        area="Valuation", basis="scaffold",
-        position=exit_arch.valuation_method,
-        because="A buy-out needs an approved valuation process. This synthetic three-appraiser "
-                "example is a discussion starting point, not an adopted term."))
-
-    items.append(Recommendation(
-        area="Payment terms", basis="scaffold",
-        position=exit_arch.payment_terms,
-        because="A buy-out the buyer cannot fund is not a remedy. The fictional down payment and "
-                "secured-note example keeps the right exercisable by a working business "
-                "rather than only by whoever has cash on hand."))
+    # Valuation and payment method are now menus with real alternatives
+    # (5.4, D1) -- see StructureRecommendation.menus() and the "Choose:"
+    # sections render_structure_memo renders for them, rather than a single
+    # Recommendation asserting one settled method.
 
     if exit_arch.insurance_funded:
         items.append(Recommendation(
@@ -1115,13 +1213,9 @@ def _recommendations(profile: VentureProfile, control: ControlArchitecture,
                 "offline synthetic engine cannot safely choose their scope or duration.",
         confirm="Qualified counsel confirms whether any restriction is permitted and drafts it."))
 
-    items.append(Recommendation(
-        area="Tax distributions", basis="scaffold",
-        position="A mandatory distribution sufficient to cover each member's tax on allocated "
-                 "income, by a stated date each year.",
-        because="Pass-through income is taxed to the member whether or not any cash was "
-                "distributed. Without this, a profitable year can hand an owner a tax bill and "
-                "no money to pay it."))
+    # Tax distributions are now a menu (5.5, D1) -- see the "Choose:" section
+    # render_structure_memo renders for it, rather than a single asserted
+    # position.
 
     if profile.is_regulated:
         items.append(Recommendation(
@@ -1590,6 +1684,641 @@ def _options(profile: VentureProfile, layers: list[EntityLayer]) -> list[Structu
     return options
 
 
+# --- commercial terms (Phase 5) ----------------------------------------------
+#
+# docs/BUILD_BRIEF_PHASE_5_COMMERCIAL_TERMS.md D1: economics produces options
+# with tradeoffs, never a single recommendation. D2: every figure is a
+# DerivedNumber -- no bare number reaches rendered text (the ratchet from
+# Phase 3's 3.6 stays green because every number below is either a named
+# constant that never appears directly in a string, or lives inside a
+# DerivedNumber's .value). D3: everything here is scaffold.
+#
+# Labels are centralized here (rather than typed inline at each call site) for
+# the same reason numbers.py centralizes ORDINARY_COURSE_THRESHOLD_LABEL: the
+# engine that produces a DerivedNumber and the confirmation store that
+# persists it must agree on the exact string, and a typo in either place
+# would silently create two figures where the reader sees one.
+WATERFALL_AREA = "Distribution waterfall"
+CAPITAL_CALL_AREA = "Capital calls, dilution, and default"
+VALUATION_AREA = "Exit valuation method"
+PAYMENT_AREA = "Exit payment terms"
+TAX_DISTRIBUTION_AREA = "Tax distributions"
+TESSERA_FEE_AREA = "Tessera engagement fee"
+
+_SHOTGUN_UNIT_PERCENT_LABEL = "buy-sell: shotgun unit percent"
+_SHOTGUN_ELECTION_DAYS_LABEL = "buy-sell: shotgun election window"
+_PREFERRED_RETURN_LABEL = "distribution waterfall: preferred return"
+_PROMOTE_LABEL = "distribution waterfall: promote"
+_DILUTION_MULTIPLE_LABEL = "capital calls: dilution multiple"
+_CAPITAL_CALL_CURE_DAYS_LABEL = "capital calls: cure period"
+_MEMBER_LOAN_RATE_LABEL = "capital calls: member loan rate"
+_FMV_AGREEMENT_DAYS_LABEL = "exit valuation: appraisal agreement window"
+_FMV_APPRAISER_DAYS_LABEL = "exit valuation: appraiser selection window"
+_FMV_CONVERGENCE_PERCENT_LABEL = "exit valuation: appraisal convergence band"
+_FMV_DETERMINATION_DAYS_LABEL = "exit valuation: final determination window"
+_EARNINGS_MULTIPLE_LABEL = "exit valuation: earnings multiple"
+_FIXED_VALUE_LABEL = "exit valuation: fixed value"
+_FIXED_VALUE_RESET_MONTHS_LABEL = "exit valuation: fixed value reset interval"
+_BUYOUT_CASH_PERCENT_LABEL = "exit payment: cash percentage"
+_BUYOUT_NOTE_MONTHS_LABEL = "exit payment: note term"
+_EARNOUT_PERIOD_MONTHS_LABEL = "exit payment: earnout period"
+_EARNOUT_PRICE_PERCENT_LABEL = "exit payment: earnout share of price"
+_TAX_RATE_LABEL = "tax distributions: assumed rate"
+_TAX_DISTRIBUTION_DAYS_LABEL = "tax distributions: distribution window"
+FEE_EXPOSURE_LABEL = "Tessera fee: estimated exposure"
+_FEE_TAIL_MONTHS_LABEL = "Tessera fee: tail period"
+
+# --- distribution waterfall (5.2) --------------------------------------------
+#
+# Unsourced typical parameters, deliberately varied by sector (D5) -- a
+# fund's preferred return and promote are not a real-estate hold's, which are
+# not a generic operating company's. None of these are Tessera positions.
+_PREFERRED_RETURN_PERCENT_BY_SECTOR: dict[str, int] = {
+    "fund": 8, "real_estate_hold": 8, "development": 9}
+_PREFERRED_RETURN_PERCENT_DEFAULT = 8
+_PROMOTE_PERCENT_BY_SECTOR: dict[str, int] = {
+    "fund": 20, "real_estate_hold": 20, "development": 20}
+_PROMOTE_PERCENT_DEFAULT = 15
+
+
+def _waterfall_menu(profile: VentureProfile) -> TermMenu:
+    """D1: the waterfall is a choice among real alternatives, not a single
+    settled structure. D5: sector shapes which vocabulary and which typical
+    numbers the options propose -- a fund's "GP catch-up" is a real-estate
+    deal's "sponsor catch-up" is an operating company's "manager catch-up",
+    and each sector proposes a different typical rate.
+    """
+    if profile.activity == "fund":
+        principal_word, carry_word = "GP", "carried interest"
+    elif profile.activity in {"real_estate_hold", "development"}:
+        principal_word, carry_word = "sponsor", "promote"
+    else:
+        principal_word, carry_word = "manager", "promote"
+    pref = _PREFERRED_RETURN_PERCENT_BY_SECTOR.get(
+        profile.activity, _PREFERRED_RETURN_PERCENT_DEFAULT)
+    promote_pct = _PROMOTE_PERCENT_BY_SECTOR.get(profile.activity, _PROMOTE_PERCENT_DEFAULT)
+
+    pro_rata = TermOption(
+        label="Pro rata, no preference",
+        summary="Every distribution, in every tier, splits by ownership percentage. No "
+                "priority return to anyone.",
+        favours="Whichever side contributes proportionally more capital relative to what it "
+                "expects back first — nobody's dollar is first in line ahead of anyone else's.",
+        costs="Passive capital carries exactly the same timing risk as active capital, with no "
+              "premium for going in before the outcome is known.",
+        when_appropriate="Owners with genuinely aligned, proportional expectations, where no "
+                         "one is being asked to wait behind anyone else.",
+        basis="scaffold")
+
+    preferred_catchup = TermOption(
+        label="Preferred return with catch-up",
+        summary=(f"Capital returns first, then a preferred return, then a {principal_word} "
+                 f"catch-up until the {principal_word} has received its full share of profit "
+                 "distributed so far, then pro rata."),
+        favours=f"Investors first, through the preference; the {principal_word} catches up "
+               "only once they are current.",
+        costs=f"The {principal_word} earns nothing at all until capital is returned and the "
+              "preference is current, however long that takes.",
+        numbers=[DerivedNumber(
+            label=_PREFERRED_RETURN_LABEL, value=pref, state="proposed",
+            derivation=(f"{pref}% is a common preferred-return rate for this kind of venture "
+                       "but is not a Tessera position and has not been tested against what "
+                       "these investors would actually accept. Confirm or replace."))],
+        when_appropriate="Investors want a stated priority return before anyone else earns "
+                         "anything, and the parties are comfortable defining what counts as "
+                         "profit for the catch-up.",
+        basis="scaffold")
+
+    promote_above_hurdle = TermOption(
+        label=f"Preferred return with a {carry_word} above a hurdle",
+        summary=(f"Capital returns first, then a preferred return, then the residual splits "
+                 f"with a {carry_word} to the {principal_word} above the preferred-return "
+                 "hurdle — no catch-up tier."),
+        favours=f"Investors, more than the catch-up structure — the {principal_word} never "
+               "gets ahead of the stated split, even after the hurdle clears.",
+        costs=f"The {principal_word}'s {carry_word} is diluted by every dollar distributed "
+              "before the hurdle clears, compared to a structure with a catch-up.",
+        numbers=[
+            DerivedNumber(
+                label=_PREFERRED_RETURN_LABEL, value=pref, state="proposed",
+                derivation=(f"{pref}% is a common preferred-return rate for this kind of "
+                           "venture but is not a Tessera position and has not been tested "
+                           "against what these investors would actually accept. Confirm or "
+                           "replace.")),
+            DerivedNumber(
+                label=_PROMOTE_LABEL, value=promote_pct, state="proposed",
+                derivation=(f"{promote_pct}% is a common {carry_word} share above the hurdle "
+                           "for this kind of venture but is not a Tessera position and has not "
+                           "been negotiated for this deal. Confirm or replace.")),
+        ],
+        when_appropriate=f"The parties want a simpler structure than a catch-up and are "
+                         f"comfortable with the {principal_word} sharing in the residual at a "
+                         "flat rate above the hurdle rather than being made whole to a target "
+                         "percentage first.",
+        basis="scaffold")
+
+    return TermMenu(area=WATERFALL_AREA,
+                    options=[pro_rata, preferred_catchup, promote_above_hurdle])
+
+
+# --- capital calls, dilution, and default (5.3) ------------------------------
+#
+# Unsourced procedural defaults for the dilution mechanics -- see
+# compute_diluted_percentage for the formula itself.
+_DILUTION_MULTIPLE_PERCENT = 150  # 1.5x: the funder's covered-shortfall credit
+_CAPITAL_CALL_CURE_DAYS = 15
+_MEMBER_LOAN_RATE_PERCENT = 10
+
+
+def compute_diluted_percentage(*, funder_capital_account: float,
+                               non_funder_capital_account: float,
+                               own_share_funded: float, shortfall_covered: float,
+                               dilution_multiple_percent: int) -> tuple[float, float]:
+    """The standard cram-down formula, worked in dollars so the result is a
+    number a reader can check, not a clause that merely gestures at dilution.
+
+    The funder's own share of the call is credited to its capital account at
+    face value (an ordinary contribution). The portion the funder pays on the
+    non-funder's behalf -- the shortfall -- is credited at
+    ``dilution_multiple_percent`` of its dollar amount instead: a real,
+    calculable penalty for not funding, rather than an unenforceable "may be
+    diluted" clause. The non-funder's account is unchanged. Returns
+    ``(funder_new_percent, non_funder_new_percent)``.
+    """
+    funder_new_account = (funder_capital_account + own_share_funded
+                          + shortfall_covered * (dilution_multiple_percent / 100))
+    non_funder_new_account = non_funder_capital_account
+    total = funder_new_account + non_funder_new_account
+    return (funder_new_account / total, non_funder_new_account / total)
+
+
+def _capital_call_menu(profile: VentureProfile) -> TermMenu:
+    del profile  # not yet sector- or fact-dependent; kept for a uniform signature
+    mandatory = TermOption(
+        label="Mandatory calls with dilution",
+        summary=("Capital calls are mandatory. A member who does not fund within the cure "
+                 "period is diluted: the funding member's contribution covering the "
+                 "shortfall is credited to its capital account at a penalty multiple of the "
+                 "dollar amount funded."),
+        favours="The company and the funding members — the business gets funded regardless "
+               "of one member's ability or willingness to pay, and the funder is compensated "
+               "for taking on the extra risk.",
+        costs="A member in genuine short-term distress can be materially diluted for a "
+              "temporary cash problem, and the multiple itself is exactly what gets "
+              "negotiated hardest.",
+        numbers=[
+            DerivedNumber(
+                label=_DILUTION_MULTIPLE_LABEL, value=_DILUTION_MULTIPLE_PERCENT,
+                state="proposed",
+                derivation=(f"{_DILUTION_MULTIPLE_PERCENT}% (a "
+                           f"{_DILUTION_MULTIPLE_PERCENT / 100:g}x credit) is a common "
+                           "dilution penalty but is not a Tessera position and has not been "
+                           "tested against what these members would actually accept. Confirm "
+                           "or replace. See compute_diluted_percentage for the formula this "
+                           "number feeds.")),
+            DerivedNumber(
+                label=_CAPITAL_CALL_CURE_DAYS_LABEL, value=_CAPITAL_CALL_CURE_DAYS,
+                state="proposed",
+                derivation=(f"{_CAPITAL_CALL_CURE_DAYS} days is a common cure period but is "
+                           "not a Tessera position. Confirm or replace.")),
+        ],
+        when_appropriate="Ventures where continued funding is critical to avoid value "
+                         "destruction — ongoing development or operations — and the members "
+                         "can tolerate a real, calculable consequence for not funding.",
+        basis="scaffold")
+
+    optional = TermOption(
+        label="Optional calls with dilution",
+        summary="No member is compelled to fund a capital call. A member who elects not to "
+                "fund, in whole or in part, is diluted by the same penalty-multiple formula "
+                "as the mandatory option.",
+        favours="Members who want funding flexibility without a mandatory-call default risk.",
+        costs="The company has no guaranteed source of additional capital if it is needed "
+              "and nobody elects to fund.",
+        numbers=[DerivedNumber(
+            label=_DILUTION_MULTIPLE_LABEL, value=_DILUTION_MULTIPLE_PERCENT, state="proposed",
+            derivation=(f"{_DILUTION_MULTIPLE_PERCENT}% (a "
+                       f"{_DILUTION_MULTIPLE_PERCENT / 100:g}x credit) is a common dilution "
+                       "penalty but is not a Tessera position and has not been tested against "
+                       "what these members would actually accept. Confirm or replace."))],
+        when_appropriate="Members who are confident the venture will not depend on a call "
+                         "actually being funded, and want the option without the obligation.",
+        basis="scaffold")
+
+    member_loan = TermOption(
+        label="Member loans at a stated rate",
+        summary="Instead of an equity capital call, a funding member may advance a loan to "
+                "the company at a stated interest rate, senior to equity, repaid before any "
+                "distribution.",
+        favours="The funding member — preserves ownership percentages and is repaid with "
+               "interest ahead of any distribution to anyone.",
+        costs="The company carries a real debt-service obligation, and non-funding members "
+              "face no ownership consequence at all despite taking no funding risk.",
+        numbers=[DerivedNumber(
+            label=_MEMBER_LOAN_RATE_LABEL, value=_MEMBER_LOAN_RATE_PERCENT, state="proposed",
+            derivation=(f"{_MEMBER_LOAN_RATE_PERCENT}% is a placeholder lawful rate, not a "
+                       "market rate this engine has checked against any lender or against "
+                       "usury limits in the governing state. Confirm or replace."))],
+        when_appropriate="A funding member is willing and able to advance capital as debt "
+                         "rather than equity, and the members would rather avoid dilution "
+                         "mechanics entirely.",
+        basis="scaffold")
+
+    return TermMenu(area=CAPITAL_CALL_AREA, options=[mandatory, optional, member_loan])
+
+
+# --- exit valuation and payment (5.4) -----------------------------------------
+#
+# _VALUATION_AGREEMENT_DAYS, _VALUATION_BAND_PERCENT, _BUYOUT_CASH_PERCENT,
+# _BUYOUT_NOTE_PERCENT, and _BUYOUT_NOTE_MONTHS already exist (Phase 3's
+# sweep, 3.6) -- these are the remaining unsourced constants this phase adds.
+_FMV_APPRAISER_DAYS = 10
+_FMV_DETERMINATION_DAYS = 30
+_FIXED_VALUE_RESET_MONTHS = 12
+_EARNOUT_PERIOD_MONTHS = 24
+_EARNOUT_PRICE_PERCENT = 30
+
+
+def _valuation_menu(profile: VentureProfile) -> TermMenu:
+    appraisal = TermOption(
+        label="Three-appraiser appraisal",
+        summary=(f"Each side appoints an appraiser within {_VALUATION_AGREEMENT_DAYS} days; "
+                 f"if the two are within {_VALUATION_BAND_PERCENT}% the value is their "
+                 "average, otherwise the two appraisers select a third whose determination "
+                 "binds."),
+        favours="Neither side by design — it is built to be neutral, at the cost of time and "
+               "two, sometimes three, appraisal fees.",
+        costs="Slower and more expensive than a formula, and produces no number at all until "
+              "the process actually runs.",
+        numbers=[
+            DerivedNumber(
+                label=_FMV_AGREEMENT_DAYS_LABEL, value=_VALUATION_AGREEMENT_DAYS,
+                state="proposed",
+                derivation=(f"{_VALUATION_AGREEMENT_DAYS} days is a common window to agree on "
+                           "value before appointing appraisers, not a Tessera position. "
+                           "Confirm or replace.")),
+            DerivedNumber(
+                label=_FMV_APPRAISER_DAYS_LABEL, value=_FMV_APPRAISER_DAYS, state="proposed",
+                derivation=(f"{_FMV_APPRAISER_DAYS} days is a common window to appoint an "
+                           "appraiser, not a Tessera position. Confirm or replace.")),
+            DerivedNumber(
+                label=_FMV_CONVERGENCE_PERCENT_LABEL, value=_VALUATION_BAND_PERCENT,
+                state="proposed",
+                derivation=(f"{_VALUATION_BAND_PERCENT}% is a common convergence band before "
+                           "averaging the two appraisals, not a Tessera position. Confirm or "
+                           "replace.")),
+            DerivedNumber(
+                label=_FMV_DETERMINATION_DAYS_LABEL, value=_FMV_DETERMINATION_DAYS,
+                state="proposed",
+                derivation=(f"{_FMV_DETERMINATION_DAYS} days is a common window for the third "
+                           "appraiser's binding determination, not a Tessera position. Confirm "
+                           "or replace.")),
+        ],
+        when_appropriate="No public or recent comparable transaction exists, or the asset's "
+                         "value depends on judgment — a going concern, real estate — rather "
+                         "than a clean formula.",
+        basis="scaffold")
+
+    formula = TermOption(
+        label="Formula: a multiple of earnings",
+        summary="Value is a stated multiple of a defined earnings measure (e.g., trailing "
+                "twelve-month EBITDA), computed mechanically with no appraiser.",
+        favours="Whichever side can hold the other to a clean, fast, cheap number instead of "
+               "a process.",
+        costs="A formula fixed today can badly misprice the business years later if its "
+              "earnings profile changes in ways the multiple never anticipated.",
+        numbers=[DerivedNumber(label=_EARNINGS_MULTIPLE_LABEL, value=None, state="unresolved")],
+        when_appropriate="A stable, earnings-generating business where the parties can agree "
+                         "on both the earnings measure and a multiple they both find fair — "
+                         "this engine has no earnings figure to propose a multiple against.",
+        basis="scaffold")
+
+    fixed_reset = TermOption(
+        label="Fixed value with periodic reset",
+        summary="The parties set a fixed value now, revisited and reset on a stated interval; "
+                "between resets, the fixed value governs regardless of what has happened to "
+                "the business.",
+        favours="Predictability for both sides between resets, at the cost of accuracy the "
+               "longer it has been since the last one.",
+        costs="A stale fixed value can be badly wrong for whichever side it happens to favor "
+              "at the moment a triggering event actually occurs.",
+        numbers=(
+            [DerivedNumber(
+                label=_FIXED_VALUE_LABEL, value=round(profile.initial_capital), state="proposed",
+                derivation=(f"Starting fixed value set to the stated initial capital "
+                           f"(${profile.initial_capital:,.0f}) until the first scheduled "
+                           "reset. This is a starting point, not a valuation — it has not "
+                           "been tested against what the business is actually worth."))]
+            if profile.initial_capital > 0
+            else [DerivedNumber(label=_FIXED_VALUE_LABEL, value=None, state="unresolved")]
+        ) + [DerivedNumber(
+            label=_FIXED_VALUE_RESET_MONTHS_LABEL, value=_FIXED_VALUE_RESET_MONTHS,
+            state="proposed",
+            derivation=(f"{_FIXED_VALUE_RESET_MONTHS} months is a common reset interval, not "
+                       "a Tessera position. Confirm or replace."))],
+        when_appropriate="The parties want certainty between resets more than they want "
+                         "accuracy at the moment of a triggering event, and are disciplined "
+                         "about actually running the reset.",
+        basis="scaffold")
+
+    return TermMenu(area=VALUATION_AREA, options=[appraisal, formula, fixed_reset])
+
+
+def _payment_menu(profile: VentureProfile) -> TermMenu:
+    del profile
+    cash = TermOption(
+        label="Cash at closing",
+        summary="The full purchase price is paid at closing, in cash.",
+        favours="The seller — full liquidity immediately, with no counterparty credit risk.",
+        costs="The buyer must have or raise the full amount, which can make the right to buy "
+              "theoretical rather than real for many buyers.",
+        when_appropriate="The buyer has ready liquidity or financing lined up, or the price "
+                         "is small enough that financing is not a real constraint.",
+        basis="scaffold")
+
+    note = TermOption(
+        label="Note over a term",
+        summary=(f"{_BUYOUT_CASH_PERCENT}% cash at closing and {_BUYOUT_NOTE_PERCENT}% by a "
+                 f"note over {_BUYOUT_NOTE_MONTHS} months at an approved lawful rate, secured "
+                 "by a pledge of the interest acquired, prepayable without penalty."),
+        favours="The buyer — spreads the cash requirement over time instead of requiring the "
+               "full price at closing.",
+        costs="The seller carries the buyer's credit risk for the note's term, secured only "
+              "by the interest just sold.",
+        numbers=[
+            DerivedNumber(
+                label=_BUYOUT_CASH_PERCENT_LABEL, value=_BUYOUT_CASH_PERCENT, state="proposed",
+                derivation=(f"{_BUYOUT_CASH_PERCENT}% cash at closing is a common split, not a "
+                           "Tessera position. Confirm or replace.")),
+            DerivedNumber(
+                label=_BUYOUT_NOTE_MONTHS_LABEL, value=_BUYOUT_NOTE_MONTHS, state="proposed",
+                derivation=(f"{_BUYOUT_NOTE_MONTHS} months is a common note term, not a "
+                           "Tessera position. Confirm or replace.")),
+        ],
+        when_appropriate="Neither side has ready cash for the full price, and both are "
+                         "willing to carry the resulting credit and liquidity risk.",
+        basis="scaffold")
+
+    earnout = TermOption(
+        label="Earnout",
+        summary="A portion of the price is paid at closing and the remainder is paid over "
+                "time based on the business's performance against stated metrics.",
+        favours="The buyer — reduces the upfront cash need and shares performance risk with "
+               "the seller instead of bearing it alone.",
+        costs="The seller's ultimate payment depends on performance it may no longer "
+              "control, and earnout disputes are among the most litigated post-closing terms "
+              "in any deal.",
+        numbers=[
+            DerivedNumber(
+                label=_EARNOUT_PRICE_PERCENT_LABEL, value=_EARNOUT_PRICE_PERCENT,
+                state="proposed",
+                derivation=(f"{_EARNOUT_PRICE_PERCENT}% of price contingent on performance is "
+                           "a common earnout share, not a Tessera position. Confirm or "
+                           "replace.")),
+            DerivedNumber(
+                label=_EARNOUT_PERIOD_MONTHS_LABEL, value=_EARNOUT_PERIOD_MONTHS,
+                state="proposed",
+                derivation=(f"{_EARNOUT_PERIOD_MONTHS} months is a common earnout period, not "
+                           "a Tessera position. Confirm or replace.")),
+        ],
+        when_appropriate="The business's forward performance is genuinely uncertain and both "
+                         "sides want to bridge a valuation gap rather than negotiate a single "
+                         "fixed price.",
+        basis="scaffold")
+
+    return TermMenu(area=PAYMENT_AREA, options=[cash, note, earnout])
+
+
+# --- tax distributions (5.5) --------------------------------------------------
+#
+# Illustrative only -- this engine has no projected income figure for any
+# specific venture, so the worked example uses a clearly-labeled round number
+# rather than pretending to derive one from this venture's own facts.
+_TAX_RATE_PERCENT = 37
+_TAX_DISTRIBUTION_DAYS = 90
+_TAX_WORKED_EXAMPLE_INCOME = 100_000
+
+
+def _tax_distribution_menu(profile: VentureProfile) -> TermMenu:
+    del profile
+    rate_number = DerivedNumber(
+        label=_TAX_RATE_LABEL, value=_TAX_RATE_PERCENT, state="proposed",
+        derivation=(f"{_TAX_RATE_PERCENT}% assumes the highest marginal federal rate as a "
+                   "conservative default. It is not a Tessera position and a tax advisor sets "
+                   "the actual blended rate for these specific members before it is relied "
+                   "on."))
+    timing_number = DerivedNumber(
+        label=_TAX_DISTRIBUTION_DAYS_LABEL, value=_TAX_DISTRIBUTION_DAYS, state="proposed",
+        derivation=(f"{_TAX_DISTRIBUTION_DAYS} days after fiscal year-end is a common "
+                   "distribution window, not a Tessera position. Confirm or replace."))
+    worked_example = (
+        f"For illustration only, not this venture's actual figures: "
+        f"${_TAX_WORKED_EXAMPLE_INCOME:,} of allocated taxable income at the proposed "
+        f"{_TAX_RATE_PERCENT}% rate requires a "
+        f"${round(_TAX_WORKED_EXAMPLE_INCOME * _TAX_RATE_PERCENT / 100):,} tax distribution.")
+
+    advance = TermOption(
+        label="Tax distribution as an advance against distributions",
+        summary=("A mandatory distribution sufficient to cover each member's tax on "
+                 f"allocated income, credited against and reducing that member's next "
+                 f"regular distribution under the waterfall. {worked_example}"),
+        favours="The company's cash position — the waterfall is not disturbed, only timed "
+               "differently for whoever received a tax distribution.",
+        costs="A member who never receives another distribution (an exit, a wind-down) has "
+              "effectively received an interest-free advance nobody collects on.",
+        numbers=[rate_number, timing_number],
+        when_appropriate="The company expects to make regular distributions anyway, so a tax "
+                         "distribution is really just timing, not a separate pool of cash.",
+        basis="scaffold")
+
+    priority = TermOption(
+        label="Tax distribution as a priority above the waterfall",
+        summary=("A mandatory distribution sufficient to cover each member's tax on "
+                 f"allocated income, paid ahead of every other tier in the waterfall, not "
+                 f"credited against later distributions. {worked_example}"),
+        favours="Members with allocated income and no other liquidity — the tax bill is "
+               "funded first, full stop, every year.",
+        costs="Can materially disrupt the stated waterfall in a year with large allocated "
+              "income and thin cash, pulling money out ahead of preferred return or promote.",
+        numbers=[rate_number, timing_number],
+        when_appropriate="Members cannot be assumed to have outside liquidity for a tax bill "
+                         "on income they never received in cash, and the waterfall can absorb "
+                         "being disturbed in a high-income year.",
+        basis="scaffold")
+
+    return TermMenu(area=TAX_DISTRIBUTION_AREA, options=[advance, priority])
+
+
+# --- Tessera's own engagement economics (5.6) ---------------------------------
+#
+# A different case from the five menus above: this is Tessera contracting
+# with a client (D4), not a client's own operating agreement. Deliberately
+# not threaded through recommend_structure() -- a finders_fee, consulting, or
+# advisory engagement is not itself a VentureProfile, and forcing one into
+# that shape to reuse the plumbing would be a worse fit than a second,
+# parallel function.
+_FEE_FIXED_PERCENT_OF_DEAL = 3
+_FEE_RETAINER_MONTHLY_PERCENT_OF_DEAL = 1
+_FEE_SUCCESS_PERCENT_OF_DEAL = 5
+_FEE_HYBRID_RETAINER_DISCOUNT_PERCENT = 50
+_FEE_TAIL_MONTHS_BY_POSTURE: dict[str, int] = {
+    "protective": 18, "standard": 12, "accommodating": 6}
+_FEE_PAYMENT_DAYS_FIRM = 5
+_FEE_PAYMENT_DAYS_STANDARD = 15
+_FEE_PAYMENT_DAYS_LABEL = "Tessera fee: payment window"
+
+
+def _fee_exposure(value: int | None, derivation: str) -> DerivedNumber:
+    return DerivedNumber(
+        label=FEE_EXPOSURE_LABEL,
+        value=value, state="unresolved" if value is None else "proposed",
+        derivation="" if value is None else derivation)
+
+
+def recommend_fee_terms(*, posture: str, estimated_deal_value: float | None = None) -> TermMenu:
+    """Fee structure options for Tessera's own consulting, advisory, or
+    finders_fee paper (D4). Every option carries a ``FEE_EXPOSURE_LABEL``
+    DerivedNumber so :func:`apply_fee_selection` can populate
+    ``DealProfile.fee_at_risk`` uniformly regardless of which structure is
+    chosen -- this is where 5.6's ``fee_at_risk`` value actually originates.
+
+    ``posture`` shapes the success-fee trigger and the tail without changing
+    the surface tone (D4: "collaborative on the surface, enforceable
+    underneath") -- a protective posture gets a longer tail and firmer
+    trigger language; the friendly framing of every option stays the same
+    regardless.
+    """
+    # 5.6: expense treatment must be explicit, not left implicit inside "the
+    # fee" -- the same statement applies regardless of which option is
+    # chosen, so it is appended once rather than negotiated per option.
+    expense_treatment = (" Reasonable, documented out-of-pocket expenses are billed "
+                         "separately from the fee above, itemized monthly, and are not "
+                         "capped by or included in any figure stated in this option.")
+    tail_months = _FEE_TAIL_MONTHS_BY_POSTURE.get(posture, _FEE_TAIL_MONTHS_BY_POSTURE["standard"])
+    has_deal_value = estimated_deal_value is not None and estimated_deal_value > 0
+    firm = posture == "protective"
+
+    def scaled(percent: int) -> int | None:
+        return round(estimated_deal_value * percent / 100) if has_deal_value else None
+
+    fixed = TermOption(
+        label="Fixed fee with milestones",
+        summary=("A stated total fee, paid in installments tied to defined, dated milestones "
+                 "rather than a single contingent outcome." + expense_treatment),
+        favours="Tessera — collects on progress rather than betting the whole fee on one "
+               "outcome closing.",
+        costs="The client pays regardless of whether the ultimate outcome Tessera was "
+              "engaged for ever actually closes.",
+        numbers=[_fee_exposure(
+            scaled(_FEE_FIXED_PERCENT_OF_DEAL),
+            f"{_FEE_FIXED_PERCENT_OF_DEAL}% of the estimated deal value is a common fixed-fee "
+            "benchmark, not a Tessera position. Confirm or replace.")],
+        when_appropriate="Scoped, deliverable-based work where the value is in the work "
+                         "itself, not in a single contingent event.",
+        basis="scaffold")
+
+    retainer = TermOption(
+        label="Monthly retainer",
+        summary=("A stated monthly retainer, payable regardless of outcome, for the "
+                 "engagement term." + expense_treatment),
+        favours="Tessera — predictable revenue independent of whether any transaction closes.",
+        costs="The client pays every month whether or not the engagement produces a "
+              "transaction.",
+        numbers=[_fee_exposure(
+            scaled(_FEE_RETAINER_MONTHLY_PERCENT_OF_DEAL),
+            f"{_FEE_RETAINER_MONTHLY_PERCENT_OF_DEAL}% of the estimated deal value, held for "
+            "the engagement term, is a common retainer benchmark, not a Tessera position. "
+            "Confirm or replace.")],
+        when_appropriate="Open-ended advisory work with no single defined outcome to trigger "
+                         "a success fee against.",
+        basis="scaffold")
+
+    payment_days = _FEE_PAYMENT_DAYS_FIRM if firm else _FEE_PAYMENT_DAYS_STANDARD
+    trigger = (
+        "Payable upon the earlier of (a) execution of a binding agreement between the "
+        "client and a counterparty Tessera introduced, whether during the engagement term "
+        f"or within the {tail_months}-month tail period, or (b) the closing of a "
+        "transaction with such a counterparty. \"Introduced\" means named in Tessera's "
+        "written introduction log and communicated to the client in writing before any "
+        f"direct contact between the client and the counterparty. Payable in full within "
+        f"{payment_days} business days of the triggering event.")
+    success = TermOption(
+        label="Success fee on a defined trigger",
+        summary=trigger + expense_treatment,
+        favours="Tessera, if the tail and trigger are firm; the client, in the ordinary case "
+               "where nothing closes and nothing is owed.",
+        costs="Nothing is earned unless the defined trigger actually occurs, however much "
+              "work Tessera put in.",
+        numbers=[
+            _fee_exposure(
+                scaled(_FEE_SUCCESS_PERCENT_OF_DEAL),
+                f"{_FEE_SUCCESS_PERCENT_OF_DEAL}% of the estimated deal value is a common "
+                "success-fee benchmark, not a Tessera position. Confirm or replace."),
+            DerivedNumber(
+                label=_FEE_TAIL_MONTHS_LABEL, value=tail_months, state="proposed",
+                derivation=(f"{tail_months} months follows from a {posture} posture -- longer "
+                           "where the deal's risk profile calls for firmer protection, "
+                           "shorter where it does not. Not a Tessera position. Confirm or "
+                           "replace.")),
+            DerivedNumber(
+                label=_FEE_PAYMENT_DAYS_LABEL, value=payment_days, state="proposed",
+                derivation=(f"{payment_days} business days follows from a {posture} posture -- "
+                           "a firmer window where the deal's risk profile calls for it. Not a "
+                           "Tessera position. Confirm or replace.")),
+        ],
+        when_appropriate="A single, identifiable transaction is the point of the engagement, "
+                         "and Tessera's value is specifically the introduction or the deal "
+                         "itself closing.",
+        basis="scaffold")
+
+    hybrid_retainer_number = _fee_exposure(
+        scaled(round(_FEE_RETAINER_MONTHLY_PERCENT_OF_DEAL
+                    * _FEE_HYBRID_RETAINER_DISCOUNT_PERCENT / 100)) if has_deal_value else None,
+        (f"A retainer reduced to {_FEE_HYBRID_RETAINER_DISCOUNT_PERCENT}% of the standalone "
+         "retainer benchmark, offset against the success fee below, not a Tessera position. "
+         "Confirm or replace."))
+    hybrid = TermOption(
+        label="Hybrid: reduced retainer plus success fee",
+        summary=("A reduced monthly retainer, offset in whole or in part against a success "
+                 "fee payable on the same trigger as the success-fee option, if and when it "
+                 "occurs." + expense_treatment),
+        favours="Both sides relative to the pure alternatives — Tessera gets some "
+               "predictable revenue, the client pays a smaller success fee than the pure "
+               "success-fee option.",
+        costs="More moving parts than either pure structure, and the offset mechanics are "
+              "exactly where hybrid fee disputes start.",
+        numbers=[hybrid_retainer_number,
+                DerivedNumber(
+                    label=_FEE_TAIL_MONTHS_LABEL, value=tail_months, state="proposed",
+                    derivation=(f"{tail_months} months follows from a {posture} posture. Not "
+                               "a Tessera position. Confirm or replace."))],
+        when_appropriate="Tessera wants some predictable revenue during a longer engagement "
+                         "without giving up participation in the outcome it is working "
+                         "toward.",
+        basis="scaffold")
+
+    return TermMenu(area=TESSERA_FEE_AREA, options=[fixed, retainer, success, hybrid])
+
+
+def apply_fee_selection(profile: DealProfile, menu: TermMenu) -> DealProfile:
+    """Where fee_at_risk finally gets a real value (5.6).
+
+    Phase 1 left ``DealProfile.fee_at_risk`` ``None`` because the structure
+    path had no fee data to derive it from. This is that data: once a fee
+    option is selected, its ``FEE_EXPOSURE_LABEL`` figure -- if a person has
+    confirmed it -- becomes the profile's fee_at_risk, and posture logic
+    (``DealProfile.posture()``) runs against a populated value from here on,
+    not only against ``None``.
+    """
+    if not menu.selected:
+        return profile
+    option = menu.option(menu.selected)
+    exposure = next((n for n in option.numbers if n.label == FEE_EXPOSURE_LABEL), None)
+    if exposure is None or exposure.state != "stated" or exposure.value is None:
+        return profile
+    return profile.model_copy(update={"fee_at_risk": float(exposure.value)})
+
+
 # --- capital architecture ---------------------------------------------------
 
 def _capital_architecture(profile: VentureProfile) -> CapitalArchitecture:
@@ -1646,6 +2375,7 @@ def _capital_architecture(profile: VentureProfile) -> CapitalArchitecture:
                 "preferred return are satisfied.",
         tiers=tiers,
         clawback=sponsor_led,
+        waterfall_menu=_waterfall_menu(profile),
         sponsor_protective=[
             "The promote survives a removal of the sponsor other than for cause",
             ("Capital contributed by the sponsor participates in the same tiers as investor "
@@ -1788,21 +2518,62 @@ def _apply_confirmation(number: DerivedNumber,
                          confirmed_at=confirmed.confirmed_at)
 
 
+def _apply_confirmations_to_menu(menu: TermMenu,
+                                 confirmations: dict[str, DerivedNumberConfirmation]
+                                 ) -> TermMenu:
+    """Confirm every option's numbers, not just the selected option's.
+
+    A person can confirm a figure before choosing between the options that
+    carry it (or while comparing them), so confirmation and selection are
+    applied as two independent passes rather than one gating the other.
+    """
+    if not confirmations:
+        return menu
+    updated_options = [
+        option.model_copy(update={
+            "numbers": [_apply_confirmation(number, confirmations.get(number.label))
+                       for number in option.numbers]})
+        for option in menu.options]
+    return menu.model_copy(update={"options": updated_options})
+
+
+def _apply_selection(menu: TermMenu, selected: MenuSelection | None) -> TermMenu:
+    """Record a person's choice among a menu's options (D1, Phase 5's
+    equivalent of :func:`_apply_confirmation` for a menu instead of a
+    number). A selection naming an option this menu no longer has is
+    ignored rather than raised -- the profile can change between when a
+    selection was recorded and when the menu is recomputed, and a stale
+    selection should surface as "still unselected", not crash the
+    recommendation.
+    """
+    if selected is None or menu.selected:
+        return menu
+    if selected.label not in {option.label for option in menu.options}:
+        return menu
+    return menu.model_copy(update={
+        "selected": selected.label, "selected_by": selected.selected_by,
+        "selected_at": selected.selected_at})
+
+
 def recommend_structure(profile: VentureProfile,
                         ledger: AdoptionLedger | None = None,
                         confirmations: dict[str, DerivedNumberConfirmation] | None = None,
+                        menu_selections: dict[str, MenuSelection] | None = None,
                         ) -> StructureRecommendation:
     """Produce the structure for a venture, with the reasoning and the open questions.
 
     Deterministic: the same profile and the same adoption ledger always produce
     the same structure, so a recommendation can be reviewed, disagreed with, and
-    traced back to the input that drove it. ``confirmations`` is the one
-    intentional exception -- it is how a person's recorded decision (D4)
-    reaches a recommendation that is otherwise computed fresh from the profile
-    every time, keyed by :class:`~tessera_os.numbers.DerivedNumber` label.
+    traced back to the input that drove it. ``confirmations`` and
+    ``menu_selections`` are the two intentional exceptions -- they are how a
+    person's recorded decisions (D4, Phase 5's D1) reach a recommendation that
+    is otherwise computed fresh from the profile every time. ``confirmations``
+    is keyed by :class:`~tessera_os.numbers.DerivedNumber` label;
+    ``menu_selections`` is keyed by :class:`TermMenu` area.
     """
     ledger = ledger if ledger is not None else AdoptionLedger.load()
     confirmations = confirmations or {}
+    menu_selections = menu_selections or {}
     model, mgmt_why, mgmt_basis = _management_model(profile)
     rule, threshold_percent, approval_basis = _approval_rule(profile)
     threshold_percent = _apply_confirmation(
@@ -1813,6 +2584,23 @@ def recommend_structure(profile: VentureProfile,
     threshold = _apply_confirmation(
         _ordinary_course_threshold(profile), confirmations.get(ORDINARY_COURSE_THRESHOLD_LABEL))
 
+    resolved_buy_sell = buy_sell if deadlock or profile.total_members > 1 else "none"
+    shotgun_unit = shotgun_days = None
+    if resolved_buy_sell == "shotgun":
+        shotgun_unit = _apply_confirmation(
+            DerivedNumber(
+                label=_SHOTGUN_UNIT_PERCENT_LABEL, value=_SHOTGUN_UNIT_PERCENT, state="proposed",
+                derivation=(f"{_SHOTGUN_UNIT_PERCENT}% is a common shotgun pricing unit, not a "
+                           "Tessera position. Confirm or replace.")),
+            confirmations.get(_SHOTGUN_UNIT_PERCENT_LABEL))
+        shotgun_days = _apply_confirmation(
+            DerivedNumber(
+                label=_SHOTGUN_ELECTION_DAYS_LABEL, value=_SHOTGUN_ELECTION_DAYS,
+                state="proposed",
+                derivation=(f"{_SHOTGUN_ELECTION_DAYS} days is a common shotgun election "
+                           "window, not a Tessera position. Confirm or replace.")),
+            confirmations.get(_SHOTGUN_ELECTION_DAYS_LABEL))
+
     control = ControlArchitecture(
         management_model=model,
         ordinary_course_threshold=threshold,
@@ -1821,7 +2609,9 @@ def recommend_structure(profile: VentureProfile,
         reserved_matters=_reserved_matters(profile),
         deadlock_ladder=deadlock,
         deadlock_steps=list(_DEADLOCK_STEPS) if deadlock else [],
-        buy_sell=buy_sell if deadlock or profile.total_members > 1 else "none",
+        buy_sell=resolved_buy_sell,
+        shotgun_unit_percent=shotgun_unit,
+        shotgun_election_days=shotgun_days,
     )
     exit_arch = _exit_architecture(profile, control.buy_sell)
     layers = _entity_layers(profile)
@@ -1831,6 +2621,29 @@ def recommend_structure(profile: VentureProfile,
             mgmt_why, mgmt_basis, approval_basis, buy_sell_why, buy_sell_basis),
         ledger)
     capital = _capital_architecture(profile)
+    capital_call_menu = _capital_call_menu(profile)
+    tax_distribution_menu = _tax_distribution_menu(profile)
+
+    # Every menu gets both passes: confirm the numbers inside every option
+    # (regardless of which is later selected), then apply whichever option a
+    # person actually chose.
+    menus = [exit_arch.valuation_menu, exit_arch.payment_menu, capital_call_menu,
+            tax_distribution_menu]
+    if capital.waterfall_menu is not None:
+        menus.append(capital.waterfall_menu)
+    for menu in menus:
+        confirmed = _apply_confirmations_to_menu(menu, confirmations)
+        selected = _apply_selection(confirmed, menu_selections.get(menu.area))
+        if menu is exit_arch.valuation_menu:
+            exit_arch = exit_arch.model_copy(update={"valuation_menu": selected})
+        elif menu is exit_arch.payment_menu:
+            exit_arch = exit_arch.model_copy(update={"payment_menu": selected})
+        elif menu is capital_call_menu:
+            capital_call_menu = selected
+        elif menu is tax_distribution_menu:
+            tax_distribution_menu = selected
+        elif capital.waterfall_menu is not None and menu is capital.waterfall_menu:
+            capital = capital.model_copy(update={"waterfall_menu": selected})
 
     return StructureRecommendation(
         profile=profile,
@@ -1847,6 +2660,8 @@ def recommend_structure(profile: VentureProfile,
         capital=capital,
         glossary=_glossary(profile, {item.area for item in recommendations}, capital, layers),
         disclosure=DUAL_ROLE_DISCLOSURE if profile.role == "both" else None,
+        capital_call_menu=capital_call_menu,
+        tax_distribution_menu=tax_distribution_menu,
     )
 
 
@@ -1878,6 +2693,68 @@ def _render_counsel_notes(profile: VentureProfile) -> list[str]:
     for label, notes in groups:
         out.append(f"**{label}**")
         out += [f"- {note}" for note in notes]
+        out.append("")
+    return out
+
+
+# Every DerivedNumber label this module produces, mapped to how it displays
+# inline. Centralized so a menu's rendering and its "figures to confirm"-style
+# summary never disagree about whether a figure is a percent, a day count, or
+# a dollar amount.
+_NUMBER_FORMATTERS: dict[str, Callable[[int], str]] = {
+    ORDINARY_COURSE_THRESHOLD_LABEL: _dollars,
+    APPROVAL_THRESHOLD_LABEL: _percent,
+    _SHOTGUN_UNIT_PERCENT_LABEL: _percent,
+    _SHOTGUN_ELECTION_DAYS_LABEL: lambda v: f"{v} days",
+    _PREFERRED_RETURN_LABEL: _percent,
+    _PROMOTE_LABEL: _percent,
+    _DILUTION_MULTIPLE_LABEL: _percent,
+    _CAPITAL_CALL_CURE_DAYS_LABEL: lambda v: f"{v} days",
+    _MEMBER_LOAN_RATE_LABEL: _percent,
+    _FMV_AGREEMENT_DAYS_LABEL: lambda v: f"{v} days",
+    _FMV_APPRAISER_DAYS_LABEL: lambda v: f"{v} days",
+    _FMV_CONVERGENCE_PERCENT_LABEL: _percent,
+    _FMV_DETERMINATION_DAYS_LABEL: lambda v: f"{v} days",
+    _EARNINGS_MULTIPLE_LABEL: lambda v: f"{v}x",
+    _FIXED_VALUE_LABEL: _dollars,
+    _FIXED_VALUE_RESET_MONTHS_LABEL: lambda v: f"{v} months",
+    _BUYOUT_CASH_PERCENT_LABEL: _percent,
+    _BUYOUT_NOTE_MONTHS_LABEL: lambda v: f"{v} months",
+    _EARNOUT_PERIOD_MONTHS_LABEL: lambda v: f"{v} months",
+    _EARNOUT_PRICE_PERCENT_LABEL: _percent,
+    _TAX_RATE_LABEL: _percent,
+    _TAX_DISTRIBUTION_DAYS_LABEL: lambda v: f"{v} days",
+    FEE_EXPOSURE_LABEL: _dollars,
+    _FEE_TAIL_MONTHS_LABEL: lambda v: f"{v} months",
+    _FEE_PAYMENT_DAYS_LABEL: lambda v: f"{v} days",
+}
+
+
+def _format_number(number: DerivedNumber) -> str:
+    fmt = _NUMBER_FORMATTERS.get(number.label, str)
+    return number.render_inline(fmt=fmt)
+
+
+def _render_menu(menu: TermMenu) -> list[str]:
+    """D1: a commercial choice with real alternatives, rendered so the
+    tradeoffs -- and, once made, the choice and who made it -- are visible.
+    Never a single settled structure standing in for a decision nobody made.
+    """
+    out = [f"### {menu.area}", ""]
+    out.append(f"**Selected: {menu.selected}, confirmed by {menu.selected_by} on "
+               f"{menu.selected_at:%Y-%m-%d}.**" if menu.selected
+               else "**Not yet selected.** Choose one of the options below.")
+    out.append("")
+    for option in menu.options:
+        marker = " — SELECTED" if option.label == menu.selected else ""
+        out.append(f"**{option.label}{marker}**")
+        out.append(option.summary)
+        out.append(f"*Favours:* {option.favours}")
+        out.append(f"*Costs:* {option.costs}")
+        if option.numbers:
+            out += [f"- {number.label.split(': ')[-1].capitalize()}: {_format_number(number)}"
+                   for number in option.numbers]
+        out.append(f"*Choose it when:* {option.when_appropriate}")
         out.append("")
     return out
 
@@ -1991,6 +2868,20 @@ def render_structure_memo(rec: StructureRecommendation) -> str:
     out += [f"{index}. {event}"
             for index, event in enumerate(rec.exit.triggering_events, 1)]
     out.append("")
+
+    out.append("## Commercial terms to choose")
+    out.append("")
+    out.append("Structure comes first and terms second, and the work protects "
+               "optionality — these are options with tradeoffs, not a single settled "
+               "structure. The client chooses; this memo records the choice and who made "
+               "it.")
+    out.append("")
+    if rec.capital.waterfall_menu is not None:
+        out += _render_menu(rec.capital.waterfall_menu)
+    out += _render_menu(rec.capital_call_menu)
+    out += _render_menu(rec.tax_distribution_menu)
+    out += _render_menu(rec.exit.valuation_menu)
+    out += _render_menu(rec.exit.payment_menu)
 
     out += _render_capital(rec.capital)
 

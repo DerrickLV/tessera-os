@@ -33,6 +33,7 @@ from .governance import BASIS_LABEL, StructureRecommendation, VentureProfile, re
 from .numbers import NumberConfirmationStore
 from .review import ReviewAccessDenied, ReviewQueue
 from .schemas import Evidence, ReviewStatus, RouteDecision, UserContext
+from .terms import MenuSelectionStore
 from .workspace import (
     ArtifactEvent,
     ArtifactMetric,
@@ -278,17 +279,25 @@ class StructureAdvisor:
                  project_clients: dict[str, str],
                  library: ClauseLibrary,
                  review_queue: ReviewQueue | None = None,
-                 number_confirmations: NumberConfirmationStore | None = None) -> None:
+                 number_confirmations: NumberConfirmationStore | None = None,
+                 menu_selections: MenuSelectionStore | None = None) -> None:
         self.store = store
         self.project_clients = project_clients
         self.library = library
         self.review_queue = review_queue
         self.number_confirmations = number_confirmations
+        self.menu_selections = menu_selections
 
     def _confirmations_for(self, *, context: UserContext, project_id: str):
         if self.number_confirmations is None:
             return {}
         return self.number_confirmations.for_project(
+            tenant_id=context.tenant_id, project_id=project_id)
+
+    def _menu_selections_for(self, *, context: UserContext, project_id: str):
+        if self.menu_selections is None:
+            return {}
+        return self.menu_selections.for_project(
             tenant_id=context.tenant_id, project_id=project_id)
 
     def recommend(self, request: StructureRequest, *,
@@ -312,7 +321,10 @@ class StructureAdvisor:
 
         confirmations = self._confirmations_for(
             context=context, project_id=request.project_id)
-        rec = recommend_structure(request.venture, confirmations=confirmations)
+        menu_selections = self._menu_selections_for(
+            context=context, project_id=request.project_id)
+        rec = recommend_structure(request.venture, confirmations=confirmations,
+                                  menu_selections=menu_selections)
         venture = request.venture
         now = datetime.now(UTC)
 
@@ -322,6 +334,7 @@ class StructureAdvisor:
         evidence_current = evidence_age_days <= request.freshness_days
         unconfirmed_numbers = [number for number in rec.derived_numbers()
                                if number.state != "stated"]
+        unselected_menus = [menu for menu in rec.menus() if not menu.selected]
         refusal_reasons = []
         if not evidence_current:
             refusal_reasons.append(
@@ -337,6 +350,13 @@ class StructureAdvisor:
             refusal_reasons.append(
                 "Figures remain unconfirmed: "
                 + ", ".join(number.label for number in unconfirmed_numbers) + ".")
+        if unselected_menus:
+            # Phase 5, 5.7: a memo with unselected menus cannot report status
+            # "draft" either -- an option nobody chose is not a term, and D1's
+            # whole point is that the choice is a person's, not the engine's.
+            refusal_reasons.append(
+                "Menus remain unselected: "
+                + ", ".join(menu.area for menu in unselected_menus) + ".")
         status = "insufficient_evidence" if refusal_reasons else "draft"
         artifact = PilotArtifact(
             tenant_id=context.tenant_id, client_id=client_id,
@@ -438,10 +458,14 @@ class StructureAdvisor:
             raise PilotWorkspaceError("Qualified counsel must approve the structure memo first")
 
         confirmations = self._confirmations_for(context=context, project_id=request.project_id)
-        rec = recommend_structure(request.venture, confirmations=confirmations)
+        menu_selections = self._menu_selections_for(
+            context=context, project_id=request.project_id)
+        rec = recommend_structure(request.venture, confirmations=confirmations,
+                                  menu_selections=menu_selections)
         unconfirmed = [number.label for number in rec.derived_numbers()
                       if number.state != "stated"]
-        if rec.conflicts or _unanswered(rec, request) or unconfirmed:
+        unselected = [menu.area for menu in rec.menus() if not menu.selected]
+        if rec.conflicts or _unanswered(rec, request) or unconfirmed or unselected:
             reasons = []
             if rec.conflicts or _unanswered(rec, request):
                 reasons.append("Resolve all conflicts and blocking questions before drafting")
@@ -450,6 +474,9 @@ class StructureAdvisor:
                 # each one so a caller knows exactly what to confirm next,
                 # rather than a generic refusal that names nothing.
                 reasons.append(f"Unconfirmed figures: {', '.join(unconfirmed)}")
+            if unselected:
+                # Phase 5, 5.7: the same rule for a menu instead of a number.
+                reasons.append(f"Unselected menus: {', '.join(unselected)}")
             raise PilotWorkspaceError("; ".join(reasons))
         draft_request = AgreementDraftRequest(
             project_id=request.project_id,
@@ -478,9 +505,16 @@ class StructureAdvisor:
         per D3, only a confirmed (``stated``) figure may reach the document,
         and knowing which figures are confirmed for this project requires
         ``self.number_confirmations`` -- a bare ``VentureProfile`` cannot say.
+        Phase 5 extends the same reasoning to menu selections: a menu's
+        numbers reach ``derived_values`` only once that menu has been
+        selected, so this needs ``self.menu_selections`` too.
         """
         confirmations = self._confirmations_for(context=context, project_id=request.project_id)
-        return recommend_structure(request.venture, confirmations=confirmations).derived_values()
+        menu_selections = self._menu_selections_for(
+            context=context, project_id=request.project_id)
+        return recommend_structure(
+            request.venture, confirmations=confirmations, menu_selections=menu_selections,
+        ).derived_values()
 
 
 def _validate_citations(assembled: AssembledDraft, artifact: PilotArtifact):

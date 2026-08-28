@@ -218,9 +218,10 @@ def test_confirmations_survive_a_restart(tmp_path):
     assert fetched[APPROVAL_THRESHOLD_LABEL].confirmed_by == "ryan"
 
 
-def advisor(tmp_path, *, number_confirmations=None) -> StructureAdvisor:
+def advisor(tmp_path, *, number_confirmations=None, menu_selections=None) -> StructureAdvisor:
     from tessera_os.clauses import ClauseLibrary
     from tessera_os.review import ReviewQueue
+    from tessera_os.terms import MenuSelectionStore
 
     return StructureAdvisor(
         store=PilotArtifactStore(tmp_path / "artifacts.db"),
@@ -228,6 +229,7 @@ def advisor(tmp_path, *, number_confirmations=None) -> StructureAdvisor:
         library=ClauseLibrary.load("fixtures/clause_library"),
         project_clients={PROJECT: "client-harbor"},
         number_confirmations=number_confirmations or store(tmp_path),
+        menu_selections=menu_selections or MenuSelectionStore(tmp_path / "menu-selections.db"),
     )
 
 
@@ -314,14 +316,32 @@ def test_a_memo_with_any_proposal_cannot_report_status_draft(tmp_path):
 
 
 def test_once_every_number_is_confirmed_the_memo_reaches_draft_status(tmp_path):
+    """Confirming every standalone number is necessary but, since Phase 5,
+    no longer sufficient on its own -- every commercial menu also has to be
+    selected (Phase 5, 5.7). This confirms both and checks the same "draft"
+    status Phase 3 established, now gated by two independent mechanisms
+    rather than one."""
+    from tessera_os.terms import MenuSelectionStore
+
     confirmations = store(tmp_path)
+    menu_selections = MenuSelectionStore(tmp_path / "menu-selections.db")
     ask = structure_request()
-    for number in recommend_structure(ask.venture).derived_numbers():
+    rec = recommend_structure(ask.venture)
+    for number in rec.derived_numbers():
         if number.state == "proposed":
             confirmations.confirm(tenant_id="tenant-synthetic", project_id=PROJECT,
                                   label=number.label, value=number.value,
                                   confirmed_by="derrick")
-    advice = advisor(tmp_path, number_confirmations=confirmations)
+    for menu in rec.menus():
+        option = menu.options[0]
+        for number in option.numbers:
+            if number.state == "proposed":
+                confirmations.confirm(tenant_id="tenant-synthetic", project_id=PROJECT,
+                                      label=number.label, value=number.value,
+                                      confirmed_by="derrick")
+        menu_selections.select(tenant_id="tenant-synthetic", project_id=PROJECT,
+                               area=menu.area, label=option.label, selected_by="derrick")
+    advice = advisor(tmp_path, number_confirmations=confirmations, menu_selections=menu_selections)
     memo = advice.recommend(ask, context=context())
     assert memo.status == "draft"
     assert not memo.refusal_reasons

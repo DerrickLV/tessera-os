@@ -22,6 +22,7 @@ from tessera_os.governance import VentureProfile, recommend_structure
 from tessera_os.numbers import NumberConfirmationStore
 from tessera_os.review import ReviewQueue
 from tessera_os.schemas import Evidence, UserContext
+from tessera_os.terms import MenuSelectionStore
 from tessera_os.workspace import PilotArtifactStore, PilotWorkspaceError
 
 PROJECT = "riverbend-multifamily"
@@ -41,6 +42,7 @@ def advisor(tmp_path) -> StructureAdvisor:
         library=ClauseLibrary.load("fixtures/clause_library"),
         project_clients={PROJECT: "client-riverbend"},
         number_confirmations=NumberConfirmationStore(tmp_path / "number-confirmations.db"),
+        menu_selections=MenuSelectionStore(tmp_path / "menu-selections.db"),
     )
 
 
@@ -59,6 +61,25 @@ def confirm_proposed_numbers(advice: StructureAdvisor, ask: StructureRequest) ->
             advice.number_confirmations.confirm(
                 tenant_id="tenant-synthetic", project_id=ask.project_id,
                 label=number.label, value=number.value, confirmed_by="synthetic-partner")
+
+
+def select_all_menus(advice: StructureAdvisor, ask: StructureRequest) -> None:
+    """Accept the engine's first-listed option for every menu, confirming
+    every number that option carries. Mirrors confirm_proposed_numbers, for
+    the same reason (Phase 5, D1) -- most tests here are not about which
+    commercial option was chosen.
+    """
+    rec = recommend_structure(ask.venture)
+    for menu in rec.menus():
+        option = menu.options[0]
+        for number in option.numbers:
+            if number.state == "proposed":
+                advice.number_confirmations.confirm(
+                    tenant_id="tenant-synthetic", project_id=ask.project_id,
+                    label=number.label, value=number.value, confirmed_by="synthetic-partner")
+        advice.menu_selections.select(
+            tenant_id="tenant-synthetic", project_id=ask.project_id,
+            area=menu.area, label=option.label, selected_by="synthetic-partner")
 
 
 def venture(**overrides) -> VentureProfile:
@@ -94,6 +115,7 @@ def request(**overrides) -> StructureRequest:
 def approve(advice: StructureAdvisor, ask: StructureRequest, *, reviewer=None):
     reviewer = reviewer or context(user_id="synthetic-counsel-b")
     confirm_proposed_numbers(advice, ask)
+    select_all_menus(advice, ask)
     memo = advice.recommend(ask, context=context())
     item = advice.review_queue.submit(
         tenant_id=memo.tenant_id, project_id=memo.project_id,
@@ -117,6 +139,7 @@ def test_a_recommendation_is_a_reviewable_artifact(tmp_path):
     advice = advisor(tmp_path)
     ask = request()
     confirm_proposed_numbers(advice, ask)
+    select_all_menus(advice, ask)
     artifact = advice.recommend(ask, context=context())
     assert artifact.workflow == "entity_structuring"
     assert artifact.agent_id == "structure_manager"
@@ -290,10 +313,14 @@ def test_the_draft_request_carries_the_memos_derived_values(tmp_path):
     advice = advisor(tmp_path)
     _, draft_request = approve(advice, ask)
 
-    # Recomputed with the same confirmations `approve()` just recorded, so
-    # this is a fair comparison rather than the unconfirmed proposal.
+    # Recomputed with the same confirmations and menu selections `approve()`
+    # just recorded, so this is a fair comparison rather than the
+    # unconfirmed, unselected proposal.
     confirmed_rec = recommend_structure(
-        ask.venture, confirmations=advice.number_confirmations.for_project(
+        ask.venture,
+        confirmations=advice.number_confirmations.for_project(
+            tenant_id="tenant-synthetic", project_id=ask.project_id),
+        menu_selections=advice.menu_selections.for_project(
             tenant_id="tenant-synthetic", project_id=ask.project_id))
     assert draft_request.derived_values == confirmed_rec.derived_values()
 
@@ -322,6 +349,7 @@ def test_a_supermajority_threshold_also_travels(tmp_path):
     assert rec.control.approval_rule == "supermajority"
     advice = advisor(tmp_path)
     confirm_proposed_numbers(advice, ask)
+    select_all_menus(advice, ask)
     values = advice.derived_values(ask, context=context())
     assert values["member_approval_threshold"] == "75%"
 
@@ -334,6 +362,7 @@ def test_a_unanimous_structure_does_not_invent_a_percentage(tmp_path):
         equal_ownership=True, initial_capital=500_000))
     advice = advisor(tmp_path)
     confirm_proposed_numbers(advice, ask)
+    select_all_menus(advice, ask)
     values = advice.derived_values(ask, context=context())
     assert "member_approval_threshold" not in values
     assert "ordinary_course_threshold" in values
@@ -346,6 +375,7 @@ def test_an_unreviewed_memo_cannot_be_turned_into_an_agreement(tmp_path):
     advice = advisor(tmp_path)
     ask = request()
     confirm_proposed_numbers(advice, ask)
+    select_all_menus(advice, ask)
     memo = advice.recommend(ask, context=context())
     with pytest.raises(PilotWorkspaceError, match="submitted for review"):
         advice.to_draft_request(
@@ -356,6 +386,7 @@ def test_setting_the_artifact_status_does_not_bypass_the_review_queue(tmp_path):
     advice = advisor(tmp_path)
     ask = request()
     confirm_proposed_numbers(advice, ask)
+    select_all_menus(advice, ask)
     memo = advice.recommend(ask, context=context())
     memo.status = "accepted"
     advice.store.update(memo)
@@ -368,6 +399,7 @@ def test_runtime_handoff_refuses_when_memo_promises_a_missing_clause_category(tm
     advice = advisor(tmp_path)
     ask = request()
     confirm_proposed_numbers(advice, ask)
+    select_all_menus(advice, ask)
     memo = advice.recommend(ask, context=context())
     item = advice.review_queue.submit(
         tenant_id=memo.tenant_id, project_id=memo.project_id,
