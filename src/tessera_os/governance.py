@@ -1852,6 +1852,36 @@ def recommend_structure(profile: VentureProfile,
 
 # --- report -----------------------------------------------------------------
 
+def _render_counsel_notes(profile: VentureProfile) -> list[str]:
+    """What a specialist confirms before anything is filed, attributed to the
+    sector or regime pattern that raised it.
+
+    ``SectorPattern.counsel_notes`` and ``RegimePattern.counsel_notes`` were
+    populated from the day the first pattern (FILM) was written, and never
+    rendered anywhere -- the memo told a reader what to do without ever
+    naming who confirms it. This is the fix, and it is why the notes are
+    grouped and attributed by source rather than flattened into one
+    anonymous list: a reader has to be able to tell "entertainment counsel"
+    from "cannabis regulatory counsel in the licensing state" apart, not just
+    see that some lawyer, somewhere, is supposed to look at something.
+    """
+    groups: list[tuple[str, list[str]]] = []
+    if (sector := profile.sector) is not None and sector.counsel_notes:
+        groups.append((sector.label, sector.counsel_notes))
+    if (regime := regime_for(profile.regulated_regime)) is not None and regime.counsel_notes:
+        groups.append((regime.label, regime.counsel_notes))
+    if not groups:
+        return []
+    out = ["## Counsel notes", "",
+           "What a specialist confirms before anything here is filed or relied upon."]
+    out.append("")
+    for label, notes in groups:
+        out.append(f"**{label}**")
+        out += [f"- {note}" for note in notes]
+        out.append("")
+    return out
+
+
 def render_structure_memo(rec: StructureRecommendation) -> str:
     """The structuring memo a founder reads and counsel works from."""
     profile = rec.profile
@@ -1986,6 +2016,8 @@ def render_structure_memo(rec: StructureRecommendation) -> str:
         out.append(f"**{question.question}** {question.why_it_matters}")
         out.append(f"*Blocks: {question.blocks.rstrip('.')}.*")
         out.append("")
+
+    out += _render_counsel_notes(rec.profile)
 
     adopted = rec.adopted()
     if adopted:

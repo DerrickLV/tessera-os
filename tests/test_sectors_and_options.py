@@ -328,6 +328,48 @@ def test_operating_tells_a_misrouted_venture_where_it_belongs():
     assert "re-run the recommendation" in notes
 
 
+# --- counsel notes reach the memo, attributed to their source ----------------
+#
+# SectorPattern.counsel_notes and RegimePattern.counsel_notes were populated
+# from the day FILM was written and never rendered anywhere -- the memo told
+# a reader what to do without ever naming who confirms it. These assert
+# against the rendered markdown, not the model, because the model already had
+# the data; the bug was that nothing printed it.
+
+def test_a_film_ventures_memo_names_what_films_counsel_notes_say():
+    memo = recommend_structure(venture(activity="film_production")).to_markdown()
+    assert "## Counsel notes" in memo
+    assert "Film and independent media" in memo
+    assert ("Entertainment counsel confirms chain of title, guild signatory status"
+           in memo)
+
+
+def test_a_cannabis_ventures_memo_names_cannabis_regulatory_counsel():
+    memo = recommend_structure(venture(
+        activity="operating", regulated_regime="cannabis")).to_markdown()
+    assert "Adult-use or medical cannabis" in memo
+    assert "Cannabis regulatory counsel in the licensing state" in memo
+
+
+def test_sector_and_regime_counsel_notes_both_appear_attributed_separately():
+    memo = recommend_structure(venture(
+        activity="hospitality", regulated_regime="liquor")).to_markdown()
+    section = memo.split("## Counsel notes", 1)[1].split("## ", 1)[0]
+    assert "Hospitality and consumer concepts" in section
+    assert "Alcoholic beverage licence" in section
+    assert "liquor authority" in section.lower()
+    assert "Beverage-licensing counsel" in section
+
+
+def test_every_venture_gets_a_counsel_notes_section_because_operating_has_one_too():
+    """Every Sector now has a pattern with non-empty counsel_notes (Phase 4),
+    so the section that used to appear only for the three original sectors
+    now appears unconditionally."""
+    memo = recommend_structure(venture(activity="operating")).to_markdown()
+    assert "## Counsel notes" in memo
+    assert "General operating business" in memo
+
+
 # --- Phase 4: regime coverage -------------------------------------------------
 
 def test_a_near_miss_regime_name_still_matches_the_new_regimes():
