@@ -63,7 +63,7 @@ def test_a_middle_path_appears_only_where_there_is_one():
                                       material_ip=True, activity="real_estate_hold"))
     assert any(option.name.startswith("HoldCo with a single") for option in big.options)
 
-    simple = recommend_structure(venture(activity="professional_services",
+    simple = recommend_structure(venture(activity="operating",
                                          operating_liability=False))
     assert len(simple.options) == 1
     assert simple.options[0].recommended
@@ -171,14 +171,41 @@ def test_a_regime_adds_reserved_matters_without_duplicating_them():
     assert any("liquor licence" in matter.lower() for matter in matters)
 
 
-@pytest.mark.parametrize("sector", sorted(SECTOR_PATTERNS))
+@pytest.mark.parametrize("sector", sorted(set(SECTOR_PATTERNS) - {"operating"}))
 def test_every_sector_pattern_is_complete(sector):
+    """Phase 4, D2: a pattern that fills only `layers` is not finished, and one
+    with no layers at all is not a pattern -- except `operating`, which is
+    tested on its own just below for exactly why it is the one exception."""
     pattern = SECTOR_PATTERNS[sector]
     assert pattern.label and pattern.unit_noun
     assert pattern.layers and pattern.reserved_matters
-    assert pattern.failure_modes and pattern.open_questions and pattern.positions
+    assert len(pattern.failure_modes) >= 3, sector
+    assert len(pattern.open_questions) >= 3, sector
+    assert pattern.positions and pattern.counsel_notes
     for _, _, blocks in pattern.open_questions:
         assert blocks
+
+
+def test_operating_deliberately_carries_no_layers():
+    """The one documented exception to test_every_sector_pattern_is_complete:
+    `_entity_layers()` treats any sector with a pattern as needing a HoldCo
+    split, and `operating` is the default for the most common, simplest
+    ventures in the whole engine -- forcing an entity onto every one of them
+    just because the activity now has a pattern would be exactly the padding
+    Phase 4 argues against. Everything else about the pattern is real."""
+    pattern = SECTOR_PATTERNS["operating"]
+    assert pattern.layers == []
+    assert pattern.reserved_matters
+    assert len(pattern.failure_modes) >= 3
+    assert len(pattern.open_questions) >= 3
+    assert pattern.positions and pattern.counsel_notes
+
+
+def test_counsel_notes_name_the_specialist_not_a_generic_lawyer():
+    """Invariant 4: counsel notes name the specialist, not "a lawyer"."""
+    for sector, pattern in SECTOR_PATTERNS.items():
+        for note in pattern.counsel_notes:
+            assert "a lawyer" not in note.lower(), (sector, note)
 
 
 @pytest.mark.parametrize("sector", sorted(SECTOR_PATTERNS))
@@ -193,6 +220,175 @@ def test_sector_positions_are_never_passed_off_as_tessera_standards():
     unadopted = {item.area for item in rec.unadopted()}
     assert "Production vehicles" in unadopted
     assert "Rights separation" in unadopted
+
+
+# --- Phase 4: the new sector patterns ----------------------------------------
+
+def test_real_estate_hold_separates_management_from_ownership():
+    rec = recommend_structure(venture(
+        venture="Harbor Point Holdings", activity="real_estate_hold", real_property=True,
+        business_lines=2))
+    roles = [layer.role for layer in rec.layers]
+    assert "Property management entity" in roles
+    assert roles.count("Property-owning entity") == 2
+    modes = {mode.name for mode in rec.failure_modes}
+    assert "Title held in the wrong name" in modes
+    questions = " ".join(item.question for item in rec.open_questions).lower()
+    assert "carve-out" in questions or "guaranty" in questions
+
+
+def test_harbor_point_holdings_gets_real_estate_structuring():
+    """Definition of done: the fixture venture must not silently receive no
+    real-estate structuring at all (docs/BUILD_BRIEF_PHASE_4_SECTOR_COVERAGE.md
+    section 1's own sharpest illustration of the gap)."""
+    memo = recommend_structure(venture(
+        venture="Harbor Point Holdings", activity="real_estate_hold",
+        real_property=True)).to_markdown()
+    assert "Property management entity" in memo
+    assert "single-purpose" in memo.lower() or "spe" in memo.lower()
+
+
+def test_development_isolates_construction_risk_per_project():
+    rec = recommend_structure(venture(
+        venture="Meridian Development", activity="development", business_lines=2,
+        real_property=True))
+    roles = [layer.role for layer in rec.layers]
+    assert roles.count("Development entity") == 2
+    modes = {mode.name for mode in rec.failure_modes}
+    assert "Dissolved before the statute of repose has run" in modes
+    questions = " ".join(item.question for item in rec.open_questions).lower()
+    assert "statute of repose" in questions
+
+
+def test_fund_gets_three_entities_for_three_purposes():
+    rec = recommend_structure(venture(
+        venture="Cardinal Fund I", activity="fund", passive_investors=6,
+        capital_source="private_placement"))
+    roles = {layer.role for layer in rec.layers}
+    assert {"Fund entity", "General partner entity", "Management company"} <= roles
+
+
+def test_fund_counsel_notes_are_prominent_about_securities_law():
+    """D2: 'counsel notes must be prominent. Securities law governs almost
+    everything here.'"""
+    pattern = SECTOR_PATTERNS["fund"]
+    notes = " ".join(pattern.counsel_notes).lower()
+    assert "securities counsel" in notes
+    positions = " ".join(position for _, position, _ in pattern.positions).lower()
+    assert "without answering any of them" in positions
+
+
+def test_ip_licensing_separates_holding_from_administration():
+    rec = recommend_structure(venture(venture="Lantern IP", activity="ip_licensing"))
+    roles = [layer.role for layer in rec.layers]
+    assert "IP portfolio entity" in roles
+    assert "Licensing and royalty administration entity" in roles
+    # The sector's own IP entity supersedes the generic one -- one job, one entity.
+    assert "IP holding entity" not in roles
+
+
+def test_ip_licensing_asks_about_change_of_control_and_audit_rights():
+    rec = recommend_structure(venture(activity="ip_licensing"))
+    questions = " ".join(item.question for item in rec.open_questions).lower()
+    assert "change of control" in questions
+    assert "audit" in questions
+
+
+def test_professional_services_separates_the_licensed_entity_from_the_manager():
+    rec = recommend_structure(venture(venture="Meridian Health", activity="professional_services"))
+    roles = [layer.role for layer in rec.layers]
+    assert "Professional entity" in roles
+    assert "Management services entity" in roles
+    modes = {mode.name for mode in rec.failure_modes}
+    assert "An owner the licensing board would not allow" in modes
+
+
+def test_professional_services_flags_fee_splitting():
+    rec = recommend_structure(venture(activity="professional_services"))
+    text = " ".join(item.question for item in rec.open_questions).lower()
+    text += " ".join(mode.without_this for mode in rec.failure_modes).lower()
+    assert "fee-splitting" in text or "fee splitting" in text
+
+
+def test_operating_stays_a_single_entity_but_gains_real_content():
+    """4.7: operating must carry the things every operating business needs
+    while staying candid that it is generic -- distinguishable from the old
+    behaviour (sector is None) by its content, not by extra entities."""
+    rec = recommend_structure(venture(activity="operating", operating_liability=False))
+    assert len(rec.layers) == 1  # no forced HoldCo just because a pattern now exists
+    modes = {mode.name for mode in rec.failure_modes}
+    assert "Customer concentration nobody priced in" in modes
+    questions = " ".join(item.question for item in rec.open_questions).lower()
+    assert "customer or vendor" in questions
+
+
+def test_operating_tells_a_misrouted_venture_where_it_belongs():
+    pattern = SECTOR_PATTERNS["operating"]
+    notes = " ".join(pattern.counsel_notes).lower()
+    assert "re-run the recommendation" in notes
+
+
+# --- Phase 4: regime coverage -------------------------------------------------
+
+def test_a_near_miss_regime_name_still_matches_the_new_regimes():
+    assert regime_for("commercial food service permit") is REGIME_PATTERNS["food_service"]
+    assert regime_for("DOT transportation authority") is REGIME_PATTERNS["transportation"]
+    assert regime_for("skydiving") is None
+
+
+def test_an_unmatched_regime_raises_a_blocking_open_question_naming_it():
+    """4.8: the same loudness rule as 4.1, for a regime instead of a sector."""
+    rec = recommend_structure(venture(activity="operating", regulated_regime="aviation"))
+    questions = [item.question for item in rec.open_questions]
+    assert any("aviation" in q for q in questions)
+    assert any("no regulatory pattern exists" in q.lower() for q in questions)
+
+
+def test_a_matched_regime_raises_no_such_question():
+    rec = recommend_structure(venture(activity="operating", regulated_regime="cannabis"))
+    questions = [item.question for item in rec.open_questions]
+    assert not any("no regulatory pattern exists" in q.lower() for q in questions)
+
+
+# --- Phase 4, 4.9: sector and regime compose without duplicating -------------
+
+def test_a_cannabis_dispensary_in_a_leased_location_gets_one_licence_entity():
+    rec = recommend_structure(venture(
+        venture="Green Valley Dispensary", activity="operating",
+        regulated_regime="cannabis"))
+    roles = [layer.role for layer in rec.layers]
+    assert roles.count("Licence holder") == 1
+
+
+def test_a_real_estate_venture_with_ip_gets_no_redundant_holding_entity():
+    rec = recommend_structure(venture(
+        venture="Harbor Point Holdings", activity="real_estate_hold", real_property=True,
+        material_ip=True))
+    roles = [layer.role for layer in rec.layers]
+    assert roles.count("IP holding entity") == 1
+    assert "IP portfolio entity" not in roles  # that role only exists under ip_licensing
+
+
+@pytest.mark.parametrize("sector", sorted(SECTOR_PATTERNS))
+def test_no_structure_ever_emits_two_entities_for_the_same_job(sector):
+    """The specific waste `supersedes` exists to prevent: two filing fees and
+    two annual reports for one purpose."""
+    rec = recommend_structure(venture(
+        venture="Composition Probe", activity=sector, material_ip=True,
+        regulated_regime="cannabis", real_property=True, business_lines=2))
+    roles = [layer.role for layer in rec.layers]
+    pattern = SECTOR_PATTERNS[sector]
+    ip_superseded = any(spec.supersedes == "ip" for spec in pattern.layers)
+    licence_superseded = any(spec.supersedes == "licence" for spec in pattern.layers)
+    if ip_superseded:
+        assert "IP holding entity" not in roles, sector
+    if licence_superseded:
+        assert "Licence holder" not in roles, sector
+    # A per_unit sector layer legitimately repeats its own role once per unit;
+    # what must never happen is the *generic* IP or licence role coexisting
+    # with the sector's own version of the same job.
+    assert roles.count("IP holding entity") <= 1
+    assert roles.count("Licence holder") <= 1
 
 
 # --- capital architecture ---------------------------------------------------

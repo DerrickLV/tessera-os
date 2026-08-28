@@ -65,7 +65,7 @@ def test_positions_carry_their_provenance():
 def test_a_simple_venture_gets_one_entity():
     rec = recommend_structure(VentureProfile(
         venture="Bellwether Consulting", home_state="Oklahoma", active_principals=2,
-        activity="professional_services", operating_liability=False))
+        activity="operating", operating_liability=False))
     assert len(rec.layers) == 1
     assert rec.layers[0].role == "Sole entity"
 

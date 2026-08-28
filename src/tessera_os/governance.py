@@ -800,9 +800,15 @@ def _entity_layers(profile: VentureProfile) -> list[EntityLayer]:
         or (profile.real_property and profile.operating_liability)
         or profile.is_regulated
         or profile.material_ip
-        # Film, trades, and hospitality each need entities the general rules
-        # would not produce, and those entities need something to own them.
-        or sector is not None)
+        # A sector with layers needs entities the general rules would not
+        # produce, and those entities need something to own them. `operating`
+        # is the one sector pattern with deliberately empty layers (Phase 4,
+        # D4) -- checking `sector.layers` rather than merely `sector is not
+        # None` is what keeps the single-entity path open for the most
+        # common, simplest ventures instead of forcing a HoldCo onto every
+        # plain operating business just because the activity now has a
+        # pattern at all.
+        or bool(sector and sector.layers))
 
     if not holdco_needed:
         layers.append(EntityLayer(
@@ -1417,6 +1423,20 @@ def _open_questions(profile: VentureProfile) -> list[OpenQuestion]:
     if (regime := regime_for(profile.regulated_regime)) is not None:
         questions += [OpenQuestion(question=q, why_it_matters=why, blocks=blocks)
                       for q, why, blocks in regime.open_questions]
+    elif profile.regulated_regime:
+        # Phase 4, 4.8: the same loudness rule as 4.1, for a named regime that
+        # matches no RegimePattern. regime_for already matches loosely (an
+        # exact match, or a substring match either direction), so this only
+        # fires for a regime genuinely outside anything Tessera has patterned
+        # -- not for a wording variant of one it has.
+        questions.append(OpenQuestion(
+            question=(f'No regulatory pattern exists yet for the "{profile.regulated_regime}" '
+                     "regime."),
+            why_it_matters=(
+                "Without a pattern this recommendation names the regime as regulated and stops "
+                "there -- no regime-specific reserved matters, positions, or open questions, "
+                "which is not the same thing as there being nothing regime-specific to say."),
+            blocks="Every regime-specific consideration for this venture."))
     if profile.role == "both":
         questions.append(OpenQuestion(
             question="Has the counterparty consented in writing to Tessera acting as both "

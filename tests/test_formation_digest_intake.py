@@ -65,7 +65,7 @@ def test_a_regulated_venture_clears_the_regulator_before_filing_anything():
 def test_intercompany_agreements_appear_only_with_more_than_one_entity():
     multi = {step.task for step in checklist().steps}
     single = {step.task for step in checklist(
-        real_property=False, business_lines=1, activity="professional_services",
+        real_property=False, business_lines=1, activity="operating",
         operating_liability=False).steps}
     assert any("intercompany" in task for task in multi)
     assert not any("intercompany" in task for task in single)
