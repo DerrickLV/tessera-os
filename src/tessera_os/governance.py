@@ -35,7 +35,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from .adoption import AdoptedPosition, AdoptionLedger
+from .adoption import AdoptedPosition, AdoptionLedger, PolicyProfile
 from .clauses import DealProfile, EntityType, Industry, Party, TaxTreatment
 from .numbers import (
     APPROVAL_THRESHOLD_LABEL,
@@ -184,6 +184,12 @@ class Recommendation(BaseModel):
     basis: Basis
     confirm: str | None = None
     adoption: AdoptedPosition | None = None
+    # Phase 6.1: set when a ledger entry exists for this area but its
+    # applies_to excludes this venture's policy profile. "Not adopted for
+    # this venture" is a different fact from "never adopted" -- confusing
+    # the two is the overfitting D1 exists to prevent, so the memo has to
+    # say which one is true.
+    scope_note: str | None = None
 
     def to_line(self) -> str:
         line = f"**{self.area}.** {self.position} {self.because}"
@@ -193,6 +199,8 @@ class Recommendation(BaseModel):
         # it teaches the reader that the confirm lines are boilerplate.
         if self.confirm and not (self.adoption and self.adoption.counsel_reviewed):
             line += f" *Confirm: {self.confirm}*"
+        if self.scope_note:
+            line += f" *{self.scope_note}*"
         return line
 
 
@@ -1447,7 +1455,8 @@ def _conflicts(profile: VentureProfile, control: ControlArchitecture,
     return found
 
 
-def _open_questions(profile: VentureProfile) -> list[OpenQuestion]:
+def _open_questions(profile: VentureProfile,
+                    policy_profile: PolicyProfile | None) -> list[OpenQuestion]:
     questions = [
         OpenQuestion(
             question="What are the actual capital contributions, in dollars, and are they equal?",
@@ -1557,6 +1566,20 @@ def _open_questions(profile: VentureProfile) -> list[OpenQuestion]:
                            "consent obtained before, and its absence is arguable against "
                            "every term Tessera recommended.",
             blocks="The engagement letter, and any term negotiated on Tessera's behalf."))
+    if policy_profile is None:
+        # Phase 6.1, D2: the same loudness rule as Phase 4.1's missing sector
+        # pattern. Whether any adopted Tessera position may be cited for this
+        # venture depends on knowing its policy profile; guessing one would
+        # defeat the entire reason the scope field exists.
+        questions.append(OpenQuestion(
+            question=f"What policy profile does {profile.venture} belong to?",
+            why_it_matters=(
+                "No policy profile could be determined for this venture from the facts "
+                "supplied, and without one, no adopted Tessera position can be checked for "
+                "scope -- citing one anyway would risk applying a decision Tessera made "
+                "about a different kind of venture."),
+            blocks="Whether any adopted Tessera position may be cited for this venture, "
+                  "and this recommendation reaching draft status."))
     return questions
 
 
@@ -2502,20 +2525,66 @@ def _glossary(profile: VentureProfile, rec_areas: set[str],
             for term in _GLOSSARY if term in wanted]
 
 
-def _apply_adoptions(recommendations: list[Recommendation],
-                     ledger: AdoptionLedger) -> list[Recommendation]:
-    """Upgrade positions the partners have signed.
+def policy_profile_for(profile: VentureProfile) -> tuple[PolicyProfile | None, str]:
+    """Which policy profile an adopted position must be scoped to in order to
+    govern this venture, and the reason this classifier chose it.
+
+    Scaffold, not a Tessera position: a starting point drawn from the facts
+    intake already collects, not a policy the partners have reviewed. Where
+    none of the rules below can place the venture, this returns ``None``
+    rather than guessing -- an adopted position's scope is what keeps a
+    decision Tessera made about itself, or about one kind of deal, from being
+    cited about another, and applying that check against a guess would defeat
+    the entire point of having it.
+
+    ``tessera_core`` is never returned here. Whether an entity is Tessera's
+    own governance of itself is a fact stated at intake, not a shape to
+    infer -- the same reasoning as Phase 4.1's loud-missing-pattern rule:
+    silently inferring the one profile with the least evidentiary basis is
+    worse than not classifying at all.
+    """
+    if profile.is_regulated:
+        return "regulated_special", (
+            f"the {profile.regulated_regime} regime makes this a regulated venture")
+    if profile.activity in {"development", "real_estate_hold"}:
+        return "project_spv", f"the venture's activity is {profile.activity}"
+    if profile.real_property and profile.business_lines == 1:
+        return "project_spv", "the venture holds a single real property asset"
+    if profile.activity == "fund":
+        return "capital_vehicle", "the venture pools outside capital to invest"
+    if profile.has_passive_capital and profile.activity != "operating":
+        return "capital_vehicle", (
+            "the venture has passive capital and no active operating business")
+    return "founder_operating", "a closely held operating business with active owners"
+
+
+def _apply_adoptions(recommendations: list[Recommendation], ledger: AdoptionLedger,
+                     policy_profile: PolicyProfile | None) -> list[Recommendation]:
+    """Upgrade positions the partners have signed, for this venture's scope.
 
     The upgrade is data-driven and reversible: delete the ledger entry and the
     position drops back to a starting point on the next run. Nothing in code
     ever asserts adoption on its own.
+
+    ``policy_profile`` is ``None`` where the classifier could not place the
+    venture (see ``policy_profile_for``); nothing can be upgraded in that
+    case, because whether any adopted position's scope actually covers an
+    unclassified venture cannot be known. That is a blocking open question
+    (see ``_open_questions``), not a default.
     """
     upgraded = []
     for item in recommendations:
-        entry = ledger.for_area(item.area)
-        if entry is not None:
-            item = item.model_copy(update={"basis": "tessera_adopted",
-                                           "adoption": entry})
+        if policy_profile is None:
+            upgraded.append(item)
+            continue
+        entry = ledger.for_area_any_scope(item.area)
+        if entry is not None and entry.governs(policy_profile):
+            item = item.model_copy(update={"basis": "tessera_adopted", "adoption": entry})
+        elif entry is not None:
+            item = item.model_copy(update={"scope_note": (
+                "Tessera has adopted a position for this area, but its scope "
+                f"({', '.join(entry.applies_to)}) does not include this venture's policy "
+                f"profile ({policy_profile}) -- not adopted for this venture.")})
         upgraded.append(item)
     return upgraded
 
@@ -2592,6 +2661,7 @@ def recommend_structure(profile: VentureProfile,
     ledger = ledger if ledger is not None else AdoptionLedger.load()
     confirmations = confirmations or {}
     menu_selections = menu_selections or {}
+    policy_profile, _policy_profile_reason = policy_profile_for(profile)
     model, mgmt_why, mgmt_basis = _management_model(profile)
     rule, threshold_percent, approval_basis = _approval_rule(profile)
     threshold_percent = _apply_confirmation(
@@ -2637,7 +2707,7 @@ def recommend_structure(profile: VentureProfile,
         _recommendations(
             profile, control, exit_arch, "llc", tax, tax_why, tax_basis,
             mgmt_why, mgmt_basis, approval_basis, buy_sell_why, buy_sell_basis),
-        ledger)
+        ledger, policy_profile)
     capital = _capital_architecture(profile)
     capital_call_menu = _capital_call_menu(profile)
     tax_distribution_menu = _tax_distribution_menu(profile)
@@ -2673,7 +2743,7 @@ def recommend_structure(profile: VentureProfile,
         recommendations=recommendations,
         failure_modes=_failure_modes(profile, control, exit_arch),
         conflicts=_conflicts(profile, control, tax),
-        open_questions=_open_questions(profile),
+        open_questions=_open_questions(profile, policy_profile),
         options=_options(profile, layers),
         capital=capital,
         glossary=_glossary(profile, {item.area for item in recommendations}, capital, layers),

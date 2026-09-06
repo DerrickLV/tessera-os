@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Literal, get_args
 
 import yaml
 from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
@@ -39,6 +40,21 @@ from .paths import project_root
 LEDGER_PATH = "config/adopted_positions.yaml"
 
 _DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+# Phase 6.1: which kind of venture a position governs. A position sourced
+# from Tessera's own executed operating agreement is authoritative evidence
+# about Tessera, not about a client -- adopting it once must not cite it
+# identically in a memo for a passive capital vehicle or a regulated
+# operating business. ``tessera_core`` is never inferred from a venture's
+# shape (see ``governance.policy_profile_for``); every other value is.
+PolicyProfile = Literal[
+    "tessera_core",         # Derrick and Ryan's ownership and governance of Tessera itself
+    "founder_operating",    # closely held operating businesses with active owners
+    "project_spv",          # real estate, development, single-project entities
+    "capital_vehicle",      # passive investors, funds, syndications, co-investments
+    "regulated_special",    # cannabis, liquor, licensed trades, restricted ownership
+]
+ALL_PROFILES: tuple[PolicyProfile, ...] = get_args(PolicyProfile)
 
 
 class AdoptionError(ValueError):
@@ -68,6 +84,10 @@ class AdoptedPosition(BaseModel):
         default=None,
         description="Required when counsel_reviewed is true; identifies the review record.")
     note: str = ""
+    applies_to: list[PolicyProfile] = Field(
+        default_factory=lambda: ["tessera_core"],
+        min_length=1,
+        description="Where this position governs. Defaults to the narrowest claim.")
 
     @field_validator("date")
     @classmethod
@@ -83,6 +103,22 @@ class AdoptedPosition(BaseModel):
         if len({name.casefold() for name in cleaned}) < 2:
             raise ValueError("adoption requires two distinct partners")
         return cleaned
+
+    @field_validator("applies_to")
+    @classmethod
+    def _distinct_profiles(cls, value: list[PolicyProfile]) -> list[PolicyProfile]:
+        if len(value) != len(set(value)):
+            raise ValueError(f"applies_to must not repeat a profile: {value!r}")
+        return value
+
+    def governs(self, profile: PolicyProfile) -> bool:
+        """Whether this position may be cited for a venture of this profile.
+
+        Scope narrows citation and never widens it -- a position adopted for
+        ``project_spv`` says nothing about a ``capital_vehicle``, however
+        confident the position sounds.
+        """
+        return profile in self.applies_to
 
     @model_validator(mode="after")
     def counsel_claim_has_evidence(self) -> AdoptedPosition:
@@ -104,7 +140,25 @@ class AdoptionLedger(BaseModel):
 
     positions: list[AdoptedPosition] = Field(default_factory=list)
 
-    def for_area(self, area: str) -> AdoptedPosition | None:
+    def for_area(self, area: str, profile: PolicyProfile) -> AdoptedPosition | None:
+        """The adopted position governing ``area`` for this venture's policy
+        profile, or ``None`` -- for either of two different reasons: nothing
+        was ever adopted for this area, or something was and its
+        ``applies_to`` excludes ``profile``. Both are correctly "not
+        available to cite here"; only :meth:`for_area_any_scope` tells them
+        apart, for a caller that needs to say which one is true.
+        """
+        entry = self.for_area_any_scope(area)
+        return entry if entry is not None and entry.governs(profile) else None
+
+    def for_area_any_scope(self, area: str) -> AdoptedPosition | None:
+        """The adopted position for ``area`` regardless of scope, or ``None``
+        if nothing was ever adopted for it. Never use this to decide whether
+        a position may be cited for a venture -- that is :meth:`for_area`.
+        This exists so a caller can distinguish "adopted, but out of scope
+        for this venture" from "never adopted," which is a different fact
+        and the memo must say which one is true.
+        """
         wanted = area.strip().casefold()
         for item in self.positions:
             if item.area.strip().casefold() == wanted:

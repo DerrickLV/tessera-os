@@ -18,7 +18,13 @@ def entry(**overrides) -> dict:
             "adopted_by": ["Derrick Carlisle", "Ryan Strasshofer"],
             "date": "2026-08-19",
             "source_ref": "Tesserra Holdings LLC Operating Agreement, Art. IV",
-            "approval_ref": "https://github.com/DerrickLV/tessera-os/pull/42"}
+            "approval_ref": "https://github.com/DerrickLV/tessera-os/pull/42",
+            # Phase 6.1: these tests are about the upgrade mechanic, not
+            # scope, so the entry is scoped to match venture()'s own
+            # classified profile (plain facts -> founder_operating) rather
+            # than the narrowest default -- see test_adoption_scope.py for
+            # what happens when scope excludes the venture.
+            "applies_to": ["founder_operating"]}
     base.update(overrides)
     return base
 
@@ -40,7 +46,7 @@ def test_the_shipped_ledger_is_empty():
 def test_a_missing_ledger_file_is_a_valid_empty_state(tmp_path):
     ledger = AdoptionLedger.load(tmp_path / "does-not-exist.yaml")
     assert ledger.positions == []
-    assert ledger.for_area("anything") is None
+    assert ledger.for_area("anything", profile="founder_operating") is None
 
 
 # --- what a valid signature requires -------------------------------------------
